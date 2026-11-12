@@ -1,0 +1,6 @@
+{
+  "name": "Shanyraq Hub — Комьюнити Клуб",
+  "description": "Официальная платформа сообщества Shanyraq Hub: личный кабинет, календарь мероприятий, форум, закрытые чаты, аналитика посещаемости и геймификация.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
