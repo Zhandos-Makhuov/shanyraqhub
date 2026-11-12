@@ -32,7 +32,7 @@ export const NavigationTabs: React.FC = () => {
   ];
 
   return (
-    <nav className="bg-[#191615] border-b border-[#302a28] px-4 lg:px-8 overflow-x-auto scrollbar-none">
+    <nav className="hidden md:block bg-[#191615] border-b border-[#302a28] px-4 lg:px-8 overflow-x-auto scrollbar-none">
       <div className="max-w-7xl mx-auto flex items-center gap-1 sm:gap-2 py-2">
         {tabs.map(tab => {
           const Icon = tab.icon;

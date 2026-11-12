@@ -12,6 +12,7 @@ import {
   User,
   Key,
   X,
+  ArrowLeft,
 } from 'lucide-react';
 import { DirectionId } from '../types';
 
@@ -35,6 +36,8 @@ export const ForumAndChatsView: React.FC = () => {
   const [selectedTopicId, setSelectedTopicId] = useState<string>(forumTopics[0]?.id || '');
   const [selectedRoomId, setSelectedRoomId] = useState<string>(chatRooms[0]?.id || '');
   const [showRawCipher, setShowRawCipher] = useState(false);
+  const [mobileForumView, setMobileForumView] = useState<'list' | 'thread'>('list');
+  const [mobileChatView, setMobileChatView] = useState<'list' | 'chat'>('list');
 
   // Compose state
   const [replyText, setReplyText] = useState('');
@@ -116,7 +119,7 @@ export const ForumAndChatsView: React.FC = () => {
       {activeSection === 'forum' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Topics List Sidebar (5 cols) */}
-          <div className="lg:col-span-5 space-y-3">
+          <div className={`lg:col-span-5 space-y-3 ${mobileForumView === 'thread' ? 'hidden lg:block' : 'block'}`}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#8c8279] uppercase tracking-wider">
                 Обсуждения ({forumTopics.length})
@@ -136,7 +139,10 @@ export const ForumAndChatsView: React.FC = () => {
                 return (
                   <div
                     key={topic.id}
-                    onClick={() => setSelectedTopicId(topic.id)}
+                    onClick={() => {
+                      setSelectedTopicId(topic.id);
+                      setMobileForumView('thread');
+                    }}
                     className={`p-4 rounded-xl border cursor-pointer transition-all ${
                       isSelected
                         ? 'bg-[#2b2522] border-[#dfcfb3]'
@@ -172,9 +178,20 @@ export const ForumAndChatsView: React.FC = () => {
           </div>
 
           {/* Active Topic Thread (7 cols) */}
-          <div className="lg:col-span-7 rounded-2xl bg-[#23201e] border border-[#352f2c] flex flex-col justify-between overflow-hidden min-h-[500px]">
+          <div className={`lg:col-span-7 rounded-2xl bg-[#23201e] border border-[#352f2c] flex-col justify-between overflow-hidden min-h-[500px] ${mobileForumView === 'list' ? 'hidden lg:flex' : 'flex'}`}>
             {activeTopic ? (
-              <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+              <div className="p-4 sm:p-6 space-y-6 flex-1 overflow-y-auto">
+                {/* Mobile Back Button */}
+                <div className="lg:hidden pb-2 border-b border-[#302a28]">
+                  <button
+                    onClick={() => setMobileForumView('list')}
+                    className="flex items-center gap-1.5 text-xs text-[#dfcfb3] hover:text-white font-medium"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Назад ко всем темам</span>
+                  </button>
+                </div>
+
                 {/* Topic Header */}
                 <div className="space-y-3 pb-4 border-b border-[#302a28]">
                   <div className="flex items-center justify-between">
@@ -296,7 +313,7 @@ export const ForumAndChatsView: React.FC = () => {
       {activeSection === 'encrypted_rooms' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Room Selector (4 cols) */}
-          <div className="lg:col-span-4 space-y-3">
+          <div className={`lg:col-span-4 space-y-3 ${mobileChatView === 'chat' ? 'hidden lg:block' : 'block'}`}>
             <span className="text-xs font-semibold text-[#8c8279] uppercase tracking-wider block">
               Закрытые каналы направлений
             </span>
@@ -307,7 +324,10 @@ export const ForumAndChatsView: React.FC = () => {
                 return (
                   <div
                     key={room.id}
-                    onClick={() => setSelectedRoomId(room.id)}
+                    onClick={() => {
+                      setSelectedRoomId(room.id);
+                      setMobileChatView('chat');
+                    }}
                     className={`p-4 rounded-xl border cursor-pointer transition-all ${
                       isSelected
                         ? 'bg-[#2b2522] border-[#dfcfb3]'
@@ -338,10 +358,20 @@ export const ForumAndChatsView: React.FC = () => {
           </div>
 
           {/* Encrypted Room Interface (8 cols) */}
-          <div className="lg:col-span-8 rounded-2xl bg-[#23201e] border border-[#352f2c] flex flex-col justify-between overflow-hidden min-h-[550px]">
+          <div className={`lg:col-span-8 rounded-2xl bg-[#23201e] border border-[#352f2c] flex-col justify-between overflow-hidden min-h-[550px] ${mobileChatView === 'list' ? 'hidden lg:flex' : 'flex'}`}>
             {/* Room Security Header */}
             <div className="p-4 bg-[#1a1716] border-b border-[#302a28] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
+              <div className="space-y-1">
+                {/* Mobile back button */}
+                <div className="lg:hidden pb-1">
+                  <button
+                    onClick={() => setMobileChatView('list')}
+                    className="flex items-center gap-1.5 text-xs text-[#dfcfb3] hover:text-white font-medium"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>К списку каналов</span>
+                  </button>
+                </div>
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
                   <h3 className="font-display text-sm font-bold text-[#f5f2eb]">

@@ -132,10 +132,10 @@ export const ReadingLibraryView: React.FC = () => {
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-[#23201e] border border-[#352f2c] rounded-xl">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
           <button
             onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
               statusFilter === 'all'
                 ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'
@@ -145,7 +145,7 @@ export const ReadingLibraryView: React.FC = () => {
           </button>
           <button
             onClick={() => setStatusFilter('completed')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
               statusFilter === 'completed'
                 ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'
@@ -155,7 +155,7 @@ export const ReadingLibraryView: React.FC = () => {
           </button>
           <button
             onClick={() => setStatusFilter('reading')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
               statusFilter === 'reading'
                 ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'

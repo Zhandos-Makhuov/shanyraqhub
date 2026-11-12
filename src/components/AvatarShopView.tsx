@@ -184,10 +184,10 @@ export const AvatarShopView: React.FC = () => {
       </div>
 
       {/* Tabs Switcher: Shop vs Tiers vs History */}
-      <div className="flex items-center gap-2 border-b border-[#302a28] pb-2">
+      <div className="flex items-center gap-2 border-b border-[#302a28] pb-2 overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveTab('shop')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
             activeTab === 'shop'
               ? 'bg-[#dfcfb3] text-[#1e1b1a]'
               : 'text-[#9e948c] hover:text-[#f5f2eb] hover:bg-[#23201e]'
@@ -199,7 +199,7 @@ export const AvatarShopView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('tiers')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
             activeTab === 'tiers'
               ? 'bg-[#dfcfb3] text-[#1e1b1a]'
               : 'text-[#9e948c] hover:text-[#f5f2eb] hover:bg-[#23201e]'
@@ -211,7 +211,7 @@ export const AvatarShopView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
             activeTab === 'history'
               ? 'bg-[#dfcfb3] text-[#1e1b1a]'
               : 'text-[#9e948c] hover:text-[#f5f2eb] hover:bg-[#23201e]'

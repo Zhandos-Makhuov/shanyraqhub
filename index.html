@@ -2,21 +2,34 @@
 <html lang="ru" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
     <title>Shanyraq Hub — Комьюнити Клуб</title>
     <meta name="description" content="Официальная платформа сообщества Shanyraq Hub: личный кабинет, календарь мероприятий, форум, закрытые чаты, аналитика посещаемости и геймификация." />
     <meta property="og:title" content="Shanyraq Hub — Комьюнити Клуб" />
     <meta property="og:description" content="Официальная платформа сообщества Shanyraq Hub: личный кабинет, календарь мероприятий, форум, закрытые чаты, аналитика посещаемости и геймификация." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#1e1b1a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Shanyraq Hub" />
+    <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" href="/assets/aistudio/IMG_9313_86e71ea6.PNG" />
+    <link rel="apple-touch-icon" href="/assets/aistudio/IMG_9313_86e71ea6.PNG" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-[#1e1b1a] text-[#f5f2eb] antialiased selection:bg-[#dfcfb3]/30 selection:text-[#dfcfb3]">
-    <div id="root"></div>
+  <body class="bg-[#191615] text-[#f5f2eb] antialiased selection:bg-[#dfcfb3]/30 selection:text-[#dfcfb3] overflow-x-hidden min-h-screen">
+    <div id="root" class="min-h-screen flex flex-col"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>
 

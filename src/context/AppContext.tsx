@@ -407,6 +407,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toLocaleDateString('ru-RU'),
     };
 
+    const alreadyGiven = currentUser.attendedEvents.some(a => a.eventId === eventId && a.feedbackGiven);
+    if (alreadyGiven) return;
+
     setEvents(prev =>
       prev.map(ev => {
         if (ev.id !== eventId) return ev;

@@ -45,9 +45,19 @@ export const AttendanceView: React.FC = () => {
     setScanSuccessMsg('');
 
     setTimeout(() => {
+      const user = allUsers.find(u => u.id === selectedUserId);
+      const ev = events.find(e => e.id === selectedEventId);
+      const isAlreadyCheckedIn = ev?.attendedUserIds.includes(selectedUserId);
+
+      if (isAlreadyCheckedIn) {
+        setQrScanning(false);
+        setScanSuccessMsg(`Участник ${user?.name} уже был отмечен на «${ev?.title}». Повторное начисление не требуется.`);
+        setTimeout(() => setScanSuccessMsg(''), 5000);
+        return;
+      }
+
       checkInAttendance(selectedEventId, selectedUserId);
       setQrScanning(false);
-      const user = allUsers.find(u => u.id === selectedUserId);
       setScanSuccessMsg(`Визит для ${user?.name} успешно подтвержден! Начислено +60 XP и +40 коинов.`);
       setTimeout(() => setScanSuccessMsg(''), 5000);
     }, 800);
@@ -102,12 +112,15 @@ export const AttendanceView: React.FC = () => {
       </div>
 
       {/* QR Code Check-in Simulator Box */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#27211e] via-[#201d1c] to-[#181514] border border-[#433c37] p-6 shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="rounded-2xl bg-gradient-to-br from-[#27211e] via-[#201d1c] to-[#181514] border border-[#433c37] p-5 sm:p-6 shadow-xl">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1.5 max-w-lg">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#dfcfb3]">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[#dfcfb3]">
               <QrCode className="w-4 h-4" />
               <span>{t('qrCheckInSimulator')}</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-950/60 text-amber-300 border border-amber-800">
+                Демо-сканер
+              </span>
             </div>
             <h3 className="font-display text-base font-bold text-[#f5f2eb]">
               Экспресс-верификация присутствия на встрече клуба
@@ -118,13 +131,13 @@ export const AttendanceView: React.FC = () => {
           </div>
 
           {/* Interactive controls */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 bg-[#191615] p-3 rounded-xl border border-[#352f2c]">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-[#191615] p-3 rounded-xl border border-[#352f2c]">
             <div className="w-full sm:w-auto">
               <label className="text-[10px] text-[#8c8279] uppercase block mb-1">Событие</label>
               <select
                 value={selectedEventId}
                 onChange={e => setSelectedEventId(e.target.value)}
-                className="w-full sm:w-56 p-1.5 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] focus:outline-none"
+                className="w-full sm:w-56 p-2 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] focus:outline-none"
               >
                 {events.map(ev => (
                   <option key={ev.id} value={ev.id}>
@@ -139,7 +152,7 @@ export const AttendanceView: React.FC = () => {
               <select
                 value={selectedUserId}
                 onChange={e => setSelectedUserId(e.target.value)}
-                className="w-full sm:w-44 p-1.5 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] focus:outline-none"
+                className="w-full sm:w-44 p-2 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] focus:outline-none"
               >
                 {allUsers.map(u => (
                   <option key={u.id} value={u.id}>
@@ -149,7 +162,7 @@ export const AttendanceView: React.FC = () => {
               </select>
             </div>
 
-            <div className="w-full sm:w-auto self-end">
+            <div className="w-full sm:w-auto sm:self-end">
               <button
                 onClick={handleSimulateQrCheckIn}
                 disabled={qrScanning}
@@ -170,7 +183,7 @@ export const AttendanceView: React.FC = () => {
         )}
       </div>
 
-      {/* Attendance History Table */}
+      {/* Attendance History */}
       <div className="rounded-2xl bg-[#23201e] border border-[#352f2c] overflow-hidden">
         <div className="p-4 border-b border-[#302a28] flex items-center justify-between">
           <h3 className="font-display text-sm font-bold text-[#f5f2eb]">
@@ -181,7 +194,66 @@ export const AttendanceView: React.FC = () => {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile Cards List (< sm) */}
+        <div className="sm:hidden divide-y divide-[#2d2725]">
+          {allVisits.map((item, idx) => (
+            <div key={`mobile-visit-${item.eventId}-${item.userId}-${idx}`} className="p-4 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div
+                  onClick={() => {
+                    const target = allUsers.find(u => u.id === item.userId);
+                    if (target) setSelectedUserModal(target);
+                  }}
+                  className="flex items-center gap-2.5 cursor-pointer"
+                >
+                  <img
+                    src={item.userAvatar}
+                    alt=""
+                    className="w-8 h-8 rounded-full object-cover ring-1 ring-[#dfcfb3]/40"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-[#f5f2eb] block">
+                      {item.userName}
+                    </span>
+                    <span className="text-[10px] text-[#8c8279] uppercase font-mono">
+                      {item.userTier}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  {item.status === 'attended' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/70 text-emerald-400 border border-emerald-800">
+                      <CheckCircle className="w-3 h-3" />
+                      Посетил
+                    </span>
+                  ) : item.status === 'registered' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#2a2522] text-[#dfcfb3] border border-[#443b36]">
+                      <Clock className="w-3 h-3" />
+                      Записан
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-[#736a62]">
+                      Отменено
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-xs text-[#d6cebf] font-medium leading-snug">
+                {item.title}
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-[#8c8279] font-mono pt-1">
+                <span>Дата: {item.date}</span>
+                <span>Отметка: {item.checkInTime || '—'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop Table View (>= sm) */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#1a1716] text-[#8c8279] uppercase text-[10px] tracking-wider border-b border-[#302a28]">
               <tr>

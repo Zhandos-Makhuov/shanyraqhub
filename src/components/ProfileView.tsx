@@ -168,10 +168,10 @@ export const ProfileView: React.FC = () => {
       </div>
 
       {/* Sub-Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-[#302a28] pb-2">
+      <div className="flex items-center gap-2 border-b border-[#302a28] pb-2 overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveSubTab('books')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
             activeSubTab === 'books'
               ? 'bg-[#dfcfb3] text-[#1e1b1a]'
               : 'text-[#9e948c] hover:text-[#f5f2eb]'
@@ -183,7 +183,7 @@ export const ProfileView: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('events')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
             activeSubTab === 'events'
               ? 'bg-[#dfcfb3] text-[#1e1b1a]'
               : 'text-[#9e948c] hover:text-[#f5f2eb]'
@@ -195,7 +195,7 @@ export const ProfileView: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('achievements')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
             activeSubTab === 'achievements'
               ? 'bg-[#dfcfb3] text-[#1e1b1a]'
               : 'text-[#9e948c] hover:text-[#f5f2eb]'
@@ -207,7 +207,7 @@ export const ProfileView: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('reviews')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
             activeSubTab === 'reviews'
               ? 'bg-[#dfcfb3] text-[#1e1b1a]'
               : 'text-[#9e948c] hover:text-[#f5f2eb]'

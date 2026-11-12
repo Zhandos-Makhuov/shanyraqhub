@@ -225,60 +225,108 @@ export const AdminView: React.FC = () => {
               </span>
             </div>
 
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#1a1716] text-[#8c8279] uppercase text-[10px] tracking-wider border-b border-[#302a28]">
-                <tr>
-                  <th className="px-4 py-3">Пользователь</th>
-                  <th className="px-4 py-3">Ранг</th>
-                  <th className="px-4 py-3">Коины</th>
-                  <th className="px-4 py-3">Текущая роль</th>
-                  <th className="px-4 py-3 text-right">Назначить роль</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#2d2725]">
-                {allUsers.map(user => (
-                  <tr key={user.id} className="hover:bg-[#282321] transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={user.avatar}
-                          alt=""
-                          className="w-7 h-7 rounded-full object-cover ring-1 ring-[#dfcfb3]/40"
-                        />
-                        <div>
-                          <span className="font-bold text-[#f5f2eb] block">{user.name}</span>
-                          <span className="text-[10px] text-[#8c8279] font-mono">{user.handle}</span>
-                        </div>
+            {/* Mobile Cards List (< sm) */}
+            <div className="sm:hidden divide-y divide-[#2d2725]">
+              {allUsers.map(user => (
+                <div key={`mobile-user-${user.id}`} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={user.avatar}
+                        alt=""
+                        className="w-9 h-9 rounded-full object-cover ring-1 ring-[#dfcfb3]/40"
+                      />
+                      <div>
+                        <span className="font-bold text-xs text-[#f5f2eb] block">{user.name}</span>
+                        <span className="text-[10px] text-[#8c8279] font-mono">{user.handle}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-[#dfcfb3]">
-                      {user.tier.toUpperCase()}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-amber-400">
-                      {user.coins} 🪙
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] uppercase font-mono bg-[#191615] text-[#d6cebf] border border-[#3b3430]">
-                        {user.role}
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-xs font-semibold text-[#dfcfb3] block">
+                        {user.tier.toUpperCase()}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <select
-                        value={user.role}
-                        onChange={e => updateUserRole(user.id, e.target.value as UserRole)}
-                        className="p-1 rounded bg-[#191615] border border-[#3b3430] text-[11px] text-[#dfcfb3] focus:outline-none"
-                      >
-                        <option value="member">Member</option>
-                        <option value="organizer">Organizer</option>
-                        <option value="moderator">Moderator</option>
-                        <option value="admin">Admin</option>
-                        <option value="super_admin">Super Admin</option>
-                      </select>
-                    </td>
+                      <span className="text-[11px] font-mono text-amber-400">
+                        {user.coins} 🪙
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[11px] text-[#8c8279]">Назначить роль:</span>
+                    <select
+                      value={user.role}
+                      onChange={e => updateUserRole(user.id, e.target.value as UserRole)}
+                      className="px-2 py-1 rounded bg-[#191615] border border-[#3b3430] text-xs text-[#dfcfb3] focus:outline-none"
+                    >
+                      <option value="member">Member</option>
+                      <option value="organizer">Organizer</option>
+                      <option value="moderator">Moderator</option>
+                      <option value="admin">Admin</option>
+                      <option value="super_admin">Super Admin</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table (>= sm) */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#1a1716] text-[#8c8279] uppercase text-[10px] tracking-wider border-b border-[#302a28]">
+                  <tr>
+                    <th className="px-4 py-3">Пользователь</th>
+                    <th className="px-4 py-3">Ранг</th>
+                    <th className="px-4 py-3">Коины</th>
+                    <th className="px-4 py-3">Текущая роль</th>
+                    <th className="px-4 py-3 text-right">Назначить роль</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#2d2725]">
+                  {allUsers.map(user => (
+                    <tr key={user.id} className="hover:bg-[#282321] transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={user.avatar}
+                            alt=""
+                            className="w-7 h-7 rounded-full object-cover ring-1 ring-[#dfcfb3]/40"
+                          />
+                          <div>
+                            <span className="font-bold text-[#f5f2eb] block">{user.name}</span>
+                            <span className="text-[10px] text-[#8c8279] font-mono">{user.handle}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-[#dfcfb3]">
+                        {user.tier.toUpperCase()}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-amber-400">
+                        {user.coins} 🪙
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] uppercase font-mono bg-[#191615] text-[#d6cebf] border border-[#3b3430]">
+                          {user.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <select
+                          value={user.role}
+                          onChange={e => updateUserRole(user.id, e.target.value as UserRole)}
+                          className="p-1 rounded bg-[#191615] border border-[#3b3430] text-[11px] text-[#dfcfb3] focus:outline-none"
+                        >
+                          <option value="member">Member</option>
+                          <option value="organizer">Organizer</option>
+                          <option value="moderator">Moderator</option>
+                          <option value="admin">Admin</option>
+                          <option value="super_admin">Super Admin</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Manual Coin Adjustment Box */}
