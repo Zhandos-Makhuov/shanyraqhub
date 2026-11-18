@@ -16,12 +16,13 @@ import {
   DirectionId,
 } from '../types';
 import { TRANSLATIONS } from '../data/translations';
-import { INITIAL_USERS, INITIAL_EVENTS, INITIAL_FORUM_TOPICS, INITIAL_CHAT_ROOMS, INITIAL_COIN_TRANSACTIONS, INITIAL_AUDIT_LOGS, INITIAL_NOTIFICATIONS } from '../data/mockData';
+import { NEW_MEMBER_ID, NEW_MEMBER_PROFILE, INITIAL_USERS, INITIAL_EVENTS, INITIAL_FORUM_TOPICS, INITIAL_CHAT_ROOMS, INITIAL_COIN_TRANSACTIONS, INITIAL_AUDIT_LOGS, INITIAL_NOTIFICATIONS } from '../data/mockData';
 import { SHOP_ITEMS, TIERS } from '../data/gamification';
 import { sendLocalPushNotification, requestWebPushPermission } from '../utils/notifications';
 import { simulateEncrypt } from '../utils/crypto';
 import { canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
 import { hasEventStarted } from '../utils/eventTime';
+import { isDemoMode } from '../utils/demoMode';
 
 export type NavTab =
   | 'dashboard'
@@ -99,12 +100,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_users`);
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
+    const users: UserProfile[] = saved ? JSON.parse(saved) : INITIAL_USERS;
+    // Every visitor starts as a new first-tier member (also added to data saved before this existed).
+    return users.some(u => u.id === NEW_MEMBER_ID) ? users : [NEW_MEMBER_PROFILE, ...users];
   });
 
-  const [currentUserId, setCurrentUserId] = useState<string>(() => {
-    return allUsers[0]?.id || 'user-admin-1';
-  });
+  const [currentUserId, setCurrentUserId] = useState<string>(NEW_MEMBER_ID);
 
   const [events, setEvents] = useState<CommunityEvent[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_events`);
@@ -191,7 +192,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const currentUser = allUsers.find(u => u.id === currentUserId) || allUsers[0];
 
+  // Test-account switching exists only in demo mode (see isDemoMode).
   const switchCurrentUser = (userId: string) => {
+    if (!isDemoMode) return;
     setCurrentUserId(userId);
   };
 

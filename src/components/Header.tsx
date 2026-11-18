@@ -4,6 +4,7 @@ import { TIERS } from '../data/gamification';
 import { Bell, Globe, Sparkles, ChevronDown, Coins, Database } from 'lucide-react';
 import { Language } from '../types';
 import { DemoStatusModal } from './DemoStatusModal';
+import { isDemoMode } from '../utils/demoMode';
 
 export const Header: React.FC = () => {
   const {
@@ -257,6 +258,7 @@ export const Header: React.FC = () => {
                     </div>
                   </div>
 
+                  {isDemoMode && (
                   <div className="pt-2">
                     <div className="text-[10px] font-semibold text-[#8c8279] uppercase tracking-wider mb-1 px-1">
                       {t('actionSwitchUser')}
@@ -290,8 +292,9 @@ export const Header: React.FC = () => {
                       ))}
                     </div>
                   </div>
+                  )}
 
-                  <div className="mt-3 pt-2 border-t border-[#38322e] flex items-center justify-between">
+                  <div className={`flex items-center justify-between ${isDemoMode ? 'mt-3 pt-2 border-t border-[#38322e]' : 'pt-2'}`}>
                     <button
                       onClick={() => {
                         setActiveTab('profile');
