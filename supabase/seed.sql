@@ -1,0 +1,57 @@
+-- Reference data generated from src/data/gamification.ts and the forum category list.
+-- Contains NO users and NO demo activity. Safe to re-run (upserts).
+-- Run after the migrations: psql "$DATABASE_URL" -f supabase/seed.sql   (or: supabase db reset on a LOCAL stack)
+
+insert into public.tiers (tier, min_xp, sort_order, name_ru, name_kz, name_en, coin_multiplier) values
+  ('bronze', 0, 0, 'Бронзовый уровень', 'Қола деңгей', 'Bronze Tier', 1.00),
+  ('silver', 200, 1, 'Серебряный уровень', 'Күміс деңгей', 'Silver Tier', 1.10),
+  ('gold', 500, 2, 'Золотой уровень', 'Алтын деңгей', 'Gold Tier', 1.10),
+  ('platinum', 1000, 3, 'Платиновый уровень', 'Платина деңгей', 'Platinum Tier', 1.10),
+  ('titanium', 2000, 4, 'Титановый уровень', 'Титан деңгей', 'Titanium Tier', 1.10),
+  ('tengri', 3500, 5, 'Ханский Небесный Шаңырақ', 'Хандық Көк Шаңырақ', 'Tengri Master (Grand Shanyraq)', 1.10)
+on conflict (tier) do update set min_xp = excluded.min_xp, name_ru = excluded.name_ru, name_kz = excluded.name_kz,
+  name_en = excluded.name_en, coin_multiplier = excluded.coin_multiplier;
+
+insert into public.achievements (id, title_ru, title_kz, title_en, description_ru, description_kz, description_en, icon, category, rule, xp_reward, coin_reward) values
+  ('ach-first-book', 'Первая прочитанная книга', 'Алғашқы оқылған кітап', 'First Book Finished', 'Внесите в библиотеку свою первую прочитанную книгу с рецензией', 'Кітапхана қорына алғашқы оқылған кітабыңыз бен пікіріңізді қосыңыз', 'Log your first completed book with a personal review', 'BookOpen', 'books', '{"metric":"books_completed","threshold":1}', 50, 30),
+  ('ach-10-books', 'Мастер Чтения: 10 книг', 'Оқу Шебері: 10 кітап', 'Master Reader: 10 Books', 'Освойте 10 литературных произведений в книжном клубе Shanyraq', 'Шаңырақ кітап клубында 10 әдеби шығарманы толық оқып шығыңыз', 'Complete 10 literary works in the Shanyraq reading log', 'Library', 'books', '{"metric":"books_completed","threshold":10}', 250, 120),
+  ('ach-first-event', 'Первый шаг в Шаңырақ', 'Шаңыраққа алғашқы қадам', 'First Gathering Attended', 'Посетите любое мероприятие сообщества и подтвердите визит', 'Қауымдастықтың кез келген іс-шарасына қатысып, келуді растаңыз', 'Attend any club gathering and verify your attendance', 'Footprints', 'community', '{"metric":"events_attended","threshold":1}', 60, 50),
+  ('ach-10-events', 'Активист Клуба: 10 встреч', 'Клуб Белсендісі: 10 кездесу', 'Club Pillar: 10 Gatherings', 'Примите участие в 10 офлайн или онлайн активностях сообщества', 'Қауымдастықтың 10 офлайн немесе онлайн шарасына белсенді қатысыңыз', 'Participate in 10 in-person or live stream club activities', 'CalendarCheck', 'community', '{"metric":"events_attended","threshold":10}', 300, 150),
+  ('ach-speaking-pro', 'Fluent Speaker: Til-Talk', 'Шешен Сөйлеуші: Til-Talk', 'Fluent Speaker: Til-Talk', 'Выступите с 3-минутным питчем на английском в клубе дебатов', 'Ағылшын тілі клубында 3 минуттық сөз сөйлеп, пікірталасқа түсіңіз', 'Deliver a 3-minute debate speech at the English speaking circle', 'MessageSquareText', 'english', '{"metric":"manual","threshold":1}', 80, 40),
+  ('ach-tarlan-runner', 'Бегун Tarlan: Терренкур', 'Tarlan Жүйрігі: Терренкур', 'Tarlan Trail Runner', 'Преодолейте 5 км или 10 км на утреннем забеге по Терренкуру', 'Таңғы Терренкур жүгіруінде 5 км немесе 10 км қашықтықты бағындырыңыз', 'Complete a 5K or 10K morning run with the Tarlan sports chapter', 'Flame', 'sport', '{"metric":"manual","threshold":1}', 90, 50),
+  ('ach-knowledge-seeker', 'Искатель Знаний Zerde', '«Зерде» Білім Іздеушісі', 'Zerde Knowledge Seeker', 'Займите призовое место в командной интеллектуальной игре', 'Командалық зияткерлік квиз ойынында жүлделі орынға ие болыңыз', 'Finish on the podium in a team intellectual quiz match', 'Brain', 'general', '{"metric":"manual","threshold":1}', 150, 70),
+  ('ach-30-day-streak', 'Марафон 30 дней чтения', '30 күндік кітап марафоны', '30-Day Reading Challenge', 'Ежедневно читайте по 20+ страниц в течение месяца', 'Бір ай бойы күн сайын 20+ беттен үзбей кітап оқыңыз', 'Read 20+ pages every single day for an entire month', 'Hourglass', 'challenges', '{"metric":"manual","threshold":30}', 400, 200),
+  ('ach-mentor', 'Щедрый Наставник', 'Жомарт Тәлімгер', 'Generous Mentor', 'Получите 5 положительных отзывов и благодарностей от участников', 'Басқа қатысушылардан 5 жылы лебіз бен алғыс пікір жинаңыз', 'Receive 5 positive peer reviews and endorsements', 'HeartHandshake', 'community', '{"metric":"positive_reviews_received","threshold":5}', 200, 100)
+on conflict (id) do update set title_ru = excluded.title_ru, title_kz = excluded.title_kz, title_en = excluded.title_en,
+  description_ru = excluded.description_ru, description_kz = excluded.description_kz, description_en = excluded.description_en,
+  icon = excluded.icon, category = excluded.category, rule = excluded.rule,
+  xp_reward = excluded.xp_reward, coin_reward = excluded.coin_reward;
+
+insert into public.shop_items (id, name_ru, name_kz, name_en, description_ru, description_kz, description_en, category, rarity, price_coins, preview_url, style) values
+  ('item-avatar-altyn', 'Образ «Алтын Адам»', '«Алтын Адам» бейнесі', 'Golden Nomad Skin', 'Легендарный образ в золотом убранстве сакских правителей', 'Сақ дәуірінің салтанатты алтын әбзелді жауынгер бейнесі', 'Legendary warrior persona draped in ceremonial golden armor', 'avatar', 'legendary', 350, 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=150&auto=format&fit=crop&q=80', '{"badgeTitle":"Golden Warrior"}'),
+  ('item-avatar-sage', 'Степной Мудрец & Книгочей', 'Далалық Данагөй & Оқырман', 'Steppe Sage & Scholar', 'Глубокий взгляд, рукописи и атмосфера тихой библиотеки', 'Кітап пен ойға берілген көне ғалым келбеті', 'Thoughtful philosopher immersed in timeless scrolls', 'avatar', 'epic', 200, 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80', '{"badgeTitle":"Steppe Sage"}'),
+  ('item-avatar-cyber', 'Кибер-Номад 2077', 'Кибер-Номад 2077', 'Cyber Nomad', 'Синтез древних традиций кочевников и футуристического хай-тека', 'Дәстүрлі мәдениет пен келешек технологиясының үйлесімі', 'Futuristic synthesis of nomadic heritage and digital edge', 'avatar', 'epic', 220, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80', '{"badgeTitle":"Cyber Nomad"}'),
+  ('item-avatar-artisan', 'Мастер Керамики и Гончар', 'Қыш Шебері & Суретші', 'Clay Artisan & Painter', 'Творческий дух арт-терапии, фартук со следами глины и красок', 'Шеберхана тынысы, балшық пен бояу өнерінің шынайы бейнесі', 'Creative spirit in artisan apron with paint & pottery dust', 'avatar', 'common', 80, 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80', '{"badgeTitle":"Artisan"}'),
+  ('item-frame-shanyraq-gold', 'Рамка «Золотой Шаңырақ»', '«Алтын Шаңырақ» жиектемесі', 'Golden Shanyraq Emblem Frame', 'Круглая филигранная рамка с оригинальным узором логотипа клуба', 'Клуб логотипінің төл өрнегімен көмкерілген дөңгелек жиек', 'Intricate circular frame styled after the official club shanyraq crest', 'frame', 'legendary', 300, '/assets/aistudio/IMG_9313_86e71ea6.PNG', '{"borderStyle":"ring-4 ring-[#dfcfb3] shadow-[0_0_20px_rgba(223,207,179,0.5)]"}'),
+  ('item-frame-titanium', 'Титановый Щит «Қалқан»', 'Титан Сауыт «Қалқан»', 'Titanium Shield Frame', 'Матовый темно-титановый контур со скошенными углами', 'Күңгірт титан металдан құйылған берік қорғаныс жиегі', 'Matte dark-titanium beveled ring engineered for strength', 'frame', 'epic', 180, '', '{"borderStyle":"ring-4 ring-slate-400 shadow-[0_0_15px_rgba(148,163,184,0.4)]"}'),
+  ('item-frame-diamond', 'Алмазный Ореол', 'Гауһар Нұры жиектемесі', 'Diamond Halo Frame', 'Искрящееся кольцо с гранями редких камней', 'Жарқыраған асыл тастардың кристалды сәулесі', 'Radiant crystal facet perimeter with diamond shimmer', 'frame', 'legendary', 400, '', '{"borderStyle":"ring-4 ring-cyan-200 shadow-[0_0_25px_rgba(165,243,252,0.6)]"}'),
+  ('item-frame-wood', 'Резной Обод из Карагача', 'Қараағаштан ойылған жиек', 'Carved Elm Wood Frame', 'Теплое дерево с традиционной степной гравировкой', 'Ұлттық нақыштағы жылы ағаш өрнегі', 'Warm natural polished wood with nomadic filigree', 'frame', 'common', 60, '', '{"borderStyle":"ring-4 ring-[#967d58]"}'),
+  ('item-artifact-abay-pen', 'Золотое Перо Абая', 'Абайдың Алтын Қауырсыны', 'Abay Golden Quill', 'Талисман глубокой мысли, красноречия и литературного вдохновения', 'Терең ойдың, көркем сөз бен шабыттың қасиетті белгісі', 'Sacred artifact of rhetorical mastery and literary wisdom', 'artifact', 'legendary', 280, '', '{"badgeTitle":"Қаламгер"}'),
+  ('item-artifact-tulpar', 'Талисман Тулпара «Жүйрік»', 'Тұлпар Тұмары «Жүйрік»', 'Tulpar Runner Amulet', 'Приносит выносливость на марафонах и утренних забегах Tarlan', 'Tarlan таңғы жүгірулерінде төзімділік пен жеңілдік береді', 'Endurance talisman for morning trail runs and marathons', 'artifact', 'rare', 150, '', '{"badgeTitle":"Тұлпар"}'),
+  ('item-artifact-zerde', 'Кристалл Интеллекта Zerde', '«Зерде» Интеллект Кристалы', 'Zerde Mind Crystal', 'Символ побед в командных викторинах и шахматных батлах', 'Зияткерлік сайыстар мен шахмат ойындарындағы жеңіс символы', 'Prismatic crystal representing strategic acumen and quiz victories', 'artifact', 'rare', 160, '', '{"badgeTitle":"Зерде"}'),
+  ('item-aura-tengri-glow', 'Солнечная Аура Күн', 'Күн Сәулелі Аура', 'Solar Tengri Aura', 'Золотое пульсирующее сияние вокруг карточки участника', 'Қатысушы профилінің айналасындағы алтын шуақ', 'Pulsing warm golden ambient aura radiating from profile badge', 'aura', 'legendary', 320, '', '{"glowStyle":"shadow-[0_0_35px_rgba(245,215,127,0.7)]"}'),
+  ('item-aura-runic', 'Сияние Орхонских Рун', 'Орхон Руналарының Жарқылы', 'Orkhon Runic Shimmer', 'Мистическое бирюзовое свечение древнетюркских символов', 'Көне түрік таңбаларының құпия көгілдір жарығы', 'Ancient nomadic turquoise runic halo', 'aura', 'epic', 210, '', '{"glowStyle":"shadow-[0_0_25px_rgba(56,189,248,0.5)]"}')
+on conflict (id) do update set name_ru = excluded.name_ru, name_kz = excluded.name_kz, name_en = excluded.name_en,
+  description_ru = excluded.description_ru, description_kz = excluded.description_kz, description_en = excluded.description_en,
+  category = excluded.category, rarity = excluded.rarity, price_coins = excluded.price_coins,
+  preview_url = excluded.preview_url, style = excluded.style;
+
+insert into public.forum_categories (id, name_ru, name_kz, name_en, sort_order) values
+  ('books', 'Книжная полка & Рецензии', 'Кітап сөресі & Пікірлер', 'Book Shelf & Reviews', 0),
+  ('english', 'Speaking English Club', 'Speaking English Club', 'Speaking English Club', 1),
+  ('arabic', 'Арабский язык & Каллиграфия', 'Араб тілі & Каллиграфия', 'Arabic & Calligraphy', 2),
+  ('sport', 'Спорт и бег Tarlan', 'Tarlan спорт және жүгіру', 'Tarlan Sports & Running', 3),
+  ('art', 'Арт-терапия и керамика', 'Арт-терапия және керамика', 'Art Therapy & Ceramics', 4),
+  ('intellect', 'Интеллектуальные игры Zerde', 'Zerde зияткерлік ойындары', 'Zerde Intellectual Games', 5),
+  ('general', 'Общие анонсы и идеи', 'Жалпы хабарландырулар', 'General Announcements & Ideas', 6)
+on conflict (id) do update set name_ru = excluded.name_ru, name_kz = excluded.name_kz, name_en = excluded.name_en, sort_order = excluded.sort_order;
