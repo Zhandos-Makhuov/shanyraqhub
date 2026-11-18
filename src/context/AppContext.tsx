@@ -22,6 +22,7 @@ import { sendLocalPushNotification, requestWebPushPermission } from '../utils/no
 import { canAccessRoom, canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
 import { hasEventStarted } from '../utils/eventTime';
 import { isDemoMode } from '../utils/demoMode';
+import { computeDayStreak, toLocalDay } from '../utils/streak';
 
 export type NavTab =
   | 'dashboard'
@@ -84,6 +85,9 @@ interface AppContextType {
   dispatchBroadcast: (title: string, content: string, channels: ('push' | 'telegram' | 'whatsapp')[], directionTarget?: string) => void;
 
   addPeerReview: (targetUserId: string, rating: number, comment: string, aspect: PeerReview['aspect']) => void;
+
+  /** Consecutive days with real activity (attendance, feedback, books, forum, reviews). */
+  getActivityStreak: (userId: string) => number;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -136,6 +140,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
   });
 
+  // Days (YYYY-MM-DD, local) on which each user did something real. Drives the activity streak.
+  const [activityLog, setActivityLog] = useState<Record<string, string[]>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`${STORAGE_KEY}_activity`) || '{}');
+    } catch {
+      return {};
+    }
+  });
+
   const [selectedUserModal, setSelectedUserModal] = useState<UserProfile | null>(null);
 
   // Sync to local storage
@@ -166,6 +179,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_audits`, JSON.stringify(auditLogs));
   }, [auditLogs]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY}_activity`, JSON.stringify(activityLog));
+  }, [activityLog]);
 
   // Reward idempotency log: key -> timestamp (ms). A key is paid out at most once.
   // A ref (not only state) so two calls in the same click cannot both pass the check.
@@ -265,6 +282,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...prev,
       ]);
     }
+  };
+
+  const recordActivity = (userId: string) => {
+    const today = toLocalDay();
+    setActivityLog(prev => {
+      const days = prev[userId] || [];
+      if (days.includes(today)) return prev;
+      return { ...prev, [userId]: [...days, today].slice(-400) };
+    });
+  };
+
+  const getActivityStreak = (userId: string): number => {
+    const user = allUsers.find(u => u.id === userId);
+    if (!user) return 0;
+    const days = [
+      ...(activityLog[userId] || []),
+      // Verified history that existed before the activity log.
+      ...user.attendedEvents.filter(a => a.status === 'attended').map(a => a.date),
+      ...user.readBooks.filter(b => b.status === 'completed').map(b => b.dateFinished),
+    ];
+    return computeDayStreak(days);
   };
 
   /**
@@ -452,6 +490,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     grantRewardOnce(`attendance:${eventId}:${uid}`, uid, 60, 40, `Подтверждение визита на «${ev.title}»`);
+    recordActivity(uid);
 
     try {
       confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
@@ -507,6 +546,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     grantRewardOnce(`feedback:${eventId}:${currentUser.id}`, currentUser.id, 30, 20, 'Обратная связь по мероприятию');
+    recordActivity(currentUser.id);
   };
 
   const createEvent = (newEventData: Partial<CommunityEvent>) => {
@@ -595,6 +635,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
+    recordActivity(currentUser.id);
     const bookKey = `${book.title.trim().toLowerCase()}|${book.author.trim().toLowerCase()}`;
     grantRewardOnce(
       `book:${bookKey}:${currentUser.id}`,
@@ -632,6 +673,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setForumTopics(prev => [newTopic, ...prev]);
+    recordActivity(currentUser.id);
     grantRewardOnce(`forum_topic:${newTopic.id}:${currentUser.id}`, currentUser.id, 30, 15, 'Создание темы на форуме', {
       group: 'forum_topic',
       dailyCap: 3,
@@ -660,6 +702,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
+    recordActivity(currentUser.id);
     grantRewardOnce(`forum_reply:${newReply.id}:${currentUser.id}`, currentUser.id, 20, 10, 'Ответ в обсуждении форума', {
       group: 'forum_reply',
       dailyCap: 10,
@@ -978,6 +1021,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       25,
       `Отзыв от участника ${currentUser.name}`
     );
+    recordActivity(currentUser.id);
     grantRewardOnce(
       `review_given:${targetUserId}:${aspect}:${currentUser.id}`,
       currentUser.id,
@@ -1043,6 +1087,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         adjustUserCoins,
         dispatchBroadcast,
         addPeerReview,
+        getActivityStreak,
       }}
     >
       {children}

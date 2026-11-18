@@ -23,6 +23,7 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
         'shanyraq_hub_app_state_v1_txs',
         'shanyraq_hub_app_state_v1_audits',
         'shanyraq_hub_app_state_v1_rewards',
+        'shanyraq_hub_app_state_v1_activity',
       ];
       keys.forEach(k => localStorage.removeItem(k));
       window.location.reload();

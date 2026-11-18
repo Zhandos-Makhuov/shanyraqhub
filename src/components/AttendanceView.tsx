@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { isStaffRole } from '../utils/permissions';
+import { pluralDaysRu } from '../utils/streak';
 import {
   UserCheck,
   QrCode,
@@ -14,7 +15,8 @@ import {
 } from 'lucide-react';
 
 export const AttendanceView: React.FC = () => {
-  const { allUsers, events, currentUser, checkInAttendance, setSelectedUserModal, t } = useApp();
+  const { allUsers, events, currentUser, checkInAttendance, setSelectedUserModal, getActivityStreak, t } = useApp();
+  const myStreak = getActivityStreak(currentUser.id);
 
   const [selectedEventId, setSelectedEventId] = useState<string>(events[0]?.id || '');
   // Staff confirm attendance of other members; nobody can check themselves in.
@@ -114,9 +116,9 @@ export const AttendanceView: React.FC = () => {
           <span className="text-xs text-[#8c8279] block mb-1">{t('participationStreak')}</span>
           <span className="text-2xl font-bold font-mono-numbers text-amber-500 flex items-center gap-1">
             <Flame className="w-5 h-5 fill-current" />
-            14
+            {myStreak}
           </span>
-          <span className="text-[11px] text-[#8c8279] block mt-1">дней активности</span>
+          <span className="text-[11px] text-[#8c8279] block mt-1">{pluralDaysRu(myStreak)} подряд</span>
         </div>
       </div>
 
