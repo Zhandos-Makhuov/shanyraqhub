@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { isStaffRole } from '../utils/permissions';
 import {
   UserCheck,
   QrCode,
@@ -16,7 +17,10 @@ export const AttendanceView: React.FC = () => {
   const { allUsers, events, currentUser, checkInAttendance, setSelectedUserModal, t } = useApp();
 
   const [selectedEventId, setSelectedEventId] = useState<string>(events[0]?.id || '');
-  const [selectedUserId, setSelectedUserId] = useState<string>(currentUser.id);
+  // Staff confirm attendance of other members; nobody can check themselves in.
+  const isStaff = isStaffRole(currentUser.role);
+  const checkInCandidates = allUsers.filter(u => u.id !== currentUser.id);
+  const [selectedUserId, setSelectedUserId] = useState<string>(checkInCandidates[0]?.id || '');
   const [qrScanning, setQrScanning] = useState(false);
   const [scanSuccessMsg, setScanSuccessMsg] = useState('');
 
@@ -56,8 +60,13 @@ export const AttendanceView: React.FC = () => {
         return;
       }
 
-      checkInAttendance(selectedEventId, selectedUserId);
+      const ok = checkInAttendance(selectedEventId, selectedUserId);
       setQrScanning(false);
+      if (!ok) {
+        setScanSuccessMsg('Отметка недоступна: подтверждать посещения может только персонал клуба.');
+        setTimeout(() => setScanSuccessMsg(''), 5000);
+        return;
+      }
       setScanSuccessMsg(`Визит для ${user?.name} успешно подтвержден! Начислено +60 XP и +40 коинов.`);
       setTimeout(() => setScanSuccessMsg(''), 5000);
     }, 800);
@@ -111,7 +120,8 @@ export const AttendanceView: React.FC = () => {
         </div>
       </div>
 
-      {/* QR Code Check-in Simulator Box */}
+      {/* QR Code Check-in Simulator Box (staff only) */}
+      {isStaff && (
       <div className="rounded-2xl bg-gradient-to-br from-[#27211e] via-[#201d1c] to-[#181514] border border-[#433c37] p-5 sm:p-6 shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1.5 max-w-lg">
@@ -154,7 +164,7 @@ export const AttendanceView: React.FC = () => {
                 onChange={e => setSelectedUserId(e.target.value)}
                 className="w-full sm:w-44 p-2 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] focus:outline-none"
               >
-                {allUsers.map(u => (
+                {checkInCandidates.map(u => (
                   <option key={u.id} value={u.id}>
                     {u.name}
                   </option>
@@ -182,6 +192,7 @@ export const AttendanceView: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Attendance History */}
       <div className="rounded-2xl bg-[#23201e] border border-[#352f2c] overflow-hidden">

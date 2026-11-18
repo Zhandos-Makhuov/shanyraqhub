@@ -20,7 +20,7 @@ import { INITIAL_USERS, INITIAL_EVENTS, INITIAL_FORUM_TOPICS, INITIAL_CHAT_ROOMS
 import { SHOP_ITEMS, TIERS } from '../data/gamification';
 import { sendLocalPushNotification, requestWebPushPermission } from '../utils/notifications';
 import { simulateEncrypt } from '../utils/crypto';
-import { canAssignRole, hasRole } from '../utils/permissions';
+import { canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
 import { hasEventStarted } from '../utils/eventTime';
 
 export type NavTab =
@@ -53,7 +53,7 @@ interface AppContextType {
   events: CommunityEvent[];
   registerForEvent: (eventId: string) => void;
   cancelEventRegistration: (eventId: string) => void;
-  checkInAttendance: (eventId: string, userId?: string) => void;
+  checkInAttendance: (eventId: string, userId: string) => boolean;
   submitEventFeedback: (eventId: string, satisfaction: number, usefulness: number, comment: string) => void;
   createEvent: (newEventData: Partial<CommunityEvent>) => void;
 
@@ -404,13 +404,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const checkInAttendance = (eventId: string, targetUserId?: string) => {
-    const uid = targetUserId || currentUser.id;
+  // Only staff (organizer+) can confirm attendance, and never their own.
+  const checkInAttendance = (eventId: string, targetUserId: string): boolean => {
+    if (!isStaffRole(currentUser.role) || targetUserId === currentUser.id) return false;
+    const uid = targetUserId;
     const ev = events.find(e => e.id === eventId);
-    if (!ev) return;
+    if (!ev) return false;
 
     if (ev.attendedUserIds.includes(uid)) {
-      return; // Already checked in
+      return false; // Already checked in
     }
 
     setEvents(prev =>
@@ -452,6 +454,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
     } catch {}
+    return true;
   };
 
   const submitEventFeedback = (
