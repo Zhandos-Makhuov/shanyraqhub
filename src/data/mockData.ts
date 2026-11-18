@@ -923,3 +923,46 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
     linkTab: 'achievements',
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Demo dates relative to "today".
+// The demo data was authored with DEMO_ANCHOR_DATE as "today" (3 past events,
+// one today, 2 upcoming). On first load every demo event — and every member's
+// history entry for it — is shifted by the same number of days, so the
+// calendar always has past history and upcoming events to register for.
+// Saved data (localStorage) keeps the dates from the first visit; the
+// "Сбросить демо-данные" button regenerates them.
+// ---------------------------------------------------------------------------
+const DEMO_ANCHOR_DATE = '2026-11-18';
+
+const parseDay = (day: string): Date => {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+const formatDay = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+const shiftDay = (day: string, offsetDays: number): string => {
+  const date = parseDay(day);
+  date.setDate(date.getDate() + offsetDays);
+  return formatDay(date);
+};
+
+const today = new Date();
+const demoOffsetDays = Math.round(
+  (new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() - parseDay(DEMO_ANCHOR_DATE).getTime()) /
+    (24 * 60 * 60 * 1000)
+);
+
+INITIAL_EVENTS.forEach(event => {
+  event.date = shiftDay(event.date, demoOffsetDays);
+});
+
+const demoEventDates = new Map(INITIAL_EVENTS.map(event => [event.id, event.date]));
+INITIAL_USERS.forEach(user => {
+  user.attendedEvents.forEach(record => {
+    const eventDate = demoEventDates.get(record.eventId);
+    if (eventDate) record.date = eventDate;
+  });
+});
