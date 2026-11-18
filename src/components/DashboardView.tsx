@@ -2,6 +2,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
 import { COMMUNITY_DIRECTIONS } from '../data/mockData';
+import { getEventStart, hasEventStarted } from '../utils/eventTime';
 import {
   Calendar,
   BookOpen,
@@ -43,7 +44,10 @@ export const DashboardView: React.FC = () => {
       )
     : 100;
 
-  const upcomingEvents = events.slice(0, 3);
+  const upcomingEvents = events
+    .filter(e => !hasEventStarted(e))
+    .sort((a, b) => getEventStart(a).getTime() - getEventStart(b).getTime())
+    .slice(0, 3);
   const totalVisitsCount = allUsers.reduce(
     (acc, u) => acc + u.attendedEvents.filter(e => e.status === 'attended').length,
     0

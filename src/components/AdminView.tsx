@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { UserRole } from '../types';
+import { UserProfile, UserRole } from '../types';
+import { canAssignRole } from '../utils/permissions';
+
+const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: 'member', label: 'Member' },
+  { value: 'organizer', label: 'Organizer' },
+  { value: 'moderator', label: 'Moderator' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'super_admin', label: 'Super Admin' },
+];
 import { COMMUNITY_DIRECTIONS } from '../data/mockData';
 import { formatTelegramMarkdown, formatWhatsAppMessage } from '../utils/notifications';
 import {
@@ -27,6 +36,10 @@ export const AdminView: React.FC = () => {
     auditLogs,
     t,
   } = useApp();
+
+  // A role select is editable only if at least one other role may be assigned.
+  const canManageRolesOf = (user: UserProfile) =>
+    ROLE_OPTIONS.some(opt => opt.value !== user.role && canAssignRole(currentUser.role, currentUser.id, user.id, user.role, opt.value));
 
   const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'broadcast' | 'audit'>('analytics');
 
@@ -66,7 +79,7 @@ export const AdminView: React.FC = () => {
 
   const handleCoinAdjust = (e: React.FormEvent) => {
     e.preventDefault();
-    adjustUserCoins(adjustTargetUserId, Number(adjustAmount), adjustReason.trim());
+    if (!adjustUserCoins(adjustTargetUserId, Number(adjustAmount), adjustReason.trim())) return;
     alert(`Баланс монет пользователя обновлен на ${adjustAmount > 0 ? '+' : ''}${adjustAmount} коинов.`);
   };
 
@@ -256,14 +269,19 @@ export const AdminView: React.FC = () => {
                     <span className="text-[11px] text-[#8c8279]">Назначить роль:</span>
                     <select
                       value={user.role}
+                      disabled={!canManageRolesOf(user)}
                       onChange={e => updateUserRole(user.id, e.target.value as UserRole)}
-                      className="px-2 py-1 rounded bg-[#191615] border border-[#3b3430] text-xs text-[#dfcfb3] focus:outline-none"
+                      className="px-2 py-1 rounded bg-[#191615] border border-[#3b3430] text-xs text-[#dfcfb3] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <option value="member">Member</option>
-                      <option value="organizer">Organizer</option>
-                      <option value="moderator">Moderator</option>
-                      <option value="admin">Admin</option>
-                      <option value="super_admin">Super Admin</option>
+                      {ROLE_OPTIONS.map(opt => (
+                        <option
+                          key={opt.value}
+                          value={opt.value}
+                          disabled={opt.value !== user.role && !canAssignRole(currentUser.role, currentUser.id, user.id, user.role, opt.value)}
+                        >
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -312,14 +330,19 @@ export const AdminView: React.FC = () => {
                       <td className="px-4 py-3 text-right">
                         <select
                           value={user.role}
+                          disabled={!canManageRolesOf(user)}
                           onChange={e => updateUserRole(user.id, e.target.value as UserRole)}
-                          className="p-1 rounded bg-[#191615] border border-[#3b3430] text-[11px] text-[#dfcfb3] focus:outline-none"
+                          className="p-1 rounded bg-[#191615] border border-[#3b3430] text-[11px] text-[#dfcfb3] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <option value="member">Member</option>
-                          <option value="organizer">Organizer</option>
-                          <option value="moderator">Moderator</option>
-                          <option value="admin">Admin</option>
-                          <option value="super_admin">Super Admin</option>
+                          {ROLE_OPTIONS.map(opt => (
+                            <option
+                              key={opt.value}
+                              value={opt.value}
+                              disabled={opt.value !== user.role && !canAssignRole(currentUser.role, currentUser.id, user.id, user.role, opt.value)}
+                            >
+                              {opt.label}
+                            </option>
+                          ))}
                         </select>
                       </td>
                     </tr>

@@ -24,7 +24,8 @@ export const Header: React.FC = () => {
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
 
-  const unreadNotifs = notifications.filter(n => !n.read && n.userId === currentUser.id);
+  const myNotifs = notifications.filter(n => n.userId === currentUser.id);
+  const unreadNotifs = myNotifs.filter(n => !n.read);
   const userTier = TIERS[currentUser.tier] || TIERS.bronze;
 
   const languages: { code: Language; label: string; flag: string }[] = [
@@ -40,7 +41,7 @@ export const Header: React.FC = () => {
           {/* Brand Zone - Fully visible uncropped logo */}
           <div
             onClick={() => setActiveTab('dashboard')}
-            className="flex items-center gap-2 sm:gap-3 cursor-pointer group shrink-0 min-w-0"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer group min-w-0"
           >
             <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-[#262220] ring-1 ring-[#dfcfb3]/40 p-1 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
               <img
@@ -49,7 +50,7 @@ export const Header: React.FC = () => {
                 className="w-full h-full object-contain rounded-full"
               />
             </div>
-            <div className="flex flex-col min-w-0">
+            <div className="flex flex-col min-w-0 max-[374px]:hidden">
               <span className="font-display text-sm sm:text-base md:text-lg font-bold tracking-wider text-[#f5f2eb] group-hover:text-[#dfcfb3] transition-colors truncate">
                 SHAŃYRAQ HUB
               </span>
@@ -64,7 +65,7 @@ export const Header: React.FC = () => {
             {/* Demo Status Badge */}
             <button
               onClick={() => setShowDemoModal(true)}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-950/40 hover:bg-amber-950/60 border border-amber-800/60 text-[10px] font-mono text-amber-300 transition-colors"
+              className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-950/40 hover:bg-amber-950/60 border border-amber-800/60 text-[10px] font-mono text-amber-300 transition-colors"
               title="Статус данных: Режим демонстрации (нажмите для подробностей)"
             >
               <Database className="w-3 h-3 text-amber-400 shrink-0" />
@@ -84,7 +85,7 @@ export const Header: React.FC = () => {
               >
                 <Globe className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
                 <span className="font-mono uppercase text-[11px] sm:text-xs">{language}</span>
-                <ChevronDown className="w-2.5 h-2.5 text-[#9e948c]" />
+                <ChevronDown className="hidden sm:block w-2.5 h-2.5 text-[#9e948c]" />
               </button>
 
               {showLangDropdown && (
@@ -175,12 +176,12 @@ export const Header: React.FC = () => {
                   </div>
 
                   <div className="max-h-64 overflow-y-auto divide-y divide-[#322c29] mt-2">
-                    {notifications.length === 0 ? (
+                    {myNotifs.length === 0 ? (
                       <div className="py-6 text-center text-xs text-[#9e948c]">
                         Нет новых уведомлений
                       </div>
                     ) : (
-                      notifications.slice(0, 8).map(notif => (
+                      myNotifs.slice(0, 8).map(notif => (
                         <div
                           key={notif.id}
                           onClick={() => {
@@ -232,7 +233,7 @@ export const Header: React.FC = () => {
                 <span className="text-xs font-medium text-[#f5f2eb] max-w-[80px] truncate hidden md:inline">
                   {currentUser.name}
                 </span>
-                <ChevronDown className="w-2.5 h-2.5 text-[#9e948c]" />
+                <ChevronDown className="hidden sm:block w-2.5 h-2.5 text-[#9e948c]" />
               </button>
 
               {showUserDropdown && (
@@ -283,7 +284,7 @@ export const Header: React.FC = () => {
                             <span className="truncate">{user.name}</span>
                           </div>
                           <span className="text-[10px] text-[#9e948c] font-mono">
-                            {user.role === 'super_admin' ? 'SuperAdmin' : user.role === 'moderator' ? 'Mod' : user.role === 'organizer' ? 'Org' : 'Member'}
+                            {user.role === 'super_admin' ? 'SuperAdmin' : user.role === 'admin' ? 'Admin' : user.role === 'moderator' ? 'Mod' : user.role === 'organizer' ? 'Org' : 'Member'}
                           </span>
                         </button>
                       ))}

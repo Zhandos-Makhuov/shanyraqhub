@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { COMMUNITY_DIRECTIONS } from '../data/mockData';
 import { exportEventToIcs } from '../utils/calendar';
+import { hasEventStarted } from '../utils/eventTime';
 import { CommunityEvent, DirectionId } from '../types';
 import {
   Clock,
@@ -237,6 +238,7 @@ export const EventsView: React.FC = () => {
             const isRegistered = event.registeredUserIds.includes(currentUser.id);
             const hasAttended = event.attendedUserIds.includes(currentUser.id);
             const seatsLeft = Math.max(0, event.maxCapacity - event.registeredUserIds.length);
+            const isStarted = hasEventStarted(event);
             const directionMeta = COMMUNITY_DIRECTIONS.find(d => d.id === event.direction);
 
             return (
@@ -340,17 +342,18 @@ export const EventsView: React.FC = () => {
                     {isRegistered ? (
                       <button
                         onClick={() => cancelEventRegistration(event.id)}
-                        className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] text-xs font-medium text-[#dfcfb3] border border-[#483f3a] transition-colors"
+                        disabled={isStarted}
+                        className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] disabled:hover:bg-[#2e2927] disabled:cursor-default text-xs font-medium text-[#dfcfb3] border border-[#483f3a] transition-colors"
                       >
-                        {t('actionRegistered')} (отмена)
+                        {isStarted ? t('actionRegistered') : `${t('actionRegistered')} (отмена)`}
                       </button>
                     ) : (
                       <button
                         onClick={() => registerForEvent(event.id)}
-                        disabled={seatsLeft === 0}
-                        className="px-3 sm:px-4 py-1.5 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] disabled:opacity-50 text-xs font-semibold text-[#1e1b1a] transition-all"
+                        disabled={seatsLeft === 0 || isStarted}
+                        className="px-3 sm:px-4 py-1.5 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold text-[#1e1b1a] transition-all"
                       >
-                        {seatsLeft > 0 ? t('actionRegister') : t('eventFull')}
+                        {isStarted ? t('registrationClosed') : seatsLeft > 0 ? t('actionRegister') : t('eventFull')}
                       </button>
                     )}
                   </div>
@@ -481,11 +484,20 @@ export const EventsView: React.FC = () => {
                   }
                   setActiveModalEvent(null);
                 }}
-                className="px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-xs font-semibold text-[#1e1b1a]"
+                disabled={
+                  hasEventStarted(activeModalEvent) ||
+                  (!activeModalEvent.registeredUserIds.includes(currentUser.id) &&
+                    activeModalEvent.registeredUserIds.length >= activeModalEvent.maxCapacity)
+                }
+                className="px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold text-[#1e1b1a]"
               >
-                {activeModalEvent.registeredUserIds.includes(currentUser.id)
-                  ? t('actionCancelRegistration')
-                  : t('actionRegister')}
+                {hasEventStarted(activeModalEvent)
+                  ? t('registrationClosed')
+                  : activeModalEvent.registeredUserIds.includes(currentUser.id)
+                    ? t('actionCancelRegistration')
+                    : activeModalEvent.registeredUserIds.length >= activeModalEvent.maxCapacity
+                      ? t('eventFull')
+                      : t('actionRegister')}
               </button>
             </div>
           </div>

@@ -65,12 +65,12 @@ export const MobileNavigation: React.FC = () => {
           {/* 1. Dashboard */}
           <button
             onClick={() => handleSelectTab('dashboard')}
-            className={`flex flex-col items-center justify-center min-w-[54px] min-h-[44px] py-1 transition-colors ${
+            className={`flex flex-1 min-w-0 flex-col items-center justify-center min-h-[44px] py-1 px-0.5 transition-colors ${
               activeTab === 'dashboard' ? 'text-[#dfcfb3]' : 'text-[#8c8279]'
             }`}
           >
             <Compass className="w-4 h-4" />
-            <span className="text-[10px] mt-0.5 font-medium truncate">
+            <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
               {t('tabDashboard')}
             </span>
           </button>
@@ -78,12 +78,12 @@ export const MobileNavigation: React.FC = () => {
           {/* 2. Events */}
           <button
             onClick={() => handleSelectTab('events')}
-            className={`flex flex-col items-center justify-center min-w-[54px] min-h-[44px] py-1 transition-colors ${
+            className={`flex flex-1 min-w-0 flex-col items-center justify-center min-h-[44px] py-1 px-0.5 transition-colors ${
               activeTab === 'events' ? 'text-[#dfcfb3]' : 'text-[#8c8279]'
             }`}
           >
             <Calendar className="w-4 h-4" />
-            <span className="text-[10px] mt-0.5 font-medium truncate">
+            <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
               {t('tabEvents')}
             </span>
           </button>
@@ -91,12 +91,12 @@ export const MobileNavigation: React.FC = () => {
           {/* 3. Library */}
           <button
             onClick={() => handleSelectTab('library')}
-            className={`flex flex-col items-center justify-center min-w-[54px] min-h-[44px] py-1 transition-colors ${
+            className={`flex flex-1 min-w-0 flex-col items-center justify-center min-h-[44px] py-1 px-0.5 transition-colors ${
               activeTab === 'library' ? 'text-[#dfcfb3]' : 'text-[#8c8279]'
             }`}
           >
             <BookOpen className="w-4 h-4" />
-            <span className="text-[10px] mt-0.5 font-medium truncate">
+            <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
               {t('tabLibrary')}
             </span>
           </button>
@@ -104,12 +104,12 @@ export const MobileNavigation: React.FC = () => {
           {/* 4. Leaderboard */}
           <button
             onClick={() => handleSelectTab('leaderboard')}
-            className={`flex flex-col items-center justify-center min-w-[54px] min-h-[44px] py-1 transition-colors ${
+            className={`flex flex-1 min-w-0 flex-col items-center justify-center min-h-[44px] py-1 px-0.5 transition-colors ${
               activeTab === 'leaderboard' ? 'text-[#dfcfb3]' : 'text-[#8c8279]'
             }`}
           >
             <Trophy className="w-4 h-4" />
-            <span className="text-[10px] mt-0.5 font-medium truncate">
+            <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
               {t('tabLeaderboard')}
             </span>
           </button>
@@ -117,12 +117,12 @@ export const MobileNavigation: React.FC = () => {
           {/* 5. Menu trigger */}
           <button
             onClick={() => setIsMenuOpen(true)}
-            className={`flex flex-col items-center justify-center min-w-[54px] min-h-[44px] py-1 transition-colors ${
+            className={`flex flex-1 min-w-0 flex-col items-center justify-center min-h-[44px] py-1 px-0.5 transition-colors ${
               isMenuOpen ? 'text-[#dfcfb3]' : 'text-[#8c8279]'
             }`}
           >
             <Menu className="w-4 h-4" />
-            <span className="text-[10px] mt-0.5 font-medium truncate">
+            <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
               {language === 'kz' ? 'Мәзір' : language === 'en' ? 'Menu' : 'Меню'}
             </span>
           </button>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Language,
@@ -20,6 +20,8 @@ import { INITIAL_USERS, INITIAL_EVENTS, INITIAL_FORUM_TOPICS, INITIAL_CHAT_ROOMS
 import { SHOP_ITEMS, TIERS } from '../data/gamification';
 import { sendLocalPushNotification, requestWebPushPermission } from '../utils/notifications';
 import { simulateEncrypt } from '../utils/crypto';
+import { canAssignRole, hasRole } from '../utils/permissions';
+import { hasEventStarted } from '../utils/eventTime';
 
 export type NavTab =
   | 'dashboard'
@@ -78,7 +80,7 @@ interface AppContextType {
   togglePushNotifications: () => Promise<boolean>;
 
   updateUserRole: (targetUserId: string, newRole: UserRole) => void;
-  adjustUserCoins: (targetUserId: string, amount: number, reason: string) => void;
+  adjustUserCoins: (targetUserId: string, amount: number, reason: string) => boolean;
   dispatchBroadcast: (title: string, content: string, channels: ('push' | 'telegram' | 'whatsapp')[], directionTarget?: string) => void;
 
   addPeerReview: (targetUserId: string, rating: number, comment: string, aspect: PeerReview['aspect']) => void;
@@ -160,6 +162,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_txs`, JSON.stringify(coinTransactions));
   }, [coinTransactions]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY}_audits`, JSON.stringify(auditLogs));
+  }, [auditLogs]);
+
+  // Reward idempotency log: key -> timestamp (ms). A key is paid out at most once.
+  // A ref (not only state) so two calls in the same click cannot both pass the check.
+  const rewardLogRef = useRef<Record<string, number>>(
+    (() => {
+      try {
+        return JSON.parse(localStorage.getItem(`${STORAGE_KEY}_rewards`) || '{}');
+      } catch {
+        return {};
+      }
+    })()
+  );
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
@@ -247,6 +265,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  /**
+   * Single entry point for activity rewards.
+   * - `key` makes the reward idempotent: the same key never pays twice
+   *   (double clicks, un-vote/re-vote, delete/re-post).
+   * - `dailyCap` limits how many rewards with the same `capGroup` a user can get per 24h.
+   * Returns true if the reward was granted.
+   * Mirrors private.grant_reward() in the proposed Supabase schema.
+   */
+  const grantRewardOnce = (
+    key: string,
+    userId: string,
+    xpDelta: number,
+    coinsDelta: number,
+    reasonRu: string,
+    cap?: { group: string; dailyCap: number }
+  ): boolean => {
+    const log = rewardLogRef.current;
+    if (log[key]) return false;
+
+    if (cap) {
+      const since = Date.now() - 24 * 60 * 60 * 1000;
+      const usedToday = Object.entries(log).filter(
+        ([k, ts]) => k.startsWith(`${cap.group}:`) && k.endsWith(`:${userId}`) && ts > since
+      ).length;
+      if (usedToday >= cap.dailyCap) {
+        return false;
+      }
+    }
+
+    log[key] = Date.now();
+    localStorage.setItem(`${STORAGE_KEY}_rewards`, JSON.stringify(log));
+    addXpAndCoins(userId, xpDelta, coinsDelta, reasonRu);
+    return true;
+  };
+
   const updateProfile = (updated: Partial<UserProfile>) => {
     setAllUsers(prev =>
       prev.map(u => (u.id === currentUser.id ? { ...u, ...updated } : u))
@@ -255,6 +308,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Event Registrations
   const registerForEvent = (eventId: string) => {
+    const target = events.find(e => e.id === eventId);
+    if (!target) return;
+    if (target.registeredUserIds.includes(currentUser.id)) return; // no duplicate registration
+    if (hasEventStarted(target)) return; // registration closes when the event starts
+    if (target.registeredUserIds.length >= target.maxCapacity) {
+      alert('Все места на это мероприятие уже заняты.');
+      return;
+    }
+
     setEvents(prev =>
       prev.map(ev => {
         if (ev.id !== eventId) return ev;
@@ -316,6 +378,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const cancelEventRegistration = (eventId: string) => {
+    const target = events.find(e => e.id === eventId);
+    if (!target || hasEventStarted(target) || target.attendedUserIds.includes(currentUser.id)) return;
+
     setEvents(prev =>
       prev.map(ev => {
         if (ev.id !== eventId) return ev;
@@ -382,7 +447,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    addXpAndCoins(uid, 60, 40, `Подтверждение визита на «${ev.title}»`);
+    grantRewardOnce(`attendance:${eventId}:${uid}`, uid, 60, 40, `Подтверждение визита на «${ev.title}»`);
 
     try {
       confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
@@ -407,7 +472,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toLocaleDateString('ru-RU'),
     };
 
-    const alreadyGiven = currentUser.attendedEvents.some(a => a.eventId === eventId && a.feedbackGiven);
+    const targetEvent = events.find(e => e.id === eventId);
+    if (!targetEvent || !targetEvent.attendedUserIds.includes(currentUser.id)) return; // only attendees
+    const alreadyGiven =
+      targetEvent.feedbacks.some(f => f.userId === currentUser.id) ||
+      currentUser.attendedEvents.some(a => a.eventId === eventId && a.feedbackGiven);
     if (alreadyGiven) return;
 
     setEvents(prev =>
@@ -432,7 +501,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    addXpAndCoins(currentUser.id, 30, 20, 'Обратная связь по мероприятию');
+    grantRewardOnce(`feedback:${eventId}:${currentUser.id}`, currentUser.id, 30, 20, 'Обратная связь по мероприятию');
   };
 
   const createEvent = (newEventData: Partial<CommunityEvent>) => {
@@ -521,7 +590,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    addXpAndCoins(currentUser.id, 50, 30, `Добавление книги «${book.title}» в библиотеку`);
+    const bookKey = `${book.title.trim().toLowerCase()}|${book.author.trim().toLowerCase()}`;
+    grantRewardOnce(
+      `book:${bookKey}:${currentUser.id}`,
+      currentUser.id,
+      50,
+      30,
+      `Добавление книги «${book.title}» в библиотеку`,
+      { group: 'book', dailyCap: 3 }
+    );
 
     try {
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
@@ -550,7 +627,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setForumTopics(prev => [newTopic, ...prev]);
-    addXpAndCoins(currentUser.id, 30, 15, 'Создание темы на форуме');
+    grantRewardOnce(`forum_topic:${newTopic.id}:${currentUser.id}`, currentUser.id, 30, 15, 'Создание темы на форуме', {
+      group: 'forum_topic',
+      dailyCap: 3,
+    });
   };
 
   const replyToForumTopic = (topicId: string, content: string) => {
@@ -575,10 +655,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    addXpAndCoins(currentUser.id, 20, 10, 'Ответ в обсуждении форума');
+    grantRewardOnce(`forum_reply:${newReply.id}:${currentUser.id}`, currentUser.id, 20, 10, 'Ответ в обсуждении форума', {
+      group: 'forum_reply',
+      dailyCap: 10,
+    });
   };
 
   const upvoteReply = (topicId: string, replyId: string) => {
+    const reply = forumTopics.find(t => t.id === topicId)?.replies.find(r => r.id === replyId);
+    if (!reply || reply.authorId === currentUser.id) return; // no self-votes
+    const isAdding = !reply.upvotes.includes(currentUser.id);
+
     setForumTopics(prev =>
       prev.map(t => {
         if (t.id !== topicId) return t;
@@ -586,21 +673,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...t,
           replies: t.replies.map(r => {
             if (r.id !== replyId) return r;
-            const already = r.upvotes.includes(currentUser.id);
-            const upvotes = already
-              ? r.upvotes.filter(id => id !== currentUser.id)
-              : [...r.upvotes, currentUser.id];
-            if (!already) {
-              addXpAndCoins(r.authorId, 15, 10, 'Полезный ответ на форуме');
-            }
+            const upvotes = isAdding
+              ? [...r.upvotes.filter(id => id !== currentUser.id), currentUser.id]
+              : r.upvotes.filter(id => id !== currentUser.id);
             return { ...r, upvotes };
           }),
         };
       })
     );
+
+    // Keyed on (reply, voter): un-vote + re-vote never pays the author twice.
+    if (isAdding) {
+      grantRewardOnce(
+        `reply_upvote:${replyId}:${currentUser.id}:${reply.authorId}`,
+        reply.authorId,
+        15,
+        10,
+        'Полезный ответ на форуме'
+      );
+    }
   };
 
   const upvoteTopic = (topicId: string) => {
+    const topic = forumTopics.find(t => t.id === topicId);
+    if (!topic || topic.authorId === currentUser.id) return; // no self-votes
     setForumTopics(prev =>
       prev.map(t => {
         if (t.id !== topicId) return t;
@@ -653,7 +749,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
 
-    addXpAndCoins(currentUser.id, 25, -item.priceCoins, `Покупка предмета «${item.nameRu}»`);
+    if (!grantRewardOnce(`purchase:${itemId}:${currentUser.id}`, currentUser.id, 25, -item.priceCoins, `Покупка предмета «${item.nameRu}»`)) {
+      return false;
+    }
 
     setAllUsers(prev =>
       prev.map(u => {
@@ -706,7 +804,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const markAllNotificationsAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications(prev => prev.map(n => (n.userId === currentUser.id ? { ...n, read: true } : n)));
   };
 
   const togglePushNotifications = async (): Promise<boolean> => {
@@ -724,6 +822,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateUserRole = (targetUserId: string, newRole: UserRole) => {
+    const target = allUsers.find(u => u.id === targetUserId);
+    if (!target || target.role === newRole) return;
+    if (!canAssignRole(currentUser.role, currentUser.id, targetUserId, target.role, newRole)) {
+      alert('Недостаточно прав для назначения этой роли.');
+      return;
+    }
+    if (target.role === 'super_admin' && allUsers.filter(u => u.role === 'super_admin').length <= 1) {
+      alert('Нельзя понизить последнего Super Admin.');
+      return;
+    }
     setAllUsers(prev =>
       prev.map(u => (u.id === targetUserId ? { ...u, role: newRole } : u))
     );
@@ -733,7 +841,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         adminId: currentUser.id,
         adminName: currentUser.name,
         action: 'ROLE_UPDATE',
-        target: `${targetUserId} -> ${newRole}`,
+        target: `${target.name}: ${target.role} -> ${newRole}`,
         timestamp: new Date().toLocaleDateString('ru-RU') + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         details: `Смена роли пользователю администратором ${currentUser.name}`,
       },
@@ -741,7 +849,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ]);
   };
 
-  const adjustUserCoins = (targetUserId: string, amount: number, reason: string) => {
+  const adjustUserCoins = (targetUserId: string, amount: number, reason: string): boolean => {
+    const target = allUsers.find(u => u.id === targetUserId);
+    if (!target || !hasRole(currentUser.role, 'admin')) {
+      alert('Корректировать баланс могут только администраторы.');
+      return false;
+    }
+    if (targetUserId === currentUser.id) {
+      alert('Нельзя изменять собственный баланс.');
+      return false;
+    }
+    if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 10000 || !reason.trim()) {
+      alert('Укажите сумму (от -10000 до 10000, не 0) и причину.');
+      return false;
+    }
+    if (target.coins + amount < 0) {
+      alert(`Недостаточно коинов: на балансе ${target.coins}.`);
+      return false;
+    }
     addXpAndCoins(targetUserId, 0, amount, reason);
     setAuditLogs(prev => [
       {
@@ -749,12 +874,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         adminId: currentUser.id,
         adminName: currentUser.name,
         action: 'COIN_ADJUST',
-        target: `${targetUserId} (${amount > 0 ? '+' : ''}${amount} coins)`,
+        target: `${target.name} (${amount > 0 ? '+' : ''}${amount} coins)`,
         timestamp: new Date().toLocaleDateString('ru-RU') + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         details: reason,
       },
       ...prev,
     ]);
+    return true;
   };
 
   const dispatchBroadcast = (
@@ -809,6 +935,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     comment: string,
     aspect: PeerReview['aspect']
   ) => {
+    if (targetUserId === currentUser.id) return; // no self-reviews
+    const target = allUsers.find(u => u.id === targetUserId);
+    if (!target) return;
+    // One review per author, target and aspect.
+    if (target.peerReviews.some(r => r.authorId === currentUser.id && r.aspect === aspect)) {
+      alert('Вы уже оставляли отзыв этому участнику по этому критерию.');
+      return;
+    }
+
     const review: PeerReview = {
       id: `review-${Date.now()}`,
       targetUserId,
@@ -833,8 +968,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    addXpAndCoins(targetUserId, 40, 25, `Отзыв от участника ${currentUser.name}`);
-    addXpAndCoins(currentUser.id, 20, 10, 'Оставлен отзыв об участнике');
+    grantRewardOnce(
+      `review_recv:${currentUser.id}:${aspect}:${targetUserId}`,
+      targetUserId,
+      40,
+      25,
+      `Отзыв от участника ${currentUser.name}`
+    );
+    grantRewardOnce(
+      `review_given:${targetUserId}:${aspect}:${currentUser.id}`,
+      currentUser.id,
+      20,
+      10,
+      'Оставлен отзыв об участнике',
+      { group: 'review_given', dailyCap: 3 }
+    );
 
     setNotifications(prev => [
       {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp, NavTab } from '../context/AppContext';
 import {
   Calendar,
@@ -31,17 +31,46 @@ export const NavigationTabs: React.FC = () => {
     ...(isStaff ? [{ id: 'admin' as NavTab, label: t('tabAdmin'), icon: ShieldCheck }] : []),
   ];
 
+  // Show edge fades when more tabs are hidden, and keep the active tab in view.
+  const scrollRef = useRef<HTMLElement>(null);
+  const [fade, setFade] = useState({ left: false, right: false });
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const update = () =>
+      setFade({
+        left: el.scrollLeft > 4,
+        right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+      });
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      el.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [tabs.length]);
+
+  useEffect(() => {
+    scrollRef.current
+      ?.querySelector<HTMLElement>(`[data-tab="${activeTab}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }, [activeTab]);
+
   return (
-    <nav className="hidden md:block bg-[#191615] border-b border-[#302a28] px-4 lg:px-8 overflow-x-auto scrollbar-none">
-      <div className="max-w-7xl mx-auto flex items-center gap-1 sm:gap-2 py-2">
+    <div className="relative hidden md:block bg-[#191615] border-b border-[#302a28]">
+    <nav ref={scrollRef} className="px-4 lg:px-8 overflow-x-auto scrollbar-none">
+      <div className="max-w-7xl mx-auto flex items-center gap-1 xl:gap-1.5 py-2">
         {tabs.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              data-tab={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all ${
+              className={`flex items-center gap-2 px-2.5 xl:px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all ${
                 isActive
                   ? 'bg-[#dfcfb3] text-[#1e1b1a] shadow-sm font-semibold'
                   : 'text-[#a39b94] hover:text-[#f5f2eb] hover:bg-[#25211f]'
@@ -57,5 +86,12 @@ export const NavigationTabs: React.FC = () => {
         })}
       </div>
     </nav>
+      {fade.left && (
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-[#191615] to-transparent" />
+      )}
+      {fade.right && (
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-[#191615] to-transparent" />
+      )}
+    </div>
   );
 };
