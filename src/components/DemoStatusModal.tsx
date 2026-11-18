@@ -97,14 +97,14 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
 
             <div className="p-2.5 rounded-lg bg-[#1c1918] border border-[#302a28] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <ShieldCheck className="w-4 h-4 text-[#8c8279]" />
                 <div>
-                  <span className="font-medium text-[#f5f2eb] block">Web Crypto API (E2EE)</span>
-                  <span className="text-[10px] text-[#8c8279]">Хеширование ключей и шифрование чатов</span>
+                  <span className="font-medium text-[#f5f2eb] block">Закрытые чаты и доступ по ролям</span>
+                  <span className="text-[10px] text-[#8c8279]">Серверная проверка прав (Supabase RLS). Сообщения не шифруются сквозным шифрованием</span>
                 </div>
               </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950/80 text-emerald-300 border border-emerald-800">
-                Активно
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-950/80 text-amber-300 border border-amber-800 shrink-0">
+                После подключения
               </span>
             </div>
 

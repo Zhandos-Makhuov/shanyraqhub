@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { canAccessRoom } from '../utils/permissions';
 import {
   MessageSquare,
   Lock,
@@ -7,8 +8,6 @@ import {
   ThumbsUp,
   Send,
   Plus,
-  Eye,
-  EyeOff,
   User,
   Key,
   X,
@@ -34,8 +33,9 @@ export const ForumAndChatsView: React.FC = () => {
 
   const [activeSection, setActiveSection] = useState<'forum' | 'encrypted_rooms'>('forum');
   const [selectedTopicId, setSelectedTopicId] = useState<string>(forumTopics[0]?.id || '');
-  const [selectedRoomId, setSelectedRoomId] = useState<string>(chatRooms[0]?.id || '');
-  const [showRawCipher, setShowRawCipher] = useState(false);
+  // Only rooms the current role may enter are listed (moderator rooms are hidden from members).
+  const visibleRooms = chatRooms.filter(r => canAccessRoom(r, currentUser.role));
+  const [selectedRoomId, setSelectedRoomId] = useState<string>(visibleRooms[0]?.id || '');
   const [mobileForumView, setMobileForumView] = useState<'list' | 'thread'>('list');
   const [mobileChatView, setMobileChatView] = useState<'list' | 'chat'>('list');
 
@@ -50,7 +50,7 @@ export const ForumAndChatsView: React.FC = () => {
   const [newTopicContent, setNewTopicContent] = useState('');
 
   const activeTopic = forumTopics.find(t => t.id === selectedTopicId) || forumTopics[0];
-  const activeRoom = chatRooms.find(r => r.id === selectedRoomId) || chatRooms[0];
+  const activeRoom = visibleRooms.find(r => r.id === selectedRoomId) || visibleRooms[0];
 
   const handleReplySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -309,7 +309,7 @@ export const ForumAndChatsView: React.FC = () => {
         </div>
       )}
 
-      {/* SECTION 2: CLOSED ENCRYPTED ROOMS */}
+      {/* SECTION 2: CLOSED MEMBERS-ONLY ROOMS */}
       {activeSection === 'encrypted_rooms' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Room Selector (4 cols) */}
@@ -319,7 +319,7 @@ export const ForumAndChatsView: React.FC = () => {
             </span>
 
             <div className="space-y-2">
-              {chatRooms.map(room => {
+              {visibleRooms.map(room => {
                 const isSelected = activeRoom?.id === room.id;
                 return (
                   <div
@@ -357,7 +357,7 @@ export const ForumAndChatsView: React.FC = () => {
             </div>
           </div>
 
-          {/* Encrypted Room Interface (8 cols) */}
+          {/* Closed Room Interface (8 cols) */}
           <div className={`lg:col-span-8 rounded-2xl bg-[#23201e] border border-[#352f2c] flex-col justify-between overflow-hidden min-h-[550px] ${mobileChatView === 'list' ? 'hidden lg:flex' : 'flex'}`}>
             {/* Room Security Header */}
             <div className="p-4 bg-[#1a1716] border-b border-[#302a28] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -378,23 +378,15 @@ export const ForumAndChatsView: React.FC = () => {
                     {activeRoom.titleRu}
                   </h3>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800">
-                    E2EE Active
+                    Закрытый чат
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#8c8279] mt-0.5">
                   <Key className="w-3 h-3 text-[#dfcfb3]" />
-                  <span>Fingerprint: {activeRoom.encryptionFingerprint}</span>
+                  <span>Доступ: {activeRoom.accessLevel === 'moderators' ? 'Совет модераторов' : 'Резиденты клуба'}</span>
                 </div>
               </div>
 
-              {/* Cipher inspection toggle */}
-              <button
-                onClick={() => setShowRawCipher(!showRawCipher)}
-                className="px-2.5 py-1 rounded-lg bg-[#272321] hover:bg-[#322c29] text-[11px] font-mono text-[#dfcfb3] border border-[#3f3834] flex items-center gap-1.5 self-start sm:self-auto"
-              >
-                {showRawCipher ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                <span>{showRawCipher ? 'Показать текст' : 'Смотреть шифр'}</span>
-              </button>
             </div>
 
             {/* Message Stream */}
@@ -428,24 +420,18 @@ export const ForumAndChatsView: React.FC = () => {
                         </span>
                       </div>
 
-                      {showRawCipher ? (
-                        <div className="font-mono text-[10px] p-1.5 rounded bg-black/40 text-amber-300 break-all">
-                          AES-256-GCM [{msg.encryptedHash || 'c8f4a10e'}]
-                        </div>
-                      ) : (
-                        <p className="leading-relaxed">{msg.text}</p>
-                      )}
+                      <p className="leading-relaxed">{msg.text}</p>
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* Encrypted Input Box */}
+            {/* Message Input Box */}
             <form onSubmit={handleSendChat} className="p-4 bg-[#1a1716] border-t border-[#302a28] flex gap-2">
               <input
                 type="text"
-                placeholder="Зашифрованное E2E сообщение в защищенную комнату..."
+                placeholder="Сообщение для участников комнаты..."
                 value={chatMessageText}
                 onChange={e => setChatMessageText(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"

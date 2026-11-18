@@ -57,7 +57,7 @@ const MainContent: React.FC = () => {
           <div className="flex flex-wrap items-center justify-center gap-3 text-[11px]">
             <span>Алматы · Астана</span>
             <span>·</span>
-            <span>E2EE Security</span>
+            <span>Закрытые комнаты</span>
             <span>·</span>
             <span className="font-mono text-amber-400/80">Demo Environment</span>
             <span>·</span>

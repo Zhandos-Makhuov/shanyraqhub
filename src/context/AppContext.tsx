@@ -19,8 +19,7 @@ import { TRANSLATIONS } from '../data/translations';
 import { NEW_MEMBER_ID, NEW_MEMBER_PROFILE, INITIAL_USERS, INITIAL_EVENTS, INITIAL_FORUM_TOPICS, INITIAL_CHAT_ROOMS, INITIAL_COIN_TRANSACTIONS, INITIAL_AUDIT_LOGS, INITIAL_NOTIFICATIONS } from '../data/mockData';
 import { SHOP_ITEMS, TIERS } from '../data/gamification';
 import { sendLocalPushNotification, requestWebPushPermission } from '../utils/notifications';
-import { simulateEncrypt } from '../utils/crypto';
-import { canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
+import { canAccessRoom, canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
 import { hasEventStarted } from '../utils/eventTime';
 import { isDemoMode } from '../utils/demoMode';
 
@@ -715,11 +714,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  // Encrypted Chat
+  // Closed (members-only) chat rooms
   const sendChatMessage = (roomId: string, text: string) => {
     const room = chatRooms.find(r => r.id === roomId);
-    const key = room?.encryptionFingerprint || 'SHANYRAQ-KEY';
-    const { cipherText } = simulateEncrypt(text, key);
+    if (!room || !canAccessRoom(room, currentUser.role)) return;
 
     const newMsg = {
       id: `msg-${Date.now()}`,
@@ -728,7 +726,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       senderAvatar: currentUser.avatar,
       senderRole: currentUser.role,
       text,
-      encryptedHash: cipherText.slice(0, 24),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 

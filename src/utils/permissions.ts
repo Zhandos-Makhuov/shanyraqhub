@@ -1,4 +1,4 @@
-import { UserRole } from '../types';
+import { EncryptedChatRoom, UserRole } from '../types';
 
 /** Role hierarchy. Mirrors private.role_rank() in the proposed Supabase schema. */
 export const ROLE_RANK: Record<UserRole, number> = {
@@ -31,3 +31,7 @@ export const canAssignRole = (
   if (actorRole === 'super_admin') return true;
   return ROLE_RANK[targetRole] < ROLE_RANK[actorRole] && ROLE_RANK[newRole] < ROLE_RANK[actorRole];
 };
+
+/** Closed rooms: 'moderators' rooms are for moderator+; other rooms for every member. */
+export const canAccessRoom = (room: Pick<EncryptedChatRoom, 'accessLevel'>, role: UserRole): boolean =>
+  room.accessLevel === 'moderators' ? hasRole(role, 'moderator') : true;

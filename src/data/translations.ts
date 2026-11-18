@@ -111,12 +111,12 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     // Forum View
     forumTitle: 'Форум сообщества и закрытые каналы',
     forumSubtitle: 'Живое обсуждение, обмен опытом и защищенные тематические комнаты',
-    encryptedRooms: 'Закрытые E2E-комнаты',
+    encryptedRooms: 'Закрытые комнаты',
     generalDiscussions: 'Открытые темы форума',
     createTopic: 'Создать тему',
     replyToTopic: 'Ответить',
     helpfulAnswer: 'Полезный ответ (+15 XP)',
-    encryptionVerified: 'Шифрование подтверждено',
+    encryptionVerified: 'Доступ только для участников',
 
     // Profile View
     myProfile: 'Личный кабинет',
@@ -245,12 +245,12 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     // Forum View
     forumTitle: 'Қауымдастық форумы және жабық чаттар',
     forumSubtitle: 'Пікір алмасу, тәжірибе бөлісу және қорғалған тақырыптық бөлмелер',
-    encryptedRooms: 'Жабық E2E бөлмелер',
+    encryptedRooms: 'Жабық бөлмелер',
     generalDiscussions: 'Ашық талқылаулар',
     createTopic: 'Тақырып ашу',
     replyToTopic: 'Жауап беру',
     helpfulAnswer: 'Пайдалы жауап (+15 XP)',
-    encryptionVerified: 'Шифрлау расталды',
+    encryptionVerified: 'Тек қатысушыларға қолжетімді',
 
     // Profile View
     myProfile: 'Жеке кабинет',
@@ -378,13 +378,13 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
 
     // Forum View
     forumTitle: 'Discussion Forum & Closed Rooms',
-    forumSubtitle: 'Thoughtful dialogues, book club ideas, and encrypted private rooms',
-    encryptedRooms: 'Closed Encrypted Rooms',
+    forumSubtitle: 'Thoughtful dialogues, book club ideas, and members-only rooms',
+    encryptedRooms: 'Members-only Rooms',
     generalDiscussions: 'Public Discussions',
     createTopic: 'New Discussion',
     replyToTopic: 'Reply',
     helpfulAnswer: 'Helpful answer (+15 XP)',
-    encryptionVerified: 'End-to-End Cryptography Active',
+    encryptionVerified: 'Members-only access',
 
     // Profile View
     myProfile: 'Personal Profile',
