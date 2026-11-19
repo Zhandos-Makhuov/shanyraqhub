@@ -207,8 +207,8 @@ select t.ok(public.award_achievement('00000000-0000-0000-0000-000000000002', 'ac
 select t.ok(not public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'again'), 'awarding twice is a no-op');
 reset role;
 select t.ok((select count(*) from public.reward_ledger where idempotency_key like 'achievement:ach-knowledge-seeker:%') = 1, 'manual achievement rewarded once');
-select t.ok((select count(*) from public.achievements) = 31 and (select count(*) from public.achievements where rule ->> 'metric' = 'manual') = 4,
-            'seed: 31 achievements, 4 manual');
+select t.ok((select count(*) from public.achievements) = 34 and (select count(*) from public.achievements where rule ->> 'metric' = 'manual') = 4,
+            'seed: 34 achievements, 4 manual');
 
 -- Tier bonus on attendance coins: gold = +15% -> 40 * 1.15 = 46
 select private.grant_reward('00000000-0000-0000-0000-000000000001', 1000, 0, 'admin_adjustment', null, 'test: reach gold', 'test:gold');

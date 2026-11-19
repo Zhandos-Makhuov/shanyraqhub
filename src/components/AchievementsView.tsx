@@ -4,6 +4,9 @@ import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 import {
   Activity,
   Award,
+  BookHeart,
+  Handshake,
+  Puzzle,
   BookMarked,
   BookOpen,
   Brain,
@@ -42,6 +45,9 @@ import {
 /** Icon names used in data/achievements.ts. Unknown names fall back to Award. */
 export const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Activity,
+  BookHeart,
+  Handshake,
+  Puzzle,
   BookMarked,
   BookOpen,
   Brain,
