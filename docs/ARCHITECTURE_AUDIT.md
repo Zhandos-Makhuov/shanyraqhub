@@ -26,10 +26,10 @@ No production database was created, changed or reset. No application code in `sr
 
 `bun run lint` (`tsc --noEmit`) and `bun run build` both **passed** when I ran them. The production bundle is a single JS chunk of 490 KB (133 KB gzipped). Vite warns that `__dirname` in `vite.config.ts` will not work with its future native config loader.
 
-### Unused or misleading leftovers from the AI Studio template
-- The dependencies `@google/genai`, `express` and `dotenv` are never imported in `src/`.
-- `metadata.json` declares `MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API`, but there is no server and no Gemini usage.
-- `.env.example` used to list only `GEMINI_API_KEY` and `APP_URL`. It now also lists the Supabase, VAPID and Telegram variables, with the old lines kept.
+### Leftovers from the AI Studio template (removed)
+- The unused dependencies `@google/genai`, `express`, `dotenv` and `@types/express` were removed; the package is now named `shanyraq-hub`.
+- `metadata.json` no longer declares `MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API` (there is no server and no Gemini usage).
+- `.env.example` lists only the Supabase, VAPID, demo-mode and Telegram variables. If AI features are added later, call the model from a server-side function (e.g. a Supabase Edge Function), never from the browser.
 
 ## 2. Existing backend connections
 
