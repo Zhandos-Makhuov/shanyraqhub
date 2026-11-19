@@ -46,7 +46,13 @@ Push (как на тестовом, раздел 7 в CLAUDE.md): новые к�
    | `VITE_SUPABASE_ANON_KEY` | `sb_publishable_UYfCmuQOqOEmb5sz4ZImWA_smQ0TQuU` |
    | `VITE_VAPID_PUBLIC_KEY` | `BGLYY490OpfPYG2_tYMox4q17mmlbdRYK-Eq3OjJY6SU4ZPDsKQQ0fFK1Cwg33iB5ldsrBQHMYZreuvIDUbaUMY` |
    | `VITE_APP_URL` | адрес сайта |
-   **Preview** (ветки) — то же, но тестовый проект: `https://fwhcaspbbktgpjiskpln.supabase.co`, его publishable key и публичный VAPID тестового.
+   **Preview** (ветки) — тестовый проект:
+   | Переменная | Значение |
+   |---|---|
+   | `VITE_DATA_SOURCE` | `live` |
+   | `VITE_SUPABASE_URL` | `https://fwhcaspbbktgpjiskpln.supabase.co` |
+   | `VITE_SUPABASE_ANON_KEY` | `sb_publishable_dxWo476eKy4s8AYv3vIZ2Q_TIGd7lO5` |
+   | `VITE_VAPID_PUBLIC_KEY` | `BAvnbxmzMxov4jcBZvRNvVHQM5upcgfgeujrMfU-SIrUFedJYkHapAjWfG2IwNhdEHziXt5KjguJ-st4IO54-Lo` |
    Все эти значения публичные (попадают в код страницы); секретов в Cloudflare нет.
 4. `public/_headers` уже задаёт заголовки (service worker без кэша, камера для QR, защита от встраивания).
 
