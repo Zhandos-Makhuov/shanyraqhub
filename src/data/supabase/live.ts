@@ -542,3 +542,61 @@ export const subscribeLive = (userId: string, onChange: (change: LiveChange) => 
     void c.removeChannel(channel);
   };
 };
+
+// --- Web Push (stage 7b): this browser's push subscription, stored in push_subscriptions (own rows, RLS) ---
+const VAPID_PUBLIC_KEY = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined)?.trim() ?? '';
+export const pushConfigured = /^[A-Za-z0-9_-]{80,}$/.test(VAPID_PUBLIC_KEY);
+
+const base64UrlToBytes = (s: string) => {
+  const raw = atob((s + '='.repeat((4 - (s.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+};
+
+const swRegistration = async (): Promise<ServiceWorkerRegistration | null> => {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  const existing = await navigator.serviceWorker.getRegistration();
+  if (!existing) await navigator.serviceWorker.register('/sw.js');
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>(resolve => setTimeout(() => resolve(null), 8000)),
+  ]);
+};
+
+/** Subscribes this browser (permission must already be granted) and turns push on for the member. */
+export const enablePush = async (): Promise<ActionResult> => {
+  try {
+    if (!pushConfigured) return { ok: false, error: 'liveErrPushNotConfigured' };
+    const reg = await swRegistration();
+    if (!reg) return { ok: false, error: 'liveErrPushUnsupported' };
+    const sub = (await reg.pushManager.getSubscription())
+      ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(VAPID_PUBLIC_KEY) }));
+    const json = sub.toJSON() as { endpoint: string; keys?: { p256dh?: string; auth?: string } };
+    if (!json.keys?.p256dh || !json.keys.auth) return { ok: false, error: 'liveErrPushUnsupported' };
+    const c = db();
+    const me = await myId();
+    const { error } = await c.from('push_subscriptions').insert({
+      user_id: me, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth_key: json.keys.auth,
+      user_agent: navigator.userAgent.slice(0, 300),
+    });
+    if (error && !/duplicate key/.test(error.message)) return { ok: false, error: serverErrorKey(error.message) };
+    return updateOwnProfile({ pushNotificationsEnabled: true });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: /denied|permission/i.test(msg) ? 'liveErrPushDenied' : /push service|not supported|registration failed/i.test(msg) ? 'liveErrPushUnsupported' : serverErrorKey(msg) };
+  }
+};
+
+/** Unsubscribes this browser and turns push off for the member. */
+export const disablePush = async (): Promise<ActionResult> => {
+  try {
+    const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
+    const sub = await reg?.pushManager?.getSubscription();
+    if (sub) {
+      await db().from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+      await sub.unsubscribe();
+    }
+    return updateOwnProfile({ pushNotificationsEnabled: false });
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
+};

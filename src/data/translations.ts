@@ -237,6 +237,10 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     liveAvatarUpload: 'Загрузить фото',
     liveAvatarLabel: 'Фото профиля',
     liveAvatarUploading: 'Загружаем…',
+    liveErrPushDenied: 'Уведомления запрещены в настройках браузера. Разрешите их для этого сайта.',
+    liveErrPushUnsupported: 'Этот браузер не поддерживает push-уведомления. На iPhone добавьте сайт на экран «Домой».',
+    liveErrPushNotConfigured: 'Push-уведомления на сайте ещё не настроены.',
+    livePushEnabled: 'Напоминания о встречах, ответы и рассылки будут приходить на это устройство.',
   },
   kz: {
     // Brand & Tagline
@@ -474,6 +478,10 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     liveAvatarUpload: 'Фото жүктеу',
     liveAvatarLabel: 'Профиль фотосы',
     liveAvatarUploading: 'Жүктелуде…',
+    liveErrPushDenied: 'Хабарландыруларға браузерде тыйым салынған. Осы сайтқа рұқсат беріңіз.',
+    liveErrPushUnsupported: 'Бұл браузер push-хабарландыруларды қолдамайды. iPhone-да сайтты «Басты экранға» қосыңыз.',
+    liveErrPushNotConfigured: 'Сайтта push-хабарландырулар әлі бапталмаған.',
+    livePushEnabled: 'Кездесу еске салғыштары, жауаптар мен хабарламалар осы құрылғыға келеді.',
   },
   en: {
     // Brand & Tagline
@@ -711,5 +719,9 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     liveAvatarUpload: 'Upload photo',
     liveAvatarLabel: 'Profile photo',
     liveAvatarUploading: 'Uploading…',
+    liveErrPushDenied: 'Notifications are blocked in the browser settings. Allow them for this site.',
+    liveErrPushUnsupported: 'This browser does not support push. On iPhone, add the site to the Home Screen.',
+    liveErrPushNotConfigured: 'Push notifications are not set up on this site yet.',
+    livePushEnabled: 'Event reminders, replies and announcements will arrive on this device.',
   },
 };

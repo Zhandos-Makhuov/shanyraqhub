@@ -65,7 +65,8 @@ def convert_tests() -> str:
     counted = (("public.profiles", "profiles"), ("public.user_balances", "balances"), ("public.member_stats", "stats"),
                ("public.audit_logs where action = 'COIN_ADJUST'", "coin_adjust"),
                ("public.audit_logs where action = 'ROLE_UPDATE'", "role_update"),
-               ("storage.objects", "storage_objects"))
+               ("storage.objects", "storage_objects"),
+               ("public.scheduled_notifications", "scheduled"))
     for table, key in counted:
         sql = sql.replace(f"(select count(*) from {table}) = ", f"(select count(*) from {table}) - current_setting('shq.base_{key}')::int = ")
     # Memberships are checked as ordinary members, who see every ACTIVE membership: offset by the existing active ones.

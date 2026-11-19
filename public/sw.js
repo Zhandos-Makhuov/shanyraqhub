@@ -1,4 +1,4 @@
-// Shanyraq Hub Service Worker v2
+// Shanyraq Hub Service Worker v3 (push)
 //
 // Strategy:
 //   * Page navigations (HTML): network-first, so a new deploy is picked up on the
@@ -7,7 +7,7 @@
 //     whenever their content changes, so they never go stale).
 //   * Everything else (cross-origin requests, APIs, Vite dev-server modules): not
 //     intercepted, so the service worker never serves stale data.
-const CACHE_NAME = 'shanyraq-cache-v2';
+const CACHE_NAME = 'shanyraq-cache-v3';
 const SHELL_URL = '/index.html';
 const PRECACHE = [
   SHELL_URL,
@@ -77,4 +77,34 @@ self.addEventListener('fetch', (event) => {
       )
     );
   }
+});
+
+// Web Push (stage 7b): messages from the "send-push" Edge Function. Payload: { title, body, tab?, id? }.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Shanyraq Hub', {
+      body: data.body || '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: data.id || undefined,
+      data: { url: '/' },
+    })
+  );
+});
+
+// Tapping a notification focuses an open Shanyraq Hub tab or opens the site.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+      return open ? open.focus() : self.clients.openWindow((event.notification.data && event.notification.data.url) || '/');
+    })
+  );
 });

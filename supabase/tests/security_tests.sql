@@ -409,4 +409,42 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 select t.expect_fail('select private.dispatch_due_reminders()', '%permission denied%');
 reset role;
 
+-- Stage 7b: Web Push rules (public.claim_push_batch, called only by the send-push Edge Function)
+reset role;
+update public.notifications set push_sent_at = now() where push_sent_at is null;   -- start from an empty queue
+update public.profiles set push_notifications_enabled = true
+ where id in ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b');
+update public.profiles set push_notifications_enabled = false where id = '00000000-0000-0000-0000-000000000002';
+update public.user_preferences set notify_forum_replies = false where user_id = '00000000-0000-0000-0000-00000000000a';
+update public.user_preferences set quiet_hours_start = ((now() at time zone 'Asia/Almaty') - interval '1 hour')::time,
+                                   quiet_hours_end   = ((now() at time zone 'Asia/Almaty') + interval '1 hour')::time
+ where user_id = '00000000-0000-0000-0000-00000000000b';
+insert into public.push_subscriptions (user_id, endpoint, p256dh, auth_key)
+select u::uuid, 'https://push.example/' || u, 'p256dh-key', 'auth-key'
+  from unnest(array['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002',
+                    '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b']) u;
+insert into public.notifications (user_id, type, title, body, created_at) values
+ ('00000000-0000-0000-0000-000000000001', 'forum_reply', 'P1 reply',      'x', now()),
+ ('00000000-0000-0000-0000-000000000001', 'broadcast',   'P1 old',        'x', now() - interval '2 hours'),
+ ('00000000-0000-0000-0000-000000000002', 'broadcast',   'P2 push off',   'x', now()),
+ ('00000000-0000-0000-0000-00000000000a', 'forum_reply', 'PA reply off',  'x', now()),
+ ('00000000-0000-0000-0000-00000000000a', 'broadcast',   'PA broadcast',  'x', now()),
+ ('00000000-0000-0000-0000-00000000000b', 'broadcast',   'PB quiet',      'x', now()),
+ ('00000000-0000-0000-0000-00000000000c', 'broadcast',   'PC no device',  'x', now());
+create temp table t_push as select * from public.claim_push_batch(100);
+select t.ok((select string_agg(title, ',' order by title) from t_push) = 'P1 reply,PA broadcast',
+            'push goes only to: push on + device + allowed type + not quiet hours + fresh');
+select t.ok((select count(*) from public.notifications where title like 'P% %' and push_sent_at is null) = 0,
+            'every pending notification is claimed once (also the skipped ones)');
+select t.ok((select count(*) from public.claim_push_batch(100)) = 0, 'second call pushes nothing');
+select t.ok(not private.push_pending(), 'queue is empty afterwards');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.expect_fail('select * from public.claim_push_batch(10)', '%permission denied%');
+select t.ok((select count(*) from public.push_subscriptions) = 1, 'member sees only own push subscription');
+select t.expect_fail($$insert into public.push_subscriptions (user_id, endpoint, p256dh, auth_key) values ('00000000-0000-0000-0000-000000000002', 'https://push.example/fake', 'k', 'a')$$, '%row-level security%');
+insert into public.push_subscriptions (user_id, endpoint, p256dh, auth_key) values (auth.uid(), 'https://push.example/second-device', 'k', 'a');
+select t.ok((select count(*) from public.push_subscriptions) = 2, 'member registers a second device');
+reset role;
+
 \echo ALL_TESTS_PASSED

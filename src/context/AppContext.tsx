@@ -1089,8 +1089,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   const togglePushNotifications = async (): Promise<boolean> => {
+    if (live) {
+      // Live: a real switch. On = browser permission + push subscription saved on the server; off = unsubscribe.
+      if (currentUser.pushNotificationsEnabled) {
+        await runLive(live.disablePush());
+        return false;
+      }
+      if (!(await requestWebPushPermission())) {
+        alert(t('liveErrPushDenied'));
+        return false;
+      }
+      const r = await runLive(live.enablePush());
+      if (r.ok) sendLocalPushNotification('SHANYRAQ HUB: Уведомления активированы', t('livePushEnabled'));
+      return r.ok;
+    }
     const granted = await requestWebPushPermission();
-    if (live) await runLive(live.updateOwnProfile({ pushNotificationsEnabled: granted }), true);
     setAllUsers(prev =>
       prev.map(u => (u.id === currentUser.id ? { ...u, pushNotificationsEnabled: granted } : u))
     );
