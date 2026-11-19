@@ -69,6 +69,8 @@ interface AppContextType {
   issueCheckInCode?: (eventId: string) => Promise<{ ok: true; code: string; expiresAt: string } | { ok: false; error: string }>;
   /** Live only: organizer confirms a visit from a scanned code (undefined in demo). */
   checkInWithCode?: (code: string) => Promise<{ ok: boolean; error?: string; userId?: string; eventId?: string; newlyCheckedIn?: boolean }>;
+  /** Live only: upload a profile photo to Storage and set it as the avatar (undefined in demo). */
+  uploadAvatar?: (file: File) => Promise<boolean>;
   /** Live only: reload server data (e.g. while a member shows their QR code). */
   refreshData?: () => Promise<void>;
   submitEventFeedback: (eventId: string, satisfaction: number, usefulness: number, comment: string) => void;
@@ -1476,6 +1478,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         issueCheckInCode,
         checkInWithCode,
         refreshData: account ? refreshLive : undefined,
+        uploadAvatar: live ? (file: File) => runLive(live.uploadAvatar(file)).then(r => r.ok) : undefined,
         membershipApplications,
         reviewMembership: live ? (id: string, approve: boolean) => runLive(live.reviewMembership(id, approve)).then(r => r.ok) : undefined,
         submitEventFeedback,

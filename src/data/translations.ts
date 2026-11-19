@@ -232,6 +232,11 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     liveApplicationsEmpty: 'Новых заявок нет.',
     liveApprove: 'Одобрить',
     liveReject: 'Отклонить',
+    liveErrImageType: 'Подходят только фото JPG, PNG или WebP.',
+    liveErrImageTooLarge: 'Файл слишком большой.',
+    liveAvatarUpload: 'Загрузить фото',
+    liveAvatarLabel: 'Фото профиля',
+    liveAvatarUploading: 'Загружаем…',
   },
   kz: {
     // Brand & Tagline
@@ -464,6 +469,11 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     liveApplicationsEmpty: 'Жаңа өтінімдер жоқ.',
     liveApprove: 'Мақұлдау',
     liveReject: 'Қабылдамау',
+    liveErrImageType: 'Тек JPG, PNG немесе WebP суреттері жарамды.',
+    liveErrImageTooLarge: 'Файл тым үлкен.',
+    liveAvatarUpload: 'Фото жүктеу',
+    liveAvatarLabel: 'Профиль фотосы',
+    liveAvatarUploading: 'Жүктелуде…',
   },
   en: {
     // Brand & Tagline
@@ -696,5 +706,10 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     liveApplicationsEmpty: 'No new applications.',
     liveApprove: 'Approve',
     liveReject: 'Reject',
+    liveErrImageType: 'Only JPG, PNG or WebP photos are supported.',
+    liveErrImageTooLarge: 'The file is too large.',
+    liveAvatarUpload: 'Upload photo',
+    liveAvatarLabel: 'Profile photo',
+    liveAvatarUploading: 'Uploading…',
   },
 };

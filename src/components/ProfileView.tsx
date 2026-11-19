@@ -22,7 +22,8 @@ import { isDemoData } from '../config/runtime';
 import { MembershipApplications } from './MembershipApplications';
 
 export const ProfileView: React.FC = () => {
-  const { currentUser, updateProfile, setActiveTab, language, t } = useApp();
+  const { currentUser, updateProfile, uploadAvatar, setActiveTab, language, t } = useApp();
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   const [activeSubTab, setActiveSubTab] = useState<'books' | 'events' | 'achievements' | 'reviews'>('books');
   const [showEditModal, setShowEditModal] = useState(false);
@@ -436,6 +437,32 @@ export const ProfileView: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {uploadAvatar && (
+                <div>
+                  <label className="font-medium text-[#d6cebf] block mb-1.5">{t('liveAvatarLabel')}</label>
+                  <div className="flex items-center gap-3">
+                    <img src={currentUser.avatar} alt="" className="w-12 h-12 rounded-full object-cover ring-1 ring-[#dfcfb3]/40" />
+                    <label className="px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] border border-[#483f3a] text-xs text-[#dfcfb3] cursor-pointer">
+                      {avatarBusy ? t('liveAvatarUploading') : t('liveAvatarUpload')}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        disabled={avatarBusy}
+                        onChange={async e => {
+                          const file = e.target.files?.[0];
+                          e.target.value = '';
+                          if (!file) return;
+                          setAvatarBusy(true);
+                          await uploadAvatar(file);
+                          setAvatarBusy(false);
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1.5">

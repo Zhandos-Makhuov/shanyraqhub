@@ -256,6 +256,8 @@ const SERVER_ERRORS: [RegExp, string][] = [
   [/not_registered/, 'liveErrNotRegistered'],
   [/cannot_vote_own/, 'liveErrOwnVote'],
   [/insufficient_coins/, 'liveErrNotEnoughCoins'],
+  [/exceeded the maximum allowed size|payload too large|413/i, 'liveErrImageTooLarge'],
+  [/mime type|invalid_mime/i, 'liveErrImageType'],
   [/already_owned/, 'liveErrAlreadyOwned'],
   [/item_not_owned|item_not_available/, 'liveErrItemNotOwned'],
   [/reapply_too_soon/, 'liveErrReapplyTooSoon'],
@@ -479,3 +481,41 @@ export const revokeAchievement = (userId: string, achievementId: string, reason:
   call('revoke_achievement', { p_user: userId, p_achievement: achievementId, p_reason: reason });
 export const dispatchBroadcast = (title: string, body: string, channels: string[], direction?: DirectionId) =>
   call('dispatch_broadcast', { p_title: title, p_body: body, p_channels: channels, p_direction: direction ?? null });
+
+// --- Profile photo (Storage bucket "avatars": each member writes only into the folder named after their id) ---
+const AVATAR_MAX_SIDE = 512;
+
+/** Downscales a photo in the browser (phone photos are often larger than the 2 MB bucket limit). */
+const toAvatarJpeg = async (file: File): Promise<Blob> => {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, AVATAR_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return new Promise((resolve, reject) =>
+    canvas.toBlob(b => (b ? resolve(b) : reject(new Error('image_encode_failed'))), 'image/jpeg', 0.85));
+};
+
+export const uploadAvatar = async (file: File): Promise<ActionResult> => {
+  try {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return { ok: false, error: 'liveErrImageType' };
+    const c = db();
+    const me = await myId();
+    const blob = await toAvatarJpeg(file);
+    const path = `${me}/avatar-${Date.now()}.jpg`;
+    const up = await c.storage.from('avatars').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    if (up.error) return { ok: false, error: serverErrorKey(up.error.message) };
+    const url = c.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+    const r = await insertOrDelete(c.from('profiles').update({ avatar_url: url }).eq('id', me));
+    if (!r.ok) return r;
+    // Remove older photos of this member (Storage API; SQL deletes are blocked by Supabase).
+    const { data: old } = await c.storage.from('avatars').list(me);
+    const stale = (old ?? []).map(o => `${me}/${o.name}`).filter(p => p !== path);
+    if (stale.length) await c.storage.from('avatars').remove(stale);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
+};
