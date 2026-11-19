@@ -8,13 +8,13 @@ GitHub (main) ──► Cloudflare Pages (сборка live) ──► https://<
                         └── превью веток ──► тестовый Supabase   └── боевой Supabase
 ```
 
-## 1. Боевой проект Supabase (владелец)
+## 1. Боевой проект Supabase (владелец) — ✅ создан 20.11.2026: `shanyraq-hub`, ref `gqxdridlxlnouqseeyno`
 1. supabase.com → **New project**: имя `shanyraq-hub`, регион **Frankfurt (eu-central-1)**, надёжный пароль базы (хранит только владелец).
 2. При создании: **Data API — включён**, автодоступ к новым таблицам — **выключен**, автоматический RLS — **включён** (как у тестового).
 3. Токен Management API для боевого проекта (Account → Access Tokens): те же права, что у `claude-push` (Project Settings R, Advisors R, Database RW, Migrations RW, Edge Functions RW, Edge Function Secrets RW). Передаётся **только через защищённую форму** (`request_credential`), не в чат.
 4. Publishable key боевого проекта (Project Settings → API Keys, `sb_publishable_…`) — публичный, можно в чат. **Никогда** secret / service_role.
 
-## 2. Схема и сервисы боевого проекта (Claude)
+## 2. Схема и сервисы боевого проекта (Claude) — ✅ сделано 20.11.2026 (163/163 проверки, push настроен)
 ```bash
 export SUPABASE_PROJECT_REF=<ref боевого>
 python3 supabase/tests/run-cloud.py dryrun      # миграции + seed + все проверки, с откатом
@@ -42,9 +42,9 @@ Push (как на тестовом, раздел 7 в CLAUDE.md): новые к�
    | Переменная | Значение |
    |---|---|
    | `VITE_DATA_SOURCE` | `live` |
-   | `VITE_SUPABASE_URL` | `https://<ref боевого>.supabase.co` |
-   | `VITE_SUPABASE_ANON_KEY` | publishable key боевого |
-   | `VITE_VAPID_PUBLIC_KEY` | публичный VAPID боевого |
+   | `VITE_SUPABASE_URL` | `https://gqxdridlxlnouqseeyno.supabase.co` |
+   | `VITE_SUPABASE_ANON_KEY` | `sb_publishable_UYfCmuQOqOEmb5sz4ZImWA_smQ0TQuU` |
+   | `VITE_VAPID_PUBLIC_KEY` | `BGLYY490OpfPYG2_tYMox4q17mmlbdRYK-Eq3OjJY6SU4ZPDsKQQ0fFK1Cwg33iB5ldsrBQHMYZreuvIDUbaUMY` |
    | `VITE_APP_URL` | адрес сайта |
    **Preview** (ветки) — то же, но тестовый проект: `https://fwhcaspbbktgpjiskpln.supabase.co`, его publishable key и публичный VAPID тестового.
    Все эти значения публичные (попадают в код страницы); секретов в Cloudflare нет.
