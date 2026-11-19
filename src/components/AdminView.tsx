@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserProfile, UserRole } from '../types';
-import { canAssignRole } from '../utils/permissions';
+import { canAssignRole, hasRole } from '../utils/permissions';
+import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'member', label: 'Member' },
@@ -14,6 +15,7 @@ import { COMMUNITY_DIRECTIONS } from '../data/mockData';
 import { formatTelegramMarkdown, formatWhatsAppMessage } from '../utils/notifications';
 import {
   ShieldCheck,
+  Award,
   Users,
   Send,
   Coins,
@@ -32,6 +34,7 @@ export const AdminView: React.FC = () => {
     allReadBooks,
     updateUserRole,
     adjustUserCoins,
+    awardAchievement,
     dispatchBroadcast,
     auditLogs,
     t,
@@ -75,6 +78,23 @@ export const AdminView: React.FC = () => {
     setBroadcastTitle('');
     setBroadcastContent('');
     setTimeout(() => setBroadcastSentMsg(''), 5000);
+  };
+
+  // Manual achievements (speech, race, quiz...) confirmed by a moderator.
+  const manualAchievements = ALL_ACHIEVEMENTS.filter(isManualAchievement);
+  const canAwardAchievements = hasRole(currentUser.role, 'moderator');
+  const awardCandidates = allUsers.filter(u => u.id !== currentUser.id);
+  const [awardUserId, setAwardUserId] = useState(awardCandidates[0]?.id || '');
+  const [awardAchievementId, setAwardAchievementId] = useState(manualAchievements[0]?.id || '');
+  const [awardNote, setAwardNote] = useState('');
+
+  const handleAwardAchievement = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!awardAchievement(awardUserId, awardAchievementId, awardNote)) return;
+    const ach = manualAchievements.find(a => a.id === awardAchievementId);
+    const user = allUsers.find(u => u.id === awardUserId);
+    setAwardNote('');
+    alert(`Достижение «${ach?.titleRu}» выдано: ${user?.name}.`);
   };
 
   const handleCoinAdjust = (e: React.FormEvent) => {
@@ -405,6 +425,73 @@ export const AdminView: React.FC = () => {
               </div>
             </form>
           </div>
+
+          {/* Manual Achievement Award Box (moderator+) */}
+          {canAwardAchievements && (
+            <div className="p-6 rounded-2xl bg-[#23201e] border border-[#352f2c] space-y-4">
+              <h3 className="font-display text-sm font-bold text-[#f5f2eb] flex items-center gap-2">
+                <Award className="w-4 h-4 text-[#dfcfb3]" />
+                <span>Выдать достижение за подтверждённое событие</span>
+              </h3>
+              <p className="text-[11px] text-[#8c8279]">
+                Для наград, которые нельзя посчитать автоматически: выступление, забег, призовое место, марафон чтения.
+                Каждая выдача записывается в журнал аудита.
+              </p>
+
+              <form onSubmit={handleAwardAchievement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <label className="text-[#8c8279] block mb-1">Участник</label>
+                  <select
+                    value={awardUserId}
+                    onChange={e => setAwardUserId(e.target.value)}
+                    className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
+                  >
+                    {awardCandidates.map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[#8c8279] block mb-1">Достижение</label>
+                  <select
+                    value={awardAchievementId}
+                    onChange={e => setAwardAchievementId(e.target.value)}
+                    className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
+                  >
+                    {manualAchievements.map(a => {
+                      const owned = allUsers.find(u => u.id === awardUserId)?.achievements.some(x => x.id === a.id);
+                      return (
+                        <option key={a.id} value={a.id} disabled={owned}>
+                          {a.titleRu}{owned ? ' — уже есть' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[#8c8279] block mb-1">Подтверждение (необязательно)</label>
+                  <input
+                    type="text"
+                    value={awardNote}
+                    placeholder="Напр.: забег 16.11, 10 км"
+                    onChange={e => setAwardNote(e.target.value)}
+                    className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
+                  />
+                </div>
+
+                <div className="self-end">
+                  <button
+                    type="submit"
+                    className="w-full p-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-xs font-semibold text-[#1e1b1a] transition-colors"
+                  >
+                    Выдать достижение
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
       )}
 

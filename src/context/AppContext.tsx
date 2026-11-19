@@ -14,10 +14,13 @@ import {
   ReadBook,
   PeerReview,
   DirectionId,
+  Achievement,
 } from '../types';
 import { TRANSLATIONS } from '../data/translations';
 import { NEW_MEMBER_ID, NEW_MEMBER_PROFILE, INITIAL_USERS, INITIAL_EVENTS, INITIAL_FORUM_TOPICS, INITIAL_CHAT_ROOMS, INITIAL_COIN_TRANSACTIONS, INITIAL_AUDIT_LOGS, INITIAL_NOTIFICATIONS } from '../data/mockData';
 import { SHOP_ITEMS, TIERS } from '../data/gamification';
+import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
+import { getAchievementMetric } from '../utils/achievementProgress';
 import { sendLocalPushNotification, requestWebPushPermission } from '../utils/notifications';
 import { canAccessRoom, canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
 import { hasEventStarted } from '../utils/eventTime';
@@ -88,6 +91,11 @@ interface AppContextType {
 
   /** Consecutive days with real activity (attendance, feedback, books, forum, reviews). */
   getActivityStreak: (userId: string) => number;
+
+  /** Current progress towards an achievement (0 for manual ones). */
+  getAchievementProgress: (userId: string, achievementId: string) => number;
+  /** Moderator+ awards a manual achievement to another member. */
+  awardAchievement: (userId: string, achievementId: string, note: string) => boolean;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -1046,6 +1054,114 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ]);
   };
 
+  // ---------------------------------------------------------------------------
+  // Achievements: unlocked only from verified activity (see data/achievements.ts)
+  // ---------------------------------------------------------------------------
+  const achievementData = (userId: string) => ({
+    users: allUsers,
+    events,
+    forumTopics,
+    streak: getActivityStreak(userId),
+  });
+
+  const getAchievementProgress = (userId: string, achievementId: string): number => {
+    const ach = ALL_ACHIEVEMENTS.find(a => a.id === achievementId);
+    if (!ach?.rule) return 0;
+    return getAchievementMetric(userId, ach.rule, achievementData(userId));
+  };
+
+  const unlockAchievement = (userId: string, ach: Achievement): boolean => {
+    const user = allUsers.find(u => u.id === userId);
+    if (!user || user.achievements.some(a => a.id === ach.id)) return false;
+
+    const unlockedAt = new Date().toISOString().slice(0, 10);
+    setAllUsers(prev =>
+      prev.map(u =>
+        u.id !== userId || u.achievements.some(a => a.id === ach.id)
+          ? u
+          : { ...u, achievements: [...u.achievements, { ...ach, isUnlocked: true, unlockedAt }] }
+      )
+    );
+    grantRewardOnce(`achievement:${ach.id}:${userId}`, userId, ach.xpReward, ach.coinReward, `Достижение «${ach.titleRu}»`);
+
+    const notifId = `notif-ach-${ach.id}-${userId}`;
+    setNotifications(prev =>
+      prev.some(n => n.id === notifId)
+        ? prev
+        : [
+            {
+              id: notifId,
+              userId,
+              type: 'achievement',
+              title: 'Новое достижение!',
+              message: `Открыто «${ach.titleRu}»: +${ach.xpReward} XP и +${ach.coinReward} коинов.`,
+              timestamp: 'Только что',
+              read: false,
+              linkTab: 'achievements',
+            },
+            ...prev,
+          ]
+    );
+
+    if (userId === currentUser.id) {
+      try {
+        confetti({ particleCount: 70, spread: 75, origin: { y: 0.6 }, colors: ['#dfcfb3', '#f5d77f', '#ffffff'] });
+      } catch {}
+    }
+    return true;
+  };
+
+  // Re-check automatic achievements whenever verified data changes.
+  // Each unlock is idempotent (achievement already on the profile + reward key).
+  useEffect(() => {
+    allUsers.forEach(user => {
+      const data = achievementData(user.id);
+      ALL_ACHIEVEMENTS.forEach(ach => {
+        if (!ach.rule || isManualAchievement(ach)) return;
+        if (user.achievements.some(a => a.id === ach.id)) return;
+        if (getAchievementMetric(user.id, ach.rule, data) >= ach.rule.threshold) {
+          unlockAchievement(user.id, ach);
+        }
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allUsers, events, forumTopics, activityLog]);
+
+  const awardAchievement = (userId: string, achievementId: string, note: string): boolean => {
+    const ach = ALL_ACHIEVEMENTS.find(a => a.id === achievementId);
+    const target = allUsers.find(u => u.id === userId);
+    if (!ach || !target) return false;
+    if (!hasRole(currentUser.role, 'moderator')) {
+      alert('Выдавать достижения могут только модераторы и администраторы.');
+      return false;
+    }
+    if (userId === currentUser.id) {
+      alert('Нельзя выдать достижение самому себе.');
+      return false;
+    }
+    if (!isManualAchievement(ach)) {
+      alert('Это достижение открывается автоматически за активность.');
+      return false;
+    }
+    if (!unlockAchievement(userId, ach)) {
+      alert(`У участника уже есть достижение «${ach.titleRu}».`);
+      return false;
+    }
+    setAuditLogs(prev => [
+      {
+        id: `audit-${Date.now()}`,
+        adminId: currentUser.id,
+        adminName: currentUser.name,
+        action: 'ACHIEVEMENT_AWARD',
+        target: `${target.name}: ${ach.titleRu}`,
+        timestamp: new Date().toLocaleDateString('ru-RU') + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        details: note.trim() || 'Без комментария',
+      },
+      ...prev,
+    ]);
+    return true;
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -1088,6 +1204,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dispatchBroadcast,
         addPeerReview,
         getActivityStreak,
+        getAchievementProgress,
+        awardAchievement,
       }}
     >
       {children}

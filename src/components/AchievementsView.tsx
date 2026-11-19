@@ -1,51 +1,71 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { ALL_ACHIEVEMENTS } from '../data/gamification';
+import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 import {
+  Activity,
   Award,
+  BookMarked,
   BookOpen,
-  CalendarCheck,
-  Footprints,
-  Hourglass,
-  Library,
-  MessageSquareText,
-  Flame,
   Brain,
-  HeartHandshake,
+  CalendarCheck,
+  CalendarDays,
   CheckCircle,
+  ClipboardCheck,
   Coins,
+  Compass,
+  Flame,
+  Footprints,
+  Heart,
+  HeartHandshake,
+  Hourglass,
+  Landmark,
+  Languages,
+  Library,
+  Medal,
+  MessageSquarePlus,
+  MessageSquareText,
+  MessagesSquare,
+  Palette,
+  PenLine,
+  PenTool,
+  ShieldCheck,
   Sparkles,
+  ThumbsUp,
 } from 'lucide-react';
-import { Achievement } from '../types';
+
+/** Icon names used in data/achievements.ts. Unknown names fall back to Award. */
+export const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Activity,
+  BookMarked,
+  BookOpen,
+  Brain,
+  CalendarCheck,
+  CalendarDays,
+  ClipboardCheck,
+  Compass,
+  Flame,
+  Footprints,
+  Heart,
+  HeartHandshake,
+  Hourglass,
+  Landmark,
+  Languages,
+  Library,
+  Medal,
+  MessageSquarePlus,
+  MessageSquareText,
+  MessagesSquare,
+  Palette,
+  PenLine,
+  PenTool,
+  ThumbsUp,
+};
 
 export const AchievementsView: React.FC = () => {
-  const { allUsers, currentUser, language, t, setSelectedUserModal } = useApp();
+  const { allUsers, currentUser, language, t, setSelectedUserModal, getAchievementProgress } = useApp();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  const getIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'BookOpen':
-        return BookOpen;
-      case 'Library':
-        return Library;
-      case 'CalendarCheck':
-        return CalendarCheck;
-      case 'Footprints':
-        return Footprints;
-      case 'Hourglass':
-        return Hourglass;
-      case 'MessageSquareText':
-        return MessageSquareText;
-      case 'Flame':
-        return Flame;
-      case 'Brain':
-        return Brain;
-      case 'HeartHandshake':
-        return HeartHandshake;
-      default:
-        return Award;
-    }
-  };
+  const getIcon = (iconName: string) => ACHIEVEMENT_ICONS[iconName] || Award;
 
   const categories = [
     { id: 'all', label: 'Все награды' },
@@ -53,6 +73,7 @@ export const AchievementsView: React.FC = () => {
     { id: 'community', label: 'Сообщество' },
     { id: 'english', label: 'English Club' },
     { id: 'sport', label: 'Спорт & Tarlan' },
+    { id: 'general', label: 'Форум & Интеллект' },
     { id: 'challenges', label: 'Челленджи' },
   ];
 
@@ -157,9 +178,16 @@ export const AchievementsView: React.FC = () => {
                       Разблокировано
                     </span>
                   ) : (
-                    <span className="text-[#736a62] font-mono">
-                      В процессе ({ach.currentCount || 0}/{ach.requiredCount || 1})
-                    </span>
+                    isManualAchievement(ach) ? (
+                      <span className="text-[#8c8279] flex items-center gap-1" title="Подтверждается модератором клуба">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Выдаёт модератор
+                      </span>
+                    ) : (
+                      <span className="text-[#736a62] font-mono">
+                        В процессе ({Math.min(getAchievementProgress(currentUser.id, ach.id), ach.requiredCount || 1)}/{ach.requiredCount || 1})
+                      </span>
+                    )
                   )}
                 </div>
 

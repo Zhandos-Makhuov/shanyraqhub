@@ -164,6 +164,33 @@ $$;
 -- ---------------------------------------------------------------------
 -- Achievements: evaluated only from verified tables
 -- ---------------------------------------------------------------------
+-- Distinct local days (Asia/Almaty) with real activity, as in src/utils/streak.ts.
+create function private.activity_streak(p_user uuid) returns int
+language sql stable security definer set search_path = '' as $$
+  with days as (
+    select distinct (ts at time zone 'Asia/Almaty')::date as d from (
+      select checked_in_at as ts from public.event_attendance where user_id = p_user
+      union all select created_at from public.event_feedback where user_id = p_user
+      union all select created_at from public.user_books where user_id = p_user
+      union all select created_at from public.forum_topics where author_id = p_user
+      union all select created_at from public.forum_replies where author_id = p_user
+      union all select created_at from public.peer_reviews where author_id = p_user
+    ) t
+  ),
+  anchor as (
+    -- streak may end today, or yesterday if nothing happened yet today
+    select case when exists (select 1 from days where d = (now() at time zone 'Asia/Almaty')::date)
+                then (now() at time zone 'Asia/Almaty')::date
+                else (now() at time zone 'Asia/Almaty')::date - 1 end as a
+  ),
+  ranked as (
+    select d, (select a from anchor) - d as back,
+           row_number() over (order by d desc) - 1 as rn
+      from days where d <= (select a from anchor)
+  )
+  select count(*)::int from ranked where back = rn
+$$;
+
 create function private.achievement_metric(p_user uuid, p_rule jsonb) returns int
 language plpgsql stable security definer set search_path = '' as $$
 declare
@@ -183,6 +210,24 @@ begin
                where r.target_id = p_user and r.rating >= 4 and not r.is_hidden);
     when 'forum_replies' then
       return (select count(*) from public.forum_replies fr where fr.author_id = p_user and not fr.is_hidden);
+    when 'books_reviewed' then
+      return (select count(*) from public.user_books ub
+               where ub.user_id = p_user and coalesce(trim(ub.review), '') <> '');
+    when 'event_directions' then
+      return (select count(distinct e.direction) from public.event_attendance a
+                join public.events e on e.id = a.event_id where a.user_id = p_user);
+    when 'feedback_given' then
+      return (select count(*) from public.event_feedback f where f.user_id = p_user);
+    when 'reviews_given' then
+      return (select count(*) from public.peer_reviews r where r.author_id = p_user);
+    when 'forum_topics' then
+      return (select count(*) from public.forum_topics t where t.author_id = p_user and not t.is_hidden);
+    when 'upvotes_received' then
+      return (select count(*) from public.forum_reply_votes v
+                join public.forum_replies fr on fr.id = v.reply_id
+               where fr.author_id = p_user and v.user_id <> p_user);
+    when 'activity_streak' then
+      return private.activity_streak(p_user);
     else
       return 0;   -- 'manual' and unknown metrics never auto-unlock
   end case;
@@ -448,6 +493,7 @@ begin
   values (p_event, uid, p_satisfaction, p_usefulness, coalesce(p_comment, ''));   -- PK blocks duplicates
   perform private.grant_reward(uid, 30, 20, 'event_feedback', p_event::text,
     'Обратная связь по мероприятию', 'feedback:' || p_event || ':' || uid);
+  perform private.evaluate_achievements(uid);
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -544,6 +590,7 @@ begin
     perform private.grant_reward(new.author_id, 30, 15, 'forum_topic', new.id::text,
       'Создание темы на форуме', 'forum_topic:' || new.id);
   end if;
+  perform private.evaluate_achievements(new.author_id);
   return new;
 end $$;
 
@@ -579,6 +626,13 @@ begin
   return new;
 end $$;
 
+create function private.after_reply_vote_insert() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  perform private.evaluate_achievements((select author_id from public.forum_replies where id = new.reply_id));
+  return new;
+end $$;
+
 create function private.on_topic_vote_insert() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
@@ -605,6 +659,7 @@ begin
     format('%s оставил(а) отзыв: «%s»', v_author_name, left(new.comment, 60)), 'profile',
     jsonb_build_object('review_id', new.id), 'review:' || new.id);
   perform private.evaluate_achievements(new.target_id);
+  perform private.evaluate_achievements(new.author_id);
   return new;
 end $$;
 
@@ -654,6 +709,7 @@ end $$;
 create trigger forum_topic_reward  after insert on public.forum_topics      for each row execute function private.on_forum_topic_insert();
 create trigger forum_reply_reward  after insert on public.forum_replies     for each row execute function private.on_forum_reply_insert();
 create trigger reply_vote_reward   before insert on public.forum_reply_votes for each row execute function private.on_reply_vote_insert();
+create trigger reply_vote_achieve  after insert on public.forum_reply_votes for each row execute function private.after_reply_vote_insert();
 create trigger topic_vote_guard    before insert on public.forum_topic_votes for each row execute function private.on_topic_vote_insert();
 create trigger peer_review_reward  after insert on public.peer_reviews      for each row execute function private.on_peer_review_insert();
 create trigger forum_topics_guard  before update on public.forum_topics     for each row execute function private.guard_forum_moderation();

@@ -162,6 +162,28 @@ select t.ok((select count(*) from public.audit_logs where action = 'COIN_ADJUST'
 select t.ok((select count(*) from public.member_stats) = 5, 'leaderboard view readable');
 reset role;
 
+-- Achievements: automatic unlocks from verified data, manual ones by staff only
+select t.ok(exists (select 1 from public.user_achievements where user_id = '00000000-0000-0000-0000-000000000001' and achievement_id = 'ach-first-topic'),
+            'forum topic unlocks ach-first-topic (author)');
+select t.ok(exists (select 1 from public.user_achievements where user_id = '00000000-0000-0000-0000-000000000002' and achievement_id = 'ach-first-event'),
+            'verified attendance unlocks ach-first-event');
+select t.ok(private.activity_streak('00000000-0000-0000-0000-000000000002') = 1, 'activity streak = 1 day for today''s activity');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select public.save_user_book('Қан мен тер', 'Нұрпейісов', 'Роман', 'completed', 5, 'Сильная эпопея');
+select t.ok((select count(*) from public.user_achievements where user_id = auth.uid()
+              and achievement_id in ('ach-first-book', 'ach-first-book-review')) = 2, 'book with review unlocks first-book + first-review');
+select t.expect_fail($$select public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'x')$$, '%forbidden%');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+select t.expect_fail($$select public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-first-book', 'x')$$, '%not manually awardable%');
+select t.expect_fail($$select public.award_achievement('00000000-0000-0000-0000-00000000000a', 'ach-knowledge-seeker', 'x')$$, '%yourself%');
+select t.ok(public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'Квиз Zerde, 2 место'), 'superadmin awards a manual achievement');
+select t.ok(not public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'again'), 'awarding twice is a no-op');
+reset role;
+select t.ok((select count(*) from public.reward_ledger where idempotency_key like 'achievement:ach-knowledge-seeker:%') = 1, 'manual achievement rewarded once');
+select t.ok((select count(*) from public.achievements) = 25 and (select count(*) from public.achievements where rule ->> 'metric' = 'manual') = 4,
+            'seed: 25 achievements, 4 manual');
+
 -- Ledger integrity: balances always equal the sum of the ledger
 select t.ok(not exists (
   select 1 from public.user_balances b

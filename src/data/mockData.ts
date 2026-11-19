@@ -133,6 +133,13 @@ export const NEW_MEMBER_PROFILE: UserProfile = {
   peerReviews: [],
 };
 
+/**
+ * Demo members only get the MANUAL achievements a moderator would have awarded
+ * (speech, race, quiz). Automatic ones unlock from their verified history on load.
+ */
+const awarded = (...ids: string[]) =>
+  ALL_ACHIEVEMENTS.filter(a => ids.includes(a.id)).map(a => ({ ...a, isUnlocked: true, unlockedAt: '2026-10-01' }));
+
 export const INITIAL_USERS: UserProfile[] = [
   {
     id: 'user-admin-1',
@@ -233,7 +240,7 @@ export const INITIAL_USERS: UserProfile[] = [
         status: 'registered',
       },
     ],
-    achievements: ALL_ACHIEVEMENTS.slice(0, 5),
+    achievements: awarded('ach-tarlan-runner'),
     peerReviews: [
       {
         id: 'rev-1',
@@ -326,7 +333,7 @@ export const INITIAL_USERS: UserProfile[] = [
         status: 'registered',
       },
     ],
-    achievements: ALL_ACHIEVEMENTS.slice(0, 4),
+    achievements: awarded('ach-speaking-pro'),
     peerReviews: [
       {
         id: 'rev-3',
@@ -388,7 +395,7 @@ export const INITIAL_USERS: UserProfile[] = [
         status: 'registered',
       },
     ],
-    achievements: ALL_ACHIEVEMENTS.slice(0, 3),
+    achievements: [],
     peerReviews: [],
   },
   {
@@ -439,7 +446,7 @@ export const INITIAL_USERS: UserProfile[] = [
         feedbackGiven: true,
       },
     ],
-    achievements: [ALL_ACHIEVEMENTS[2], ALL_ACHIEVEMENTS[5]],
+    achievements: awarded('ach-tarlan-runner'),
     peerReviews: [],
   },
   {
@@ -479,7 +486,7 @@ export const INITIAL_USERS: UserProfile[] = [
       },
     ],
     attendedEvents: [],
-    achievements: [ALL_ACHIEVEMENTS[0]],
+    achievements: awarded('ach-knowledge-seeker'),
     peerReviews: [],
   },
 ];

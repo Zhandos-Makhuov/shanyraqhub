@@ -59,6 +59,28 @@ export interface AttendedEventRecord {
   feedbackGiven?: boolean;
 }
 
+export type AchievementMetric =
+  | 'books_completed'
+  | 'books_reviewed'
+  | 'events_attended'
+  | 'event_directions'
+  | 'feedback_given'
+  | 'positive_reviews_received'
+  | 'reviews_given'
+  | 'forum_topics'
+  | 'forum_replies'
+  | 'upvotes_received'
+  | 'activity_streak'
+  | 'manual';
+
+/** How an achievement is unlocked. See src/data/achievements.ts. */
+export interface AchievementRule {
+  metric: AchievementMetric;
+  threshold: number;
+  /** Only for `events_attended`: count one club direction. */
+  direction?: DirectionId;
+}
+
 export interface Achievement {
   id: string;
   titleRu: string;
@@ -75,6 +97,7 @@ export interface Achievement {
   currentCount?: number;
   xpReward: number;
   coinReward: number;
+  rule?: AchievementRule;
 }
 
 export interface PeerReview {
