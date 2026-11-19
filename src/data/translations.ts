@@ -217,6 +217,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     liveErrQrInvalid: 'Код не найден. Попросите участника открыть QR заново.',
     liveErrQrUsed: 'Этот код уже использован. Попросите участника открыть QR заново.',
     liveErrQrExpired: 'Срок кода истёк. Попросите участника открыть QR заново.',
+    liveErrOwnVote: 'Голосовать за свои сообщения нельзя.',
   },
   kz: {
     // Brand & Tagline
@@ -434,6 +435,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     liveErrQrInvalid: 'Код табылмады. Қатысушыдан QR-ды қайта ашуды сұраңыз.',
     liveErrQrUsed: 'Бұл код қолданылған. Қатысушыдан QR-ды қайта ашуды сұраңыз.',
     liveErrQrExpired: 'Кодтың мерзімі өтті. Қатысушыдан QR-ды қайта ашуды сұраңыз.',
+    liveErrOwnVote: 'Өз хабарламаңызға дауыс беруге болмайды.',
   },
   en: {
     // Brand & Tagline
@@ -651,5 +653,6 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     liveErrQrInvalid: 'Code not found. Ask the member to reopen their QR.',
     liveErrQrUsed: 'This code was already used. Ask the member to reopen their QR.',
     liveErrQrExpired: 'The code has expired. Ask the member to reopen their QR.',
+    liveErrOwnVote: 'You cannot vote for your own posts.',
   },
 };

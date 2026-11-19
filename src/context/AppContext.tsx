@@ -156,11 +156,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   });
 
   const [forumTopics, setForumTopics] = useState<ForumTopic[]>(() => {
+    if (account) return account.snapshot.forumTopics;
     const saved = localStorage.getItem(`${storeKey}_topics`);
     return saved ? JSON.parse(saved) : initialData.forumTopics;
   });
 
   const [chatRooms, setChatRooms] = useState<EncryptedChatRoom[]>(() => {
+    if (account) return account.snapshot.chatRooms;
     const saved = localStorage.getItem(`${storeKey}_chats`);
     return saved ? JSON.parse(saved) : initialData.chatRooms;
   });
@@ -204,10 +206,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   }, [events]);
 
   useEffect(() => {
+    if (account) return; // live: server-owned, never cached in the browser
     localStorage.setItem(`${storeKey}_topics`, JSON.stringify(forumTopics));
   }, [forumTopics]);
 
   useEffect(() => {
+    if (account) return; // live: server-owned, never cached in the browser
     localStorage.setItem(`${storeKey}_chats`, JSON.stringify(chatRooms));
   }, [chatRooms]);
 
@@ -390,6 +394,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       setAllUsers(snap.users.map(u => ({ ...u, tier: tierForXp(u.xp) })));
       setEvents(snap.events);
       setNotifications(snap.notifications);
+      setForumTopics(snap.forumTopics);
+      setChatRooms(snap.chatRooms);
     } catch {
       alert(t('authErrorNetwork'));
     }
@@ -779,6 +785,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
   // Forum
   const createForumTopic = (title: string, content: string, categoryId: string, direction?: DirectionId) => {
+    if (live) {
+      void runLive(live.createForumTopic(title, content, categoryId, direction));
+      return;
+    }
     const newTopic: ForumTopic = {
       id: `topic-${Date.now()}`,
       categoryId,
@@ -807,6 +817,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   const replyToForumTopic = (topicId: string, content: string) => {
+    if (live) {
+      void runLive(live.replyToForumTopic(topicId, content));
+      return;
+    }
     const newReply = {
       id: `reply-${Date.now()}`,
       authorId: currentUser.id,
@@ -839,6 +853,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     const reply = forumTopics.find(t => t.id === topicId)?.replies.find(r => r.id === replyId);
     if (!reply || reply.authorId === currentUser.id) return; // no self-votes
     const isAdding = !reply.upvotes.includes(currentUser.id);
+    if (live) {
+      void runLive(live.setReplyVote(replyId, isAdding));
+      return;
+    }
 
     setForumTopics(prev =>
       prev.map(t => {
@@ -871,6 +889,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   const upvoteTopic = (topicId: string) => {
     const topic = forumTopics.find(t => t.id === topicId);
     if (!topic || topic.authorId === currentUser.id) return; // no self-votes
+    if (live) {
+      void runLive(live.setTopicVote(topicId, !topic.upvotes.includes(currentUser.id)));
+      return;
+    }
     setForumTopics(prev =>
       prev.map(t => {
         if (t.id !== topicId) return t;
@@ -887,6 +909,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   const sendChatMessage = (roomId: string, text: string) => {
     const room = chatRooms.find(r => r.id === roomId);
     if (!room || !canAccessRoom(room, currentUser.role)) return;
+    if (live) {
+      void runLive(live.sendChatMessage(roomId, text));
+      return;
+    }
 
     const newMsg = {
       id: `msg-${Date.now()}`,

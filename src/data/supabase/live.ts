@@ -12,13 +12,37 @@ import type {
   AchievementRevocationRow, BookRow, UserBookRow, EventAttendanceRow, EventFeedbackRow, EventRegistrationRow, EventRow,
   PeerReviewRow, ProfileRow, UserAchievementRow, UserBalanceRow, UserRoleRow,
 } from './rows';
-import type { AppNotification, CommunityEvent, ReadBook, UserProfile } from '../../types';
+import type { AppNotification, ChatMessage, CommunityEvent, DirectionId, EncryptedChatRoom, ForumTopic, ReadBook, UserProfile, UserRole } from '../../types';
+import { hasRole } from '../../utils/permissions';
+import { roleFromDb } from './adapters';
 
 export interface LiveSnapshot {
   users: UserProfile[];
   events: CommunityEvent[];
   notifications: AppNotification[];
+  forumTopics: ForumTopic[];
+  chatRooms: EncryptedChatRoom[];
 }
+
+interface ForumCategoryRow { id: string; name_ru: string; name_kz: string; name_en: string; sort_order: number }
+interface ForumTopicRow {
+  id: string; category_id: string; direction: DirectionId | null; author_id: string; title: string; content: string;
+  is_pinned: boolean; is_closed: boolean; view_count: number; created_at: string;
+}
+interface ForumReplyRow { id: string; topic_id: string; author_id: string; content: string; created_at: string }
+interface TopicVoteRow { topic_id: string; user_id: string }
+interface ReplyVoteRow { reply_id: string; user_id: string }
+interface ChatRoomRow {
+  id: string; title_ru: string; title_kz: string; title_en: string; description_ru: string; description_kz: string;
+  description_en: string; direction: DirectionId | null; min_role: UserRoleRow['role'];
+}
+interface ChatMessageRow { id: number; room_id: string; sender_id: string; body: string; created_at: string }
+
+const formatTime = (iso: string) =>
+  new Intl.DateTimeFormat('ru-RU', { timeZone: CLUB_TIME_ZONE, hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+const formatDateTime = (iso: string) =>
+  new Intl.DateTimeFormat('ru-RU', { timeZone: CLUB_TIME_ZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    .format(new Date(iso)).replace(',', '');
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -55,7 +79,8 @@ const formatWhen = (iso: string) =>
 /** Everything the screens need, read through RLS with the member's own token. */
 export const loadSnapshot = async (email: string, myId: string): Promise<LiveSnapshot> => {
   const c = db();
-  const [profiles, roles, balances, events, registrations, attendance, feedback, achievements, revocations, reviews, notifications, books, userBooks] =
+  const [profiles, roles, balances, events, registrations, attendance, feedback, achievements, revocations, reviews, notifications, books, userBooks,
+    categories, topics, replies, topicVotes, replyVotes, rooms, messages] =
     await Promise.all([
       rows<ProfileRow>(c.from('profiles').select('*')),
       rows<UserRoleRow>(c.from('user_roles').select('user_id, role')),
@@ -73,11 +98,75 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       ),
       rows<BookRow>(c.from('books').select('id, title, author, genre, cover_color, cover_url')),
       rows<UserBookRow>(c.from('user_books').select('id, user_id, book_id, status, rating, review, finished_at').order('updated_at', { ascending: false })),
+      rows<ForumCategoryRow>(c.from('forum_categories').select('*')),
+      rows<ForumTopicRow>(c.from('forum_topics')
+        .select('id, category_id, direction, author_id, title, content, is_pinned, is_closed, view_count, created_at')
+        .order('created_at', { ascending: false })),
+      rows<ForumReplyRow>(c.from('forum_replies').select('id, topic_id, author_id, content, created_at').order('created_at')),
+      rows<TopicVoteRow>(c.from('forum_topic_votes').select('topic_id, user_id')),
+      rows<ReplyVoteRow>(c.from('forum_reply_votes').select('reply_id, user_id')),
+      // RLS returns only the rooms the member's role may enter (the moderators' room stays invisible to members).
+      rows<ChatRoomRow>(c.from('chat_rooms').select('*').order('created_at')),
+      rows<ChatMessageRow>(c.from('chat_messages').select('id, room_id, sender_id, body, created_at')
+        .order('created_at', { ascending: false }).limit(500)),
     ]);
   const names = buildPublicNames(profiles, roles);
   const rel = { roles, balances, events, registrations, attendance, feedback, peerReviews: reviews, names,
     userAchievements: achievements, revocations, books, userBooks };
+  const nameOf = (id: string) => names[id] ?? { name: '—', avatar: '/icons/icon-192.png', role: 'member' as UserRole };
+  const forumTopics: ForumTopic[] = topics.map(t => {
+    const cat = categories.find(cat => cat.id === t.category_id);
+    const author = nameOf(t.author_id);
+    return {
+      id: t.id,
+      categoryId: t.category_id,
+      categoryNameRu: cat?.name_ru ?? t.category_id,
+      categoryNameKz: cat?.name_kz ?? t.category_id,
+      categoryNameEn: cat?.name_en ?? t.category_id,
+      direction: t.direction ?? undefined,
+      title: t.title,
+      content: t.content,
+      authorId: t.author_id,
+      authorName: author.name,
+      authorAvatar: author.avatar,
+      authorRole: author.role,
+      createdAt: formatDateTime(t.created_at),
+      upvotes: topicVotes.filter(v => v.topic_id === t.id).map(v => v.user_id),
+      views: t.view_count,
+      isPinned: t.is_pinned,
+      isClosed: t.is_closed,
+      replies: replies.filter(r => r.topic_id === t.id).map(r => {
+        const a = nameOf(r.author_id);
+        return {
+          id: r.id, authorId: r.author_id, authorName: a.name, authorAvatar: a.avatar, authorRole: a.role,
+          content: r.content, createdAt: formatDateTime(r.created_at),
+          upvotes: replyVotes.filter(v => v.reply_id === r.id).map(v => v.user_id),
+        };
+      }),
+    };
+  });
+  const chatRooms: EncryptedChatRoom[] = rooms.map(r => {
+    const minRole = roleFromDb(r.min_role);
+    return {
+      id: r.id,
+      titleRu: r.title_ru, titleKz: r.title_kz, titleEn: r.title_en,
+      descriptionRu: r.description_ru, descriptionKz: r.description_kz, descriptionEn: r.description_en,
+      direction: r.direction ?? undefined,
+      // Honest: messages are protected by roles on the server (RLS), not end-to-end encrypted.
+      isEndToEndEncrypted: false,
+      encryptionFingerprint: '',
+      memberCount: profiles.filter(p => hasRole(nameOf(p.id).role, minRole)).length,
+      accessLevel: hasRole(minRole, 'moderator') ? 'moderators' : 'all',
+      messages: messages.filter(m => m.room_id === r.id).reverse().map((m): ChatMessage => {
+        const snd = nameOf(m.sender_id);
+        return { id: String(m.id), senderId: m.sender_id, senderName: snd.name, senderAvatar: snd.avatar, senderRole: snd.role,
+          text: m.body, timestamp: formatTime(m.created_at) };
+      }),
+    };
+  });
   return {
+    forumTopics,
+    chatRooms,
     users: profiles.map(p => profileFromRows(p, { ...rel, email: p.id === myId ? email : undefined })),
     events: events.map(e => eventFromRow(e, { registrations, attendance, feedback, names })),
     notifications: notifications.map(n => ({
@@ -103,6 +192,7 @@ const SERVER_ERRORS: [RegExp, string][] = [
   [/duplicate key/, 'liveErrDuplicate'],
   [/checkin_window_closed/, 'liveErrCheckinWindow'],
   [/not_registered/, 'liveErrNotRegistered'],
+  [/cannot_vote_own/, 'liveErrOwnVote'],
   [/invalid_token/, 'liveErrQrInvalid'],
   [/token_already_used/, 'liveErrQrUsed'],
   [/token_expired/, 'liveErrQrExpired'],
@@ -241,3 +331,33 @@ export const saveUserBook = async (book: Omit<ReadBook, 'id'>): Promise<{ ok: tr
     return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
   }
 };
+
+const insertOrDelete = async (op: PromiseLike<{ error: { message: string } | null }>): Promise<ActionResult> => {
+  try {
+    const { error } = await op;
+    return error ? { ok: false, error: serverErrorKey(error.message) } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
+};
+const myId = async () => (await db().auth.getSession()).data.session?.user.id ?? '';
+
+/** Forum and chats: plain inserts under RLS; rewards, daily caps and self-vote checks are database triggers. */
+export const createForumTopic = async (title: string, content: string, categoryId: string, direction?: DirectionId) =>
+  insertOrDelete(db().from('forum_topics').insert({ title, content, category_id: categoryId, direction: direction ?? null, author_id: await myId() }));
+export const replyToForumTopic = async (topicId: string, content: string) =>
+  insertOrDelete(db().from('forum_replies').insert({ topic_id: topicId, content, author_id: await myId() }));
+export const setReplyVote = async (replyId: string, on: boolean) => {
+  const me = await myId();
+  return insertOrDelete(on
+    ? db().from('forum_reply_votes').insert({ reply_id: replyId, user_id: me })
+    : db().from('forum_reply_votes').delete().eq('reply_id', replyId).eq('user_id', me));
+};
+export const setTopicVote = async (topicId: string, on: boolean) => {
+  const me = await myId();
+  return insertOrDelete(on
+    ? db().from('forum_topic_votes').insert({ topic_id: topicId, user_id: me })
+    : db().from('forum_topic_votes').delete().eq('topic_id', topicId).eq('user_id', me));
+};
+export const sendChatMessage = async (roomId: string, text: string) =>
+  insertOrDelete(db().from('chat_messages').insert({ room_id: roomId, body: text, sender_id: await myId() }));

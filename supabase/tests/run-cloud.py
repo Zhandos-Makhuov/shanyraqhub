@@ -56,7 +56,15 @@ def convert_tests() -> str:
             # sets is on; RLS still decides which rows may be deleted.
             line = "select set_config('storage.allow_delete_query', 'true', true); " + line
         out.append(line)
-    return "\n".join(out)
+    sql = "\n".join(out)
+    # A non-empty project (e.g. test accounts from earlier stages): absolute row counts become
+    # "baseline + N", with the baseline captured at the start of the same (rolled-back) transaction.
+    for table, key in (("public.profiles", "profiles"), ("public.user_balances", "balances"), ("public.member_stats", "stats")):
+        sql = sql.replace(f"(select count(*) from {table}) = ", f"(select count(*) from {table}) - current_setting('shq.base_{key}')::int = ")
+    baseline = "".join(
+        f"select set_config('shq.base_{key}', (select count(*) from {table})::text, false);\n"
+        for table, key in (("public.profiles", "profiles"), ("public.user_balances", "balances"), ("public.member_stats", "stats")))
+    return baseline + sql
 
 
 LINT = r"""
