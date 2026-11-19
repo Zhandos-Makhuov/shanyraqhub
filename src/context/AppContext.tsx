@@ -18,7 +18,7 @@ import {
 } from '../types';
 import { TRANSLATIONS } from '../data/translations';
 import { NEW_MEMBER_ID, NEW_MEMBER_PROFILE, INITIAL_USERS, INITIAL_EVENTS, INITIAL_FORUM_TOPICS, INITIAL_CHAT_ROOMS, INITIAL_COIN_TRANSACTIONS, INITIAL_AUDIT_LOGS, INITIAL_NOTIFICATIONS } from '../data/mockData';
-import { SHOP_ITEMS, TIERS } from '../data/gamification';
+import { SHOP_ITEMS, TIERS, ATTENDANCE_XP, attendanceCoinsForTier } from '../data/gamification';
 import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 import { getAchievementMetric } from '../utils/achievementProgress';
 import { sendLocalPushNotification, requestWebPushPermission } from '../utils/notifications';
@@ -497,7 +497,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    grantRewardOnce(`attendance:${eventId}:${uid}`, uid, 60, 40, `Подтверждение визита на «${ev.title}»`);
+    // Tier bonus: silver +10% … tengri +30% coins (see TIERS.attendanceCoinBonusPercent).
+    const attendee = allUsers.find(u => u.id === uid);
+    const coins = attendanceCoinsForTier(attendee?.tier ?? 'bronze');
+    grantRewardOnce(`attendance:${eventId}:${uid}`, uid, ATTENDANCE_XP, coins, `Подтверждение визита на «${ev.title}»`);
     recordActivity(uid);
 
     try {

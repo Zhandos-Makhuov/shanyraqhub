@@ -8,6 +8,8 @@ export type TierLevel = 'bronze' | 'silver' | 'gold' | 'platinum' | 'titanium' |
 
 export interface TierInfo {
   tier: TierLevel;
+  /** Extra coins for verified event attendance, in percent (silver 10 … tengri 30). */
+  attendanceCoinBonusPercent: number;
   nameRu: string;
   nameKz: string;
   nameEn: string;

@@ -184,6 +184,16 @@ select t.ok((select count(*) from public.reward_ledger where idempotency_key lik
 select t.ok((select count(*) from public.achievements) = 25 and (select count(*) from public.achievements where rule ->> 'metric' = 'manual') = 4,
             'seed: 25 achievements, 4 manual');
 
+-- Tier bonus on attendance coins: gold = +15% -> 40 * 1.15 = 46
+select private.grant_reward('00000000-0000-0000-0000-000000000001', 600, 0, 'admin_adjustment', null, 'test: reach gold', 'test:gold');
+insert into public.events (title, direction, starts_at, capacity, status, created_by)
+values ('Gold check', 'books', now() + interval '1 hour', 10, 'published', '00000000-0000-0000-0000-00000000000c');
+select id as gold_ev from public.events where title = 'Gold check' \gset
+select t.ok(private.tier_for_xp((select xp from public.user_balances where user_id = '00000000-0000-0000-0000-000000000001')) = 'gold', 'member reached gold tier');
+select private.record_attendance(:'gold_ev', '00000000-0000-0000-0000-000000000001', 'manual');
+select t.ok((select coin_delta from public.reward_ledger where idempotency_key = 'attendance:' || :'gold_ev' || ':00000000-0000-0000-0000-000000000001') = 46,
+            'gold member gets 46 coins for attendance (+15%)');
+
 -- Ledger integrity: balances always equal the sum of the ledger
 select t.ok(not exists (
   select 1 from public.user_balances b

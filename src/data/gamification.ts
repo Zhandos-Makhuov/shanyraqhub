@@ -3,6 +3,7 @@ import { TierInfo, TierLevel, ShopItem } from '../types';
 export const TIERS: Record<TierLevel, TierInfo> = {
   bronze: {
     tier: 'bronze',
+    attendanceCoinBonusPercent: 0,
     nameRu: 'Бронзовый уровень',
     nameKz: 'Қола деңгей',
     nameEn: 'Bronze Tier',
@@ -18,6 +19,7 @@ export const TIERS: Record<TierLevel, TierInfo> = {
   },
   silver: {
     tier: 'silver',
+    attendanceCoinBonusPercent: 10,
     nameRu: 'Серебряный уровень',
     nameKz: 'Күміс деңгей',
     nameEn: 'Silver Tier',
@@ -33,6 +35,7 @@ export const TIERS: Record<TierLevel, TierInfo> = {
   },
   gold: {
     tier: 'gold',
+    attendanceCoinBonusPercent: 15,
     nameRu: 'Золотой уровень',
     nameKz: 'Алтын деңгей',
     nameEn: 'Gold Tier',
@@ -42,12 +45,13 @@ export const TIERS: Record<TierLevel, TierInfo> = {
     textColor: 'text-[#dfcfb3]',
     glowColor: 'rgba(223, 207, 179, 0.4)',
     bgGradient: 'from-amber-900/30 via-stone-900 to-stone-950',
-    privilegeRu: 'Приоритетная бронь мест на закрытые мастер-классы',
-    privilegeKz: 'Жабық шеберлік сыныптарына басымдықпен жазылу',
-    privilegeEn: 'Priority RSVP reservation for high-demand masterclasses',
+    privilegeRu: 'Приоритетная бронь мест на закрытые мастер-классы · +15% коинов за посещения',
+    privilegeKz: 'Жабық шеберлік сыныптарына басымдықпен жазылу · қатысу үшін +15% монета',
+    privilegeEn: 'Priority RSVP reservation for high-demand masterclasses · +15% attendance coins',
   },
   platinum: {
     tier: 'platinum',
+    attendanceCoinBonusPercent: 20,
     nameRu: 'Платиновый уровень',
     nameKz: 'Платина деңгей',
     nameEn: 'Platinum Tier',
@@ -57,12 +61,13 @@ export const TIERS: Record<TierLevel, TierInfo> = {
     textColor: 'text-cyan-200',
     glowColor: 'rgba(229, 228, 226, 0.45)',
     bgGradient: 'from-cyan-950/40 via-stone-900 to-stone-950',
-    privilegeRu: 'Право инициировать собственные темы и спикинг-сессии',
-    privilegeKz: 'Өз тақырыптарын ұсыну және спикинг сессияларын ашу құқығы',
-    privilegeEn: 'Permission to host custom peer-led reading sessions',
+    privilegeRu: 'Право инициировать собственные темы и спикинг-сессии · +20% коинов за посещения',
+    privilegeKz: 'Өз тақырыптарын ұсыну және спикинг сессияларын ашу құқығы · қатысу үшін +20% монета',
+    privilegeEn: 'Permission to host custom peer-led reading sessions · +20% attendance coins',
   },
   titanium: {
     tier: 'titanium',
+    attendanceCoinBonusPercent: 25,
     nameRu: 'Титановый уровень',
     nameKz: 'Титан деңгей',
     nameEn: 'Titanium Tier',
@@ -72,12 +77,13 @@ export const TIERS: Record<TierLevel, TierInfo> = {
     textColor: 'text-indigo-300',
     glowColor: 'rgba(135, 151, 167, 0.5)',
     bgGradient: 'from-indigo-950/40 via-stone-900 to-stone-950',
-    privilegeRu: 'Клубный знак почета, доступ в закрытый совет модераторов',
-    privilegeKz: 'Клубтық құрмет белгісі, модераторлар кеңесіне қолжетімділік',
-    privilegeEn: 'Permanent seat in the community governance council',
+    privilegeRu: 'Клубный знак почета, доступ в закрытый совет модераторов · +25% коинов за посещения',
+    privilegeKz: 'Клубтық құрмет белгісі, модераторлар кеңесіне қолжетімділік · қатысу үшін +25% монета',
+    privilegeEn: 'Permanent seat in the community governance council · +25% attendance coins',
   },
   tengri: {
     tier: 'tengri',
+    attendanceCoinBonusPercent: 30,
     nameRu: 'Ханский Небесный Шаңырақ',
     nameKz: 'Хандық Көк Шаңырақ',
     nameEn: 'Tengri Master (Grand Shanyraq)',
@@ -87,11 +93,19 @@ export const TIERS: Record<TierLevel, TierInfo> = {
     textColor: 'text-amber-300 font-bold',
     glowColor: 'rgba(245, 215, 127, 0.65)',
     bgGradient: 'from-amber-600/30 via-amber-900/40 to-stone-950',
-    privilegeRu: 'Высший статус Shanyraq Hub, золотая аура и менторство',
-    privilegeKz: 'Ең жоғарғы мәртебе, алтын жарқыл және қауымдастық тәлімгері',
-    privilegeEn: 'Highest honorary club dignity with golden aura & stewardship',
+    privilegeRu: 'Высший статус Shanyraq Hub, золотая аура и менторство · +30% коинов за посещения',
+    privilegeKz: 'Ең жоғарғы мәртебе, алтын жарқыл және қауымдастық тәлімгері · қатысу үшін +30% монета',
+    privilegeEn: 'Highest honorary club dignity with golden aura & stewardship · +30% attendance coins',
   },
 };
+
+/** Base coins for a verified event check-in (before the tier bonus). */
+export const ATTENDANCE_BASE_COINS = 40;
+export const ATTENDANCE_XP = 60;
+
+/** Coins for a verified check-in at the member's current tier: 40 → 44 / 46 / 48 / 50 / 52. */
+export const attendanceCoinsForTier = (tier: TierLevel): number =>
+  Math.round(ATTENDANCE_BASE_COINS * (1 + (TIERS[tier]?.attendanceCoinBonusPercent ?? 0) / 100));
 
 export const SHOP_ITEMS: ShopItem[] = [
   // Avatars

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { isStaffRole } from '../utils/permissions';
+import { ATTENDANCE_XP, TIERS, attendanceCoinsForTier } from '../data/gamification';
 import { pluralDaysRu } from '../utils/streak';
 import {
   UserCheck,
@@ -69,7 +70,11 @@ export const AttendanceView: React.FC = () => {
         setTimeout(() => setScanSuccessMsg(''), 5000);
         return;
       }
-      setScanSuccessMsg(`Визит для ${user?.name} успешно подтвержден! Начислено +60 XP и +40 коинов.`);
+      const coins = attendanceCoinsForTier(user?.tier ?? 'bronze');
+      const bonus = TIERS[user?.tier ?? 'bronze']?.attendanceCoinBonusPercent ?? 0;
+      setScanSuccessMsg(
+        `Визит для ${user?.name} успешно подтвержден! Начислено +${ATTENDANCE_XP} XP и +${coins} коинов${bonus ? ` (бонус уровня +${bonus}%)` : ''}.`
+      );
       setTimeout(() => setScanSuccessMsg(''), 5000);
     }, 800);
   };
