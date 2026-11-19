@@ -82,10 +82,14 @@
 
 ### Что осталось
 Промпты владельца «Phase 2» и «Phase 3» (из ChatGPT) приняты **как план с поправками**:
-1. ⏳ **Этап 4 (следующий):** владелец создаёт **тестовый** проект Supabase и присылает Project URL (без секретных ключей) → применить схему, `supabase db lint`, прогнать проверки.
+1. ⏳ **Этап 4 (следующий):** применить схему к **тестовому** проекту Supabase, `supabase db lint`, прогнать проверки.
+   - Тестовый проект создан: `shanyraq-hub-test`, **https://fwhcaspbbktgpjiskpln.supabase.co** (ref `fwhcaspbbktgpjiskpln`), регион Frankfurt, Data API включён, авто-доступ к новым таблицам выключен, авто-RLS включён. Пароль базы — только у владельца.
+   - Облачная среда **`shanyraqhub`** (personal): сеть открыта для `api.supabase.com` и `fwhcaspbbktgpjiskpln.supabase.co`. Новые сессии запускать в ней.
+   - Доступ — личный токен Supabase (`sbp_…`), сохраняется **только через защищённую форму** (`request_credential`, host `api.supabase.com`), никогда не в чат и не в код. Применять SQL через Management API: `POST https://api.supabase.com/v1/projects/fwhcaspbbktgpjiskpln/database/query`. После этапа владелец удаляет токен.
+   - Локальные тесты (`run-local.sh`) делают `drop database` — **никогда не запускать против Supabase**; для облака нужны отдельные проверки без разрушительных команд.
 2. ⏳ Этап 5: настоящий вход (регистрация, подтверждение почты, восстановление пароля, сессии) через supabase-js.
 3. ⏳ Этап 6: перевод функций на RPC по одной (события+QR → книги → форум → магазин → админка), сохраняя имена функций контекста; подключить переходник `src/data/supabase/adapters.ts`; в профиле направления — через заявку (`request_membership`); загрузка фото в хранилище.
 4. ⏳ Этап 7: уведомления (in-app Realtime, Web Push, напоминания через pg_cron + Edge Function).
 5. ⏳ Этап 8: хостинг с автообновлением из `main` (рекомендация — Vercel/Netlify), CI (lint+build), слияние в `main` — только с согласия владельца.
 
-Открытые вопросы к владельцу: проверка казахских текстов по `docs/achievements-review.xlsx`; тестовый проект Supabase для этапа 4.
+Открытые вопросы к владельцу: проверка казахских текстов по `docs/achievements-review.xlsx`; токен Supabase для этапа 4.
