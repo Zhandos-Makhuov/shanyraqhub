@@ -211,7 +211,7 @@ select t.ok((select count(*) from public.achievements) = 28 and (select count(*)
             'seed: 28 achievements, 4 manual');
 
 -- Tier bonus on attendance coins: gold = +15% -> 40 * 1.15 = 46
-select private.grant_reward('00000000-0000-0000-0000-000000000001', 600, 0, 'admin_adjustment', null, 'test: reach gold', 'test:gold');
+select private.grant_reward('00000000-0000-0000-0000-000000000001', 1000, 0, 'admin_adjustment', null, 'test: reach gold', 'test:gold');
 insert into public.events (title, direction, starts_at, capacity, status, created_by)
 values ('Gold check', 'books', now() + interval '1 hour', 10, 'published', '00000000-0000-0000-0000-00000000000c');
 select id as gold_ev from public.events where title = 'Gold check' \gset

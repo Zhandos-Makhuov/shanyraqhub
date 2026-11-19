@@ -4,11 +4,11 @@
 
 insert into public.tiers (tier, min_xp, sort_order, name_ru, name_kz, name_en, coin_multiplier) values
   ('bronze', 0, 0, 'Бронзовый уровень', 'Қола деңгей', 'Bronze Tier', 1.00),
-  ('silver', 200, 1, 'Серебряный уровень', 'Күміс деңгей', 'Silver Tier', 1.10),
-  ('gold', 500, 2, 'Золотой уровень', 'Алтын деңгей', 'Gold Tier', 1.15),
-  ('platinum', 1000, 3, 'Платиновый уровень', 'Платина деңгей', 'Platinum Tier', 1.20),
-  ('titanium', 2000, 4, 'Титановый уровень', 'Титан деңгей', 'Titanium Tier', 1.25),
-  ('tengri', 3500, 5, 'Ханский Небесный Шаңырақ', 'Хандық Көк Шаңырақ', 'Tengri Master (Grand Shanyraq)', 1.30)
+  ('silver', 300, 1, 'Серебряный уровень', 'Күміс деңгей', 'Silver Tier', 1.10),
+  ('gold', 1000, 2, 'Золотой уровень', 'Алтын деңгей', 'Gold Tier', 1.15),
+  ('platinum', 2500, 3, 'Платиновый уровень', 'Платина деңгей', 'Platinum Tier', 1.20),
+  ('titanium', 5000, 4, 'Титановый уровень', 'Титан деңгей', 'Titanium Tier', 1.25),
+  ('tengri', 9000, 5, 'Ханский Небесный Шаңырақ', 'Хандық Көк Шаңырақ', 'Tengri Master (Grand Shanyraq)', 1.30)
 on conflict (tier) do update set min_xp = excluded.min_xp, name_ru = excluded.name_ru, name_kz = excluded.name_kz,
   name_en = excluded.name_en, coin_multiplier = excluded.coin_multiplier;
 

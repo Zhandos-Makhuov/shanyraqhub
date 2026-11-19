@@ -1,5 +1,5 @@
 import { Direction, UserProfile, CommunityEvent, ForumTopic, EncryptedChatRoom, AppNotification, CoinTransaction, AuditLog } from '../types';
-import { ALL_ACHIEVEMENTS } from './gamification';
+import { ALL_ACHIEVEMENTS, tierForXp } from './gamification';
 
 export const COMMUNITY_DIRECTIONS: Direction[] = [
   {
@@ -940,6 +940,11 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
 // Saved data (localStorage) keeps the dates from the first visit; the
 // "Сбросить демо-данные" button regenerates them.
 // ---------------------------------------------------------------------------
+// Demo members' tiers follow their XP under the current thresholds.
+INITIAL_USERS.forEach(user => {
+  user.tier = tierForXp(user.xp);
+});
+
 const DEMO_ANCHOR_DATE = '2026-11-18';
 
 const parseDay = (day: string): Date => {

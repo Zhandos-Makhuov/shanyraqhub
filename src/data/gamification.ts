@@ -23,7 +23,7 @@ export const TIERS: Record<TierLevel, TierInfo> = {
     nameRu: 'Серебряный уровень',
     nameKz: 'Күміс деңгей',
     nameEn: 'Silver Tier',
-    minXp: 200,
+    minXp: 300,
     badgeIcon: 'Award',
     color: '#c0c0c0',
     textColor: 'text-stone-300',
@@ -39,7 +39,7 @@ export const TIERS: Record<TierLevel, TierInfo> = {
     nameRu: 'Золотой уровень',
     nameKz: 'Алтын деңгей',
     nameEn: 'Gold Tier',
-    minXp: 500,
+    minXp: 1000,
     badgeIcon: 'Sparkles',
     color: '#dfcfb3',
     textColor: 'text-[#dfcfb3]',
@@ -55,7 +55,7 @@ export const TIERS: Record<TierLevel, TierInfo> = {
     nameRu: 'Платиновый уровень',
     nameKz: 'Платина деңгей',
     nameEn: 'Platinum Tier',
-    minXp: 1000,
+    minXp: 2500,
     badgeIcon: 'Gem',
     color: '#e5e4e2',
     textColor: 'text-cyan-200',
@@ -71,7 +71,7 @@ export const TIERS: Record<TierLevel, TierInfo> = {
     nameRu: 'Титановый уровень',
     nameKz: 'Титан деңгей',
     nameEn: 'Titanium Tier',
-    minXp: 2000,
+    minXp: 5000,
     badgeIcon: 'Zap',
     color: '#8797a7',
     textColor: 'text-indigo-300',
@@ -87,7 +87,7 @@ export const TIERS: Record<TierLevel, TierInfo> = {
     nameRu: 'Ханский Небесный Шаңырақ',
     nameKz: 'Хандық Көк Шаңырақ',
     nameEn: 'Tengri Master (Grand Shanyraq)',
-    minXp: 3500,
+    minXp: 9000,
     badgeIcon: 'Crown',
     color: '#f5d77f',
     textColor: 'text-amber-300 font-bold',
@@ -97,6 +97,15 @@ export const TIERS: Record<TierLevel, TierInfo> = {
     privilegeKz: 'Ең жоғарғы мәртебе, алтын жарқыл және қауымдастық тәлімгері · қатысу үшін +30% монета',
     privilegeEn: 'Highest honorary club dignity with golden aura & stewardship · +30% attendance coins',
   },
+};
+
+/**
+ * Tier for an XP amount. Thresholds are tuned so an active member
+ * (~170 XP/week + achievements) reaches Tengri in about a year.
+ */
+export const tierForXp = (xp: number): TierLevel => {
+  const order: TierLevel[] = ['tengri', 'titanium', 'platinum', 'gold', 'silver'];
+  return order.find(t => xp >= TIERS[t].minXp) ?? 'bronze';
 };
 
 /** Base coins for a verified event check-in (before the tier bonus). */

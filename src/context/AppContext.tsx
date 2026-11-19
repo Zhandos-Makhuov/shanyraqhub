@@ -18,7 +18,7 @@ import {
 } from '../types';
 import { TRANSLATIONS } from '../data/translations';
 import { NEW_MEMBER_ID, NEW_MEMBER_PROFILE, INITIAL_USERS, INITIAL_EVENTS, INITIAL_FORUM_TOPICS, INITIAL_CHAT_ROOMS, INITIAL_COIN_TRANSACTIONS, INITIAL_AUDIT_LOGS, INITIAL_NOTIFICATIONS } from '../data/mockData';
-import { SHOP_ITEMS, TIERS, ATTENDANCE_XP, attendanceCoinsForTier } from '../data/gamification';
+import { SHOP_ITEMS, TIERS, ATTENDANCE_XP, attendanceCoinsForTier, tierForXp } from '../data/gamification';
 import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 import { getAchievementMetric } from '../utils/achievementProgress';
 import { sendLocalPushNotification, requestWebPushPermission } from '../utils/notifications';
@@ -117,7 +117,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem(`${STORAGE_KEY}_users`);
     const users: UserProfile[] = saved ? JSON.parse(saved) : INITIAL_USERS;
     // Every visitor starts as a new first-tier member (also added to data saved before this existed).
-    return users.some(u => u.id === NEW_MEMBER_ID) ? users : [NEW_MEMBER_PROFILE, ...users];
+    const withNewcomer = users.some(u => u.id === NEW_MEMBER_ID) ? users : [NEW_MEMBER_PROFILE, ...users];
+    // Tier is always derived from XP (keeps saved data correct when thresholds change).
+    return withNewcomer.map(u => ({ ...u, tier: tierForXp(u.xp) }));
   });
 
   const [currentUserId, setCurrentUserId] = useState<string>(NEW_MEMBER_ID);
@@ -227,14 +229,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // XP progression & tier calculation
-  const recalculateTier = (xp: number) => {
-    if (xp >= TIERS.tengri.minXp) return 'tengri';
-    if (xp >= TIERS.titanium.minXp) return 'titanium';
-    if (xp >= TIERS.platinum.minXp) return 'platinum';
-    if (xp >= TIERS.gold.minXp) return 'gold';
-    if (xp >= TIERS.silver.minXp) return 'silver';
-    return 'bronze';
-  };
+  const recalculateTier = tierForXp;
 
   const addXpAndCoins = (userId: string, xpDelta: number, coinsDelta: number, reasonRu: string) => {
     setAllUsers(prev =>
