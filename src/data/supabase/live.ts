@@ -54,6 +54,10 @@ interface ChatRoomRow {
 }
 interface ChatMessageRow { id: number; room_id: string; sender_id: string; body: string; created_at: string }
 
+/** Club calendar day (Asia/Almaty) of a timestamp, as YYYY-MM-DD. */
+export const clubDay = (iso: string | Date) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: CLUB_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
+
 const formatTime = (iso: string) =>
   new Intl.DateTimeFormat('ru-RU', { timeZone: CLUB_TIME_ZONE, hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 const formatDateTime = (iso: string) =>
@@ -113,7 +117,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
           .order('created_at', { ascending: false }).limit(50),
       ),
       rows<BookRow>(c.from('books').select('id, title, author, genre, cover_color, cover_url')),
-      rows<UserBookRow>(c.from('user_books').select('id, user_id, book_id, status, rating, review, finished_at').order('updated_at', { ascending: false })),
+      rows<UserBookRow & { created_at: string }>(c.from('user_books').select('id, user_id, book_id, status, rating, review, finished_at, created_at').order('updated_at', { ascending: false })),
       rows<ForumCategoryRow>(c.from('forum_categories').select('*')),
       rows<ForumTopicRow>(c.from('forum_topics')
         .select('id, category_id, direction, author_id, title, content, is_pinned, is_closed, view_count, created_at')
@@ -137,6 +141,20 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
   const names = buildPublicNames(profiles, roles);
   const rel = { roles, balances, events, registrations, attendance, feedback, peerReviews: reviews, names,
     userAchievements: achievements, revocations, books, userBooks, inventory, equipment, memberships, contacts };
+  // Days with real activity per member — the same sources as private.activity_days on the server
+  // (check-ins, event feedback, books, forum topics and replies, peer reviews), in club time.
+  const activity = new Map<string, Set<string>>();
+  const mark = (user: string, iso: string) => {
+    if (!activity.has(user)) activity.set(user, new Set());
+    activity.get(user)!.add(clubDay(iso));
+  };
+  attendance.forEach(a => mark(a.user_id, a.checked_in_at));
+  feedback.forEach(f => mark(f.user_id, f.created_at));
+  userBooks.forEach(b => mark(b.user_id, b.created_at));
+  topics.forEach(t => mark(t.author_id, t.created_at));
+  replies.forEach(r => mark(r.author_id, r.created_at));
+  reviews.forEach(r => mark(r.author_id, r.created_at));
+
   const nameOf = (id: string) => names[id] ?? { name: '—', avatar: '/icons/icon-192.png', role: 'member' as UserRole };
   const forumTopics: ForumTopic[] = topics.map(t => {
     const cat = categories.find(cat => cat.id === t.category_id);
@@ -210,6 +228,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
     users: profiles.map(p => ({
       ...profileFromRows(p, { ...rel, email: p.id === myId ? email : undefined }),
       pendingDirections: memberships.filter(m => m.user_id === p.id && m.status === 'pending').map(m => m.direction),
+      activityDays: [...(activity.get(p.id) ?? [])],
     })),
     events: events.map(e => eventFromRow(e, { registrations, attendance, feedback, names })),
     notifications: notifications.map(n => ({

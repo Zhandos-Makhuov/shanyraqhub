@@ -162,6 +162,8 @@ export interface UserProfile {
   id: string;
   /** Live: directions the member applied to, waiting for approval. */
   pendingDirections?: DirectionId[];
+  /** Live: club days (YYYY-MM-DD, Almaty) with verified activity, from the server — drives the streaks. */
+  activityDays?: string[];
   name: string;
   email: string;
   handle: string;

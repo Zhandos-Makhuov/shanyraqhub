@@ -349,6 +349,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   const activityDays = (userId: string): string[] => {
     const user = allUsers.find(u => u.id === userId);
     if (!user) return [];
+    // Live: the same verified sources the server uses for streak achievements (no browser log).
+    if (account) return user.activityDays ?? [];
     return [
       ...(activityLog[userId] || []),
       // Verified history that existed before the activity log.
@@ -357,8 +359,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     ];
   };
 
-  const getActivityStreak = (userId: string): number => computeDayStreak(activityDays(userId));
-  const getWeekStreak = (userId: string): number => computeWeekStreak(activityDays(userId));
+  // Live: "today" is the club's day in Almaty (server days are Almaty days), whatever the device's time zone.
+  const streakNow = (): Date => {
+    if (!account) return new Date();
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Almaty', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    return new Date(`${day}T12:00:00`);
+  };
+  const getActivityStreak = (userId: string): number => computeDayStreak(activityDays(userId), streakNow());
+  const getWeekStreak = (userId: string): number => computeWeekStreak(activityDays(userId), streakNow());
 
   /**
    * Single entry point for activity rewards.
