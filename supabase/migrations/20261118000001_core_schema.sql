@@ -256,6 +256,20 @@ create table public.user_achievements (
   primary key (user_id, achievement_id)
 );
 
+-- Admin revocations (abuse or mistaken award). An active revocation
+-- (lifted_at is null) stops the achievement from auto-unlocking again.
+create table public.achievement_revocations (
+  id             bigint generated always as identity primary key,
+  user_id        uuid not null references auth.users (id) on delete cascade,
+  achievement_id text not null references public.achievements (id) on delete cascade,
+  revoked_by     uuid references auth.users (id) on delete set null,
+  reason         text not null check (char_length(trim(reason)) > 0),
+  revoked_at     timestamptz not null default now(),
+  lifted_at      timestamptz
+);
+create unique index achievement_revocations_active_uq
+  on public.achievement_revocations (user_id, achievement_id) where lifted_at is null;
+
 -- ---------------------------------------------------------------------
 -- Shop & inventory
 -- ---------------------------------------------------------------------

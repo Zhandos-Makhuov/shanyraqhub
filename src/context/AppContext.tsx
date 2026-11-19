@@ -100,6 +100,8 @@ interface AppContextType {
   getAchievementProgress: (userId: string, achievementId: string) => number;
   /** Moderator+ awards a manual achievement to another member. */
   awardAchievement: (userId: string, achievementId: string, note: string) => boolean;
+  /** Admin+ revokes an achievement (abuse or mistake): reward returned, never auto-unlocked again. */
+  revokeAchievement: (userId: string, achievementId: string, reason: string) => boolean;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -1132,6 +1134,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ALL_ACHIEVEMENTS.forEach(ach => {
         if (!ach.rule || isManualAchievement(ach)) return;
         if (user.achievements.some(a => a.id === ach.id)) return;
+        if (user.revokedAchievementIds?.includes(ach.id)) return; // revoked by an admin
         if (getAchievementMetric(user.id, ach.rule, data) >= ach.rule.threshold) {
           unlockAchievement(user.id, ach);
         }
@@ -1139,6 +1142,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allUsers, events, forumTopics, activityLog]);
+
+  const revokeAchievement = (userId: string, achievementId: string, reason: string): boolean => {
+    const target = allUsers.find(u => u.id === userId);
+    const owned = target?.achievements.find(a => a.id === achievementId);
+    const ach = ALL_ACHIEVEMENTS.find(a => a.id === achievementId) || owned;
+    if (!target || !owned || !ach) return false;
+    if (!hasRole(currentUser.role, 'admin')) {
+      alert('Отзывать достижения могут только администраторы.');
+      return false;
+    }
+    if (userId === currentUser.id) {
+      alert('Нельзя отозвать достижение у самого себя.');
+      return false;
+    }
+    if (!reason.trim()) {
+      alert('Укажите причину отзыва.');
+      return false;
+    }
+
+    // Return the reward; coins never go below zero if they were already spent.
+    const coinsBack = Math.min(target.coins, ach.coinReward);
+    setAllUsers(prev =>
+      prev.map(u =>
+        u.id !== userId
+          ? u
+          : {
+              ...u,
+              achievements: u.achievements.filter(a => a.id !== achievementId),
+              revokedAchievementIds: [...new Set([...(u.revokedAchievementIds || []), achievementId])],
+            }
+      )
+    );
+    addXpAndCoins(userId, -ach.xpReward, -coinsBack, `Отзыв достижения «${ach.titleRu}»`);
+    setNotifications(prev => [
+      {
+        id: `notif-ach-revoke-${achievementId}-${userId}-${Date.now()}`,
+        userId,
+        type: 'achievement',
+        title: 'Достижение отозвано',
+        message: `Администратор отозвал «${ach.titleRu}». Причина: ${reason.trim()}`,
+        timestamp: 'Только что',
+        read: false,
+        linkTab: 'achievements',
+      },
+      ...prev,
+    ]);
+    setAuditLogs(prev => [
+      {
+        id: `audit-${Date.now()}`,
+        adminId: currentUser.id,
+        adminName: currentUser.name,
+        action: 'ACHIEVEMENT_REVOKE',
+        target: `${target.name}: ${ach.titleRu} (−${ach.xpReward} XP, −${coinsBack} коинов)`,
+        timestamp: new Date().toLocaleDateString('ru-RU') + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        details: reason.trim(),
+      },
+      ...prev,
+    ]);
+    return true;
+  };
 
   const awardAchievement = (userId: string, achievementId: string, note: string): boolean => {
     const ach = ALL_ACHIEVEMENTS.find(a => a.id === achievementId);
@@ -1156,10 +1219,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       alert('Это достижение открывается автоматически за активность.');
       return false;
     }
-    if (!unlockAchievement(userId, ach)) {
+    if (target.achievements.some(a => a.id === ach.id)) {
       alert(`У участника уже есть достижение «${ach.titleRu}».`);
       return false;
     }
+    // A deliberate re-award lifts an earlier revocation.
+    if (target.revokedAchievementIds?.includes(ach.id)) {
+      setAllUsers(prev =>
+        prev.map(u => (u.id === userId ? { ...u, revokedAchievementIds: (u.revokedAchievementIds || []).filter(id => id !== ach.id) } : u))
+      );
+    }
+    // The reward was returned on revocation, so a re-award may pay it again.
+    delete rewardLogRef.current[`achievement:${ach.id}:${userId}`];
+    if (!unlockAchievement(userId, ach)) return false;
     setAuditLogs(prev => [
       {
         id: `audit-${Date.now()}`,
@@ -1220,6 +1292,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getWeekStreak,
         getAchievementProgress,
         awardAchievement,
+        revokeAchievement,
       }}
     >
       {children}

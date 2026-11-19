@@ -134,6 +134,9 @@ create policy forum_categories_admin on public.forum_categories for all to authe
   using (private.has_role('admin')) with check (private.has_role('admin'));
 
 create policy user_achievements_read on public.user_achievements for select to authenticated using (true);
+grant select on public.achievement_revocations to authenticated;
+create policy revocations_read on public.achievement_revocations for select to authenticated
+  using (user_id = (select auth.uid()) or private.has_role('admin'));
 create policy inventory_read on public.user_inventory for select to authenticated using (true);
 create policy equipment_read on public.user_equipment for select to authenticated using (true);
 

@@ -243,6 +243,31 @@ insert into public.event_feedback (event_id, user_id, satisfaction, usefulness) 
  (:'host_ev', '00000000-0000-0000-0000-000000000004', 4, 4);
 select t.ok(private.achievement_metric('00000000-0000-0000-0000-00000000000c', '{"metric":"well_rated_events_hosted"}') = 1, 'avg 4.67 from 3 reviews = well rated');
 
+-- Revocation: admin only, reward returned, no auto re-unlock, re-award lifts it
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', false);
+select t.expect_fail($$select public.revoke_achievement('00000000-0000-0000-0000-000000000001', 'ach-first-book', 'x')$$, '%forbidden%');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b"}', false);
+select t.expect_fail($$select public.revoke_achievement('00000000-0000-0000-0000-000000000001', 'ach-first-book', '  ')$$, '%reason_required%');
+reset role;
+select xp as m1_xp_before from public.user_balances where user_id = '00000000-0000-0000-0000-000000000001' \gset
+set role authenticated;
+select t.ok(public.revoke_achievement('00000000-0000-0000-0000-000000000001', 'ach-first-book', 'Рецензия скопирована'), 'admin revokes an achievement');
+reset role;
+select t.ok(not exists (select 1 from public.user_achievements where user_id = '00000000-0000-0000-0000-000000000001' and achievement_id = 'ach-first-book'), 'achievement removed');
+select t.ok((select xp from public.user_balances where user_id = '00000000-0000-0000-0000-000000000001') = :m1_xp_before - 50, 'XP returned (-50)');
+select private.evaluate_achievements('00000000-0000-0000-0000-000000000001');
+select t.ok(not exists (select 1 from public.user_achievements where user_id = '00000000-0000-0000-0000-000000000001' and achievement_id = 'ach-first-book'), 'not auto-unlocked again while revoked');
+select t.ok(exists (select 1 from public.audit_logs where action = 'ACHIEVEMENT_REVOKE'), 'revocation audited');
+-- manual achievement: revoke then deliberate re-award pays again
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+select public.revoke_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'Ошибочная выдача');
+select t.ok(public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'Повторно, верно'), 're-award after revocation works');
+reset role;
+select t.ok((select count(*) from public.reward_ledger where idempotency_key like 'achievement:ach-knowledge-seeker:00000000-0000-0000-0000-000000000002%') = 2,
+            're-award paid again (new key after revocation)');
+
 -- Ledger integrity: balances always equal the sum of the ledger
 select t.ok(not exists (
   select 1 from public.user_balances b

@@ -35,6 +35,7 @@ export const AdminView: React.FC = () => {
     updateUserRole,
     adjustUserCoins,
     awardAchievement,
+    revokeAchievement,
     dispatchBroadcast,
     auditLogs,
     t,
@@ -87,6 +88,26 @@ export const AdminView: React.FC = () => {
   const [awardUserId, setAwardUserId] = useState(awardCandidates[0]?.id || '');
   const [awardAchievementId, setAwardAchievementId] = useState(manualAchievements[0]?.id || '');
   const [awardNote, setAwardNote] = useState('');
+
+  // Revoking (abuse or mistake) is admin-only.
+  const canRevokeAchievements = hasRole(currentUser.role, 'admin');
+  const [revokeUserId, setRevokeUserId] = useState(awardCandidates[0]?.id || '');
+  const revokeUserAchievements = allUsers.find(u => u.id === revokeUserId)?.achievements || [];
+  const [revokeAchievementId, setRevokeAchievementId] = useState('');
+  const [revokeReason, setRevokeReason] = useState('');
+  const selectedRevokeId = revokeUserAchievements.some(a => a.id === revokeAchievementId)
+    ? revokeAchievementId
+    : revokeUserAchievements[0]?.id || '';
+
+  const handleRevokeAchievement = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRevokeId) return;
+    const ach = revokeUserAchievements.find(a => a.id === selectedRevokeId);
+    const user = allUsers.find(u => u.id === revokeUserId);
+    if (!window.confirm(`Отозвать «${ach?.titleRu}» у ${user?.name}? Награда за него будет списана.`)) return;
+    if (!revokeAchievement(revokeUserId, selectedRevokeId, revokeReason)) return;
+    setRevokeReason('');
+  };
 
   const handleAwardAchievement = (e: React.FormEvent) => {
     e.preventDefault();
@@ -425,6 +446,75 @@ export const AdminView: React.FC = () => {
               </div>
             </form>
           </div>
+
+          {/* Achievement Revoke Box (admin+) */}
+          {canRevokeAchievements && (
+            <div className="p-6 rounded-2xl bg-[#23201e] border border-[#352f2c] space-y-4">
+              <h3 className="font-display text-sm font-bold text-[#f5f2eb] flex items-center gap-2">
+                <Award className="w-4 h-4 text-amber-500" />
+                <span>Отозвать достижение</span>
+              </h3>
+              <p className="text-[11px] text-[#8c8279]">
+                Только при обмане или ошибочной выдаче. XP и коины за достижение списываются (баланс не уходит в минус),
+                участник получает уведомление, отзыв записывается в журнал аудита. Само достижение больше не откроется автоматически.
+              </p>
+
+              <form onSubmit={handleRevokeAchievement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <label className="text-[#8c8279] block mb-1">Участник</label>
+                  <select
+                    value={revokeUserId}
+                    onChange={e => setRevokeUserId(e.target.value)}
+                    className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
+                  >
+                    {awardCandidates.map(u => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.achievements.length})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[#8c8279] block mb-1">Достижение</label>
+                  <select
+                    value={selectedRevokeId}
+                    onChange={e => setRevokeAchievementId(e.target.value)}
+                    disabled={revokeUserAchievements.length === 0}
+                    className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb] disabled:opacity-50"
+                  >
+                    {revokeUserAchievements.length === 0 ? (
+                      <option value="">Нет достижений</option>
+                    ) : (
+                      revokeUserAchievements.map(a => (
+                        <option key={a.id} value={a.id}>{a.titleRu}</option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[#8c8279] block mb-1">Причина (обязательно)</label>
+                  <input
+                    type="text"
+                    required
+                    value={revokeReason}
+                    placeholder="Напр.: рецензии скопированы из интернета"
+                    onChange={e => setRevokeReason(e.target.value)}
+                    className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
+                  />
+                </div>
+
+                <div className="self-end">
+                  <button
+                    type="submit"
+                    disabled={!selectedRevokeId}
+                    className="w-full p-2 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] border border-amber-800/70 text-xs font-semibold text-amber-300 transition-colors disabled:opacity-50"
+                  >
+                    Отозвать достижение
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
 
           {/* Manual Achievement Award Box (moderator+) */}
           {canAwardAchievements && (

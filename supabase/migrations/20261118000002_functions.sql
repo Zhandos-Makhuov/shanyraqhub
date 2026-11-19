@@ -276,7 +276,9 @@ end $$;
 
 create function private.unlock_achievement(p_user uuid, p_achievement text) returns boolean
 language plpgsql security definer set search_path = '' as $$
-declare a public.achievements;
+declare
+  a public.achievements;
+  v_revocations int;
 begin
   select * into a from public.achievements where id = p_achievement and is_active;
   if not found then return false; end if;
@@ -285,8 +287,11 @@ begin
   on conflict do nothing;
   if not found then return false; end if;
 
+  select count(*) into v_revocations from public.achievement_revocations
+   where user_id = p_user and achievement_id = p_achievement;
   perform private.grant_reward(p_user, a.xp_reward, a.coin_reward, 'achievement', a.id,
-    'Достижение: ' || a.title_ru, 'achievement:' || a.id || ':' || p_user);
+    'Достижение: ' || a.title_ru,
+    'achievement:' || a.id || ':' || p_user || case when v_revocations > 0 then ':r' || v_revocations else '' end);
   perform private.notify(p_user, 'achievement', 'Новое достижение!', a.title_ru, 'achievements',
     jsonb_build_object('achievement_id', a.id), 'achievement:' || a.id);
   return true;
@@ -302,6 +307,8 @@ begin
        and ach.rule ->> 'metric' <> 'manual'
        and not exists (select 1 from public.user_achievements ua
                         where ua.user_id = p_user and ua.achievement_id = ach.id)
+       and not exists (select 1 from public.achievement_revocations r
+                        where r.user_id = p_user and r.achievement_id = ach.id and r.lifted_at is null)
   loop
     if private.achievement_metric(p_user, a.rule) >= coalesce((a.rule ->> 'threshold')::int, 1) then
       perform private.unlock_achievement(p_user, a.id);
@@ -321,10 +328,46 @@ begin
   if not exists (select 1 from public.achievements where id = p_achievement and rule ->> 'metric' = 'manual') then
     raise exception 'achievement % is not manually awardable', p_achievement;
   end if;
+  update public.achievement_revocations set lifted_at = now()
+   where user_id = p_user and achievement_id = p_achievement and lifted_at is null;   -- deliberate re-award
   v_ok := private.unlock_achievement(p_user, p_achievement);
   perform private.audit('ACHIEVEMENT_AWARD', 'user', p_user::text,
     jsonb_build_object('achievement', p_achievement, 'note', p_note, 'granted', v_ok));
   return v_ok;
+end $$;
+
+-- Admin-only: remove an achievement (abuse or mistake). The reward is returned
+-- (coins never below zero), the member is notified, and the achievement will not
+-- auto-unlock again until a moderator deliberately re-awards it.
+create function public.revoke_achievement(p_user uuid, p_achievement text, p_reason text)
+returns boolean language plpgsql security definer set search_path = '' as $$
+declare
+  actor uuid := private.require_role('admin');
+  a public.achievements;
+  v_coins int;
+  v_n int;
+begin
+  if p_user = actor then
+    raise exception 'cannot revoke your own achievement' using errcode = '42501';
+  end if;
+  if coalesce(trim(p_reason), '') = '' then raise exception 'reason_required'; end if;
+  select * into a from public.achievements where id = p_achievement;
+  delete from public.user_achievements where user_id = p_user and achievement_id = p_achievement;
+  if not found then return false; end if;
+
+  insert into public.achievement_revocations (user_id, achievement_id, revoked_by, reason)
+  values (p_user, p_achievement, actor, trim(p_reason));
+  select count(*) into v_n from public.achievement_revocations where user_id = p_user and achievement_id = p_achievement;
+
+  select least(coins, a.coin_reward) into v_coins from public.user_balances where user_id = p_user for update;
+  perform private.grant_reward(p_user, -a.xp_reward, -v_coins, 'admin_adjustment', a.id,
+    'Отзыв достижения: ' || a.title_ru, 'revoke:' || a.id || ':' || p_user || ':' || v_n);
+  perform private.notify(p_user, 'achievement', 'Достижение отозвано',
+    format('Администратор отозвал «%s». Причина: %s', a.title_ru, trim(p_reason)), 'achievements',
+    jsonb_build_object('achievement_id', a.id), 'revoke:' || a.id || ':' || v_n);
+  perform private.audit('ACHIEVEMENT_REVOKE', 'user', p_user::text,
+    jsonb_build_object('achievement', a.id, 'reason', trim(p_reason), 'xp', -a.xp_reward, 'coins', -v_coins));
+  return true;
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -901,6 +944,7 @@ grant execute on function
   public.unequip_item(public.item_category),
   public.increment_topic_views(uuid),
   public.award_achievement(uuid, text, text),
+  public.revoke_achievement(uuid, text, text),
   public.admin_adjust_coins(uuid, int, text),
   public.set_user_role(uuid, public.app_role),
   public.dispatch_broadcast(text, text, text[], public.direction_id)

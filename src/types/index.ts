@@ -183,6 +183,8 @@ export interface UserProfile {
   preferredLanguage: Language;
   telegramNotificationsEnabled: boolean;
   pushNotificationsEnabled: boolean;
+  /** Achievements revoked by an admin: never auto-unlocked again. */
+  revokedAchievementIds?: string[];
 }
 
 export interface EventFeedback {
