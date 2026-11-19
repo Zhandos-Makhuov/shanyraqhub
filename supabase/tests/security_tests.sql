@@ -206,7 +206,7 @@ select t.expect_fail($$select public.award_achievement('00000000-0000-0000-0000-
 select t.ok(public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'Квиз Zerde, 2 место'), 'superadmin awards a manual achievement');
 select t.ok(not public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'again'), 'awarding twice is a no-op');
 reset role;
-select t.ok((select count(*) from public.reward_ledger where idempotency_key like 'achievement:ach-knowledge-seeker:%') = 1, 'manual achievement rewarded once');
+select t.ok((select count(*) from public.reward_ledger where idempotency_key like 'achievement:ach-knowledge-seeker:00000000-0000-0000-0000-000000000002%') = 1, 'manual achievement rewarded once');
 select t.ok((select count(*) from public.achievements) = 34 and (select count(*) from public.achievements where rule ->> 'metric' = 'manual') = 4,
             'seed: 34 achievements, 4 manual');
 
@@ -376,4 +376,37 @@ reset role;
 select t.ok(exists (select 1 from storage.objects where name = '00000000-0000-0000-0000-000000000001/me.png'), 'own avatar uploaded; others cannot delete it');
 select t.ok((select count(*) from storage.objects) = 3, 'organizer uploads photos of own event, moderator uploads covers');
 select t.ok((select count(*) from storage.buckets where public) = 3, '3 storage buckets created');
+-- Stage 7: event reminders (private.dispatch_due_reminders, run by pg_cron on Supabase)
+reset role;
+insert into public.events (title, direction, starts_at, capacity, status, created_by)
+values ('Reminder test', 'books', now() + interval '3 hours', 10, 'published', '00000000-0000-0000-0000-00000000000c'),
+       ('Reminder cancelled', 'books', now() + interval '3 hours', 10, 'cancelled', '00000000-0000-0000-0000-00000000000c'),
+       ('Reminder started', 'books', now() - interval '5 minutes', 10, 'published', '00000000-0000-0000-0000-00000000000c');
+insert into public.event_registrations (event_id, user_id, status)
+select e.id, u.id, case when u.id = '00000000-0000-0000-0000-000000000002' and e.title = 'Reminder test' then 'cancelled'::public.registration_status else 'registered' end
+  from public.events e cross join (values ('00000000-0000-0000-0000-000000000001'::uuid), ('00000000-0000-0000-0000-000000000002'::uuid), ('00000000-0000-0000-0000-00000000000b'::uuid)) u(id)
+ where e.title like 'Reminder %';
+update public.user_preferences set notify_event_reminders = false where user_id = '00000000-0000-0000-0000-00000000000b';
+insert into public.scheduled_notifications (user_id, event_id, kind, send_at)
+select r.user_id, r.event_id, 'event_2h', now() - interval '1 minute'
+  from public.event_registrations r join public.events e on e.id = r.event_id where e.title like 'Reminder %'
+on conflict (user_id, event_id, kind) do update set send_at = excluded.send_at, sent_at = null;
+select t.ok(private.dispatch_due_reminders() = 1, 'reminders: exactly one sent (registered, wants reminders, upcoming published event)');
+select t.ok((select count(*) from public.notifications n join public.events e on e.id = (n.meta->>'event_id')::uuid
+              where n.type = 'event_reminder' and e.title = 'Reminder test' and n.user_id = '00000000-0000-0000-0000-000000000001') = 1,
+            'reminder delivered to the registered member as an in-app notification');
+select t.ok(not exists (select 1 from public.notifications where type = 'event_reminder' and user_id in
+              ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000000b')),
+            'no reminder after a cancelled registration or with reminders switched off');
+select t.ok(not exists (select 1 from public.notifications n join public.events e on e.id = (n.meta->>'event_id')::uuid
+              where n.type = 'event_reminder' and e.title in ('Reminder cancelled', 'Reminder started')),
+            'no reminder for a cancelled or already started event');
+select t.ok((select count(*) from public.scheduled_notifications s join public.events e on e.id = s.event_id
+              where e.title like 'Reminder %' and s.sent_at is null) = 0, 'every due reminder is marked processed');
+select t.ok(private.dispatch_due_reminders() = 0, 'second run sends nothing (no duplicates)');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.expect_fail('select private.dispatch_due_reminders()', '%permission denied%');
+reset role;
+
 \echo ALL_TESTS_PASSED

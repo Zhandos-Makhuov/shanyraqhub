@@ -425,6 +425,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       alert(t('authErrorNetwork'));
     }
   };
+  // Stage 7, Realtime: new notifications, chat messages and forum replies refresh the open page
+  // (debounced: a burst of events causes one reload). A new notification also shows a system
+  // notification if the member switched notifications on and the browser allows it.
+  const refreshRef = useRef(refreshLive);
+  refreshRef.current = refreshLive;
+  const pushEnabledRef = useRef(false);
+  pushEnabledRef.current = !!currentUser.pushNotificationsEnabled;
+  useEffect(() => {
+    if (!account || !live) return;
+    let timer: number | undefined;
+    const unsubscribe = live.subscribeLive(account.profile.id, change => {
+      if (change.kind === 'notification' && pushEnabledRef.current) sendLocalPushNotification(change.title, change.body);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void refreshRef.current(), 600);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account?.profile.id]);
+
   /** Runs a server action; on success refreshes the data, on failure shows a translated message. */
   const runLive = async (action: Promise<{ ok: true } | { ok: false; error: string }>, quiet = false): Promise<{ ok: boolean; error?: string }> => {
     const r = await action;

@@ -63,7 +63,9 @@ def convert_tests() -> str:
     # A non-empty project (e.g. test accounts from earlier stages): absolute row counts become
     # "baseline + N", with the baseline captured at the start of the same (rolled-back) transaction.
     counted = (("public.profiles", "profiles"), ("public.user_balances", "balances"), ("public.member_stats", "stats"),
-               ("public.audit_logs where action = 'COIN_ADJUST'", "coin_adjust"))
+               ("public.audit_logs where action = 'COIN_ADJUST'", "coin_adjust"),
+               ("public.audit_logs where action = 'ROLE_UPDATE'", "role_update"),
+               ("storage.objects", "storage_objects"))
     for table, key in counted:
         sql = sql.replace(f"(select count(*) from {table}) = ", f"(select count(*) from {table}) - current_setting('shq.base_{key}')::int = ")
     # Memberships are checked as ordinary members, who see every ACTIVE membership: offset by the existing active ones.

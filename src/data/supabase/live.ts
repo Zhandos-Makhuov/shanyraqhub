@@ -519,3 +519,26 @@ export const uploadAvatar = async (file: File): Promise<ActionResult> => {
     return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
   }
 };
+
+// --- Realtime (stage 7): open pages update without a reload. RLS decides which rows a member receives. ---
+export type LiveChange =
+  | { kind: 'notification'; title: string; body: string }
+  | { kind: 'chat' | 'forum' };
+
+/** Subscribes to new notifications (own only), chat messages and forum replies. Returns the unsubscribe function. */
+export const subscribeLive = (userId: string, onChange: (change: LiveChange) => void): (() => void) => {
+  const c = db();
+  const channel = c
+    .channel(`shq-live-${userId}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+      payload => {
+        const row = payload.new as { title?: string; body?: string };
+        onChange({ kind: 'notification', title: row.title ?? '', body: row.body ?? '' });
+      })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => onChange({ kind: 'chat' }))
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'forum_replies' }, () => onChange({ kind: 'forum' }))
+    .subscribe();
+  return () => {
+    void c.removeChannel(channel);
+  };
+};
