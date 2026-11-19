@@ -90,7 +90,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     attendanceRate: 'Коэффициент явки',
     totalVisits: 'Всего визитов',
     verifiedVisits: 'Подтвержденных визитов',
-    participationStreak: 'Дней непрерывного участия',
+    participationStreak: 'Серия участия',
     qrCheckInSimulator: 'Симулятор QR сканера для быстрой отметки явки',
 
     // Leaderboard View
@@ -225,7 +225,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     attendanceRate: 'Қатысу пайызы',
     totalVisits: 'Жалпы келу саны',
     verifiedVisits: 'Расталған келулер',
-    participationStreak: 'Үздіксіз қатысу күндері',
+    participationStreak: 'Қатысу сериясы',
     qrCheckInSimulator: 'Жылдам тіркелуге арналған QR сканер',
 
     // Leaderboard View
@@ -360,7 +360,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     attendanceRate: 'Attendance Rate',
     totalVisits: 'Total Visits',
     verifiedVisits: 'Verified Visits',
-    participationStreak: 'Day Active Streak',
+    participationStreak: 'Activity Streak',
     qrCheckInSimulator: 'QR Code Check-in Simulator for instant verification',
 
     // Leaderboard View

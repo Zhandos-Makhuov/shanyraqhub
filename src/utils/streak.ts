@@ -32,3 +32,44 @@ export const pluralDaysRu = (n: number): string => {
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'дня';
   return 'дней';
 };
+
+/** Monday (local) of the week containing `date`, as YYYY-MM-DD. Weeks run Monday–Sunday. */
+export const weekStartDay = (date: Date): string => {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const sinceMonday = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - sinceMonday);
+  return toLocalDay(d);
+};
+
+/**
+ * Consecutive weeks (Mon–Sun) with at least one active day, ending this week.
+ * If there is no activity yet this week, the streak still counts from last week,
+ * so it only breaks after a whole week without activity. Fits weekly club meetings.
+ */
+export const computeWeekStreak = (activeDays: Iterable<string>, now: Date = new Date()): number => {
+  const weeks = new Set<string>();
+  for (const day of activeDays) {
+    const [y, m, d] = day.split('-').map(Number);
+    if (y && m && d) weeks.add(weekStartDay(new Date(y, m - 1, d)));
+  }
+  const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  cursor.setDate(cursor.getDate() - ((cursor.getDay() + 6) % 7)); // this week's Monday
+  if (!weeks.has(toLocalDay(cursor))) {
+    cursor.setDate(cursor.getDate() - 7);
+  }
+  let streak = 0;
+  while (weeks.has(toLocalDay(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 7);
+  }
+  return streak;
+};
+
+/** Russian plural: 1 неделя, 2 недели, 5 недель. */
+export const pluralWeeksRu = (n: number): string => {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'неделя';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'недели';
+  return 'недель';
+};

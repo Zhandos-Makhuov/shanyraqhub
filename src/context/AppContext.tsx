@@ -25,7 +25,7 @@ import { sendLocalPushNotification, requestWebPushPermission } from '../utils/no
 import { canAccessRoom, canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
 import { hasEventStarted } from '../utils/eventTime';
 import { isDemoMode } from '../utils/demoMode';
-import { computeDayStreak, toLocalDay } from '../utils/streak';
+import { computeDayStreak, computeWeekStreak, toLocalDay } from '../utils/streak';
 
 export type NavTab =
   | 'dashboard'
@@ -91,6 +91,8 @@ interface AppContextType {
 
   /** Consecutive days with real activity (attendance, feedback, books, forum, reviews). */
   getActivityStreak: (userId: string) => number;
+  /** Consecutive weeks (Mon–Sun) with at least one real activity. */
+  getWeekStreak: (userId: string) => number;
 
   /** Current progress towards an achievement (0 for manual ones). */
   getAchievementProgress: (userId: string, achievementId: string) => number;
@@ -301,17 +303,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const getActivityStreak = (userId: string): number => {
+  const activityDays = (userId: string): string[] => {
     const user = allUsers.find(u => u.id === userId);
-    if (!user) return 0;
-    const days = [
+    if (!user) return [];
+    return [
       ...(activityLog[userId] || []),
       // Verified history that existed before the activity log.
       ...user.attendedEvents.filter(a => a.status === 'attended').map(a => a.date),
       ...user.readBooks.filter(b => b.status === 'completed').map(b => b.dateFinished),
     ];
-    return computeDayStreak(days);
   };
+
+  const getActivityStreak = (userId: string): number => computeDayStreak(activityDays(userId));
+  const getWeekStreak = (userId: string): number => computeWeekStreak(activityDays(userId));
 
   /**
    * Single entry point for activity rewards.
@@ -1207,6 +1211,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dispatchBroadcast,
         addPeerReview,
         getActivityStreak,
+        getWeekStreak,
         getAchievementProgress,
         awardAchievement,
       }}
