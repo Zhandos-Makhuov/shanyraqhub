@@ -302,7 +302,10 @@ Live mode only (`VITE_DATA_SOURCE=live`); demo mode is unchanged and its bundle 
 ### Checks
 lint, build (demo + live; live bundle has no demo names; demo bundle has no supabase-js), 26 browser checks with Playwright against a mocked Auth/REST API: sign-in screen, validation, wrong password, unconfirmed e-mail + resend, sign-up (+ display_name, redirect URL), taken e-mail, SMTP-restricted address, password reset request, KZ language, sign-in → app with DB profile, session after reload, account menu, sign-out (session removed), per-account storage, recovery link → new password → app, expired link, demo unchanged, no page errors.
 
+### Verified against the real TEST project (12 checks, Playwright)
+Publishable key provided by the owner. Test member `claude-test@shanyraq-hub.test` created by SQL with a confirmed e-mail (no e-mail sent); the sign-up trigger created profile, role `member`, balance 0/0. Checked: anon gets 401 on tables; wrong password → message; sign-in → app greets by DB display name; profile/role/balance read through RLS (200); session survives reload; role changed in the DB shows after reload; sign-out revokes the server session (`auth.sessions`); signed out after reload; `last_sign_in_at` recorded; no page errors. Sign-up/e-mail/recovery flows only against the mocked API (built-in SMTP sends to project team addresses only).
+
 ### Needed from the owner (dashboard, not reachable with the current token)
-- The project's **publishable/anon key** (Project Settings → API Keys) — public by design; never the secret/service_role key.
+- ✅ Publishable key received (public by design; secret/service_role keys never accepted).
 - Authentication → URL Configuration: Site URL / Redirect URLs for the real address (stage 8); now `http://localhost:3000`.
 - Built-in e-mail sending is for testing only (limited rate, team addresses); real members need custom SMTP (stage 8).
