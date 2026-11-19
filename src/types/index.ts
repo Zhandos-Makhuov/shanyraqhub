@@ -74,6 +74,8 @@ export type AchievementMetric =
   | 'upvotes_received'
   | 'activity_streak'
   | 'activity_week_streak'
+  | 'events_hosted'
+  | 'well_rated_events_hosted'
   | 'manual';
 
 /** How an achievement is unlocked. See src/data/achievements.ts. */
@@ -219,6 +221,8 @@ export interface CommunityEvent {
   registeredUserIds: string[];
   attendedUserIds: string[];
   speaker: EventSpeaker;
+  /** Member who hosts/organizes the event (for host achievements). */
+  hostId?: string;
   feedbacks: EventFeedback[];
   isCompleted?: boolean;
 }

@@ -23,6 +23,8 @@ import { Achievement, AchievementRule } from '../types';
  *   upvotes_received           "useful" votes received on forum replies
  *   activity_streak            consecutive active days (see utils/streak.ts)
  *   activity_week_streak       consecutive weeks (Mon–Sun) with at least one activity
+ *   events_hosted              gatherings hosted that started and had 3+ verified attendees
+ *   well_rated_events_hosted   hosted gatherings with 3+ feedback forms averaging 4.5+
  *
  * Rewards are paid once per member and achievement.
  * After editing, regenerate the database seed:  npx tsx scripts/generate-seed.ts > supabase/seed.sql
@@ -249,6 +251,50 @@ const DEFINITIONS: AchievementDefinition[] = [
     descriptionRu: 'Получите 5 положительных отзывов и благодарностей от участников',
     descriptionKz: 'Басқа қатысушылардан 5 жылы лебіз бен алғыс пікір жинаңыз',
     descriptionEn: 'Receive 5 positive peer reviews and endorsements',
+  },
+
+  // ------------------------------------------------------------- Hosting
+  {
+    id: 'ach-first-hosted',
+    category: 'community',
+    icon: 'Mic',
+    rule: auto('events_hosted', 1),
+    xpReward: 100,
+    coinReward: 60,
+    titleRu: 'Ведущий: первая встреча',
+    titleKz: 'Жүргізуші: алғашқы кездесу',
+    titleEn: 'Host: First Gathering',
+    descriptionRu: 'Проведите встречу, на которой подтверждено не меньше 3 участников',
+    descriptionKz: 'Кемінде 3 қатысушысы расталған кездесу өткізіңіз',
+    descriptionEn: 'Host a gathering with at least 3 verified attendees',
+  },
+  {
+    id: 'ach-10-hosted',
+    category: 'community',
+    icon: 'Presentation',
+    rule: auto('events_hosted', 10),
+    xpReward: 400,
+    coinReward: 200,
+    titleRu: 'Хранитель очага: 10 встреч',
+    titleKz: 'Ошақ иесі: 10 кездесу',
+    titleEn: 'Keeper of the Hearth: 10 Gatherings',
+    descriptionRu: 'Проведите 10 встреч, на каждой из которых было не меньше 3 участников',
+    descriptionKz: 'Әрқайсысында кемінде 3 қатысушы болған 10 кездесу өткізіңіз',
+    descriptionEn: 'Host 10 gatherings, each with at least 3 verified attendees',
+  },
+  {
+    id: 'ach-beloved-speaker',
+    category: 'community',
+    icon: 'Star',
+    rule: auto('well_rated_events_hosted', 5),
+    xpReward: 300,
+    coinReward: 150,
+    titleRu: 'Любимый спикер',
+    titleKz: 'Сүйікті спикер',
+    titleEn: 'Beloved Speaker',
+    descriptionRu: '5 проведённых встреч со средней оценкой участников 4,5+ (от 3 отзывов)',
+    descriptionKz: 'Қатысушылардың орташа бағасы 4,5+ болған 5 кездесу (кемінде 3 пікір)',
+    descriptionEn: '5 hosted gatherings rated 4.5+ on average by attendees (3+ reviews each)',
   },
 
   // ----------------------------------------------------- Forum & intellect

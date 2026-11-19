@@ -254,6 +254,21 @@ begin
       return private.activity_streak(p_user);
     when 'activity_week_streak' then
       return private.activity_week_streak(p_user);
+    when 'events_hosted' then
+      -- started events created by the member with 3+ verified attendees (host excluded)
+      return (select count(*) from public.events e
+               where e.created_by = p_user and e.starts_at <= now()
+                 and (select count(*) from public.event_attendance a
+                       where a.event_id = e.id and a.user_id <> p_user) >= 3);
+    when 'well_rated_events_hosted' then
+      return (select count(*) from public.events e
+               where e.created_by = p_user and e.starts_at <= now()
+                 and (select count(*) from public.event_attendance a
+                       where a.event_id = e.id and a.user_id <> p_user) >= 3
+                 and (select count(*) from public.event_feedback f
+                       where f.event_id = e.id and f.user_id <> p_user) >= 3
+                 and (select avg(f.satisfaction) from public.event_feedback f
+                       where f.event_id = e.id and f.user_id <> p_user) >= 4.5);
     else
       return 0;   -- 'manual' and unknown metrics never auto-unlock
   end case;
@@ -454,6 +469,9 @@ begin
     format('+%s XP и +%s коинов за «%s»', ev.attendance_xp, v_coins, ev.title), 'attendance',
     jsonb_build_object('event_id', p_event), 'attendance:' || p_event);
   perform private.evaluate_achievements(p_user);
+  if ev.created_by is not null and ev.created_by <> p_user then
+    perform private.evaluate_achievements(ev.created_by);   -- host achievements
+  end if;
   return true;
 end $$;
 
@@ -520,6 +538,7 @@ begin
   perform private.grant_reward(uid, 30, 20, 'event_feedback', p_event::text,
     'Обратная связь по мероприятию', 'feedback:' || p_event || ':' || uid);
   perform private.evaluate_achievements(uid);
+  perform private.evaluate_achievements((select created_by from public.events where id = p_event));   -- host rating
 end $$;
 
 -- ---------------------------------------------------------------------

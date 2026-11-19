@@ -1,4 +1,5 @@
 import { countCreditedBooks, hasQualifyingReview } from './bookCredit';
+import { hasEventStarted } from './eventTime';
 import { AchievementRule, CommunityEvent, DirectionId, ForumTopic, UserProfile } from '../types';
 
 export interface AchievementData {
@@ -27,6 +28,20 @@ const attendedEvents = (user: UserProfile, events: CommunityEvent[]): Map<string
   });
   return attended;
 };
+
+/** A hosted gathering counts once it has started and at least this many members were checked in. */
+export const MIN_ATTENDEES_FOR_HOSTED = 3;
+/** "Well rated": at least this many feedback forms with an average satisfaction of 4.5+. */
+export const MIN_FEEDBACKS_FOR_RATING = 3;
+export const WELL_RATED_AVERAGE = 4.5;
+
+const hostedEvents = (userId: string, events: CommunityEvent[]): CommunityEvent[] =>
+  events.filter(
+    e =>
+      e.hostId === userId &&
+      hasEventStarted(e) &&
+      e.attendedUserIds.filter(id => id !== userId).length >= MIN_ATTENDEES_FOR_HOSTED
+  );
 
 /** Current value of an achievement metric for one user. Manual achievements are always 0. */
 export const getAchievementMetric = (userId: string, rule: AchievementRule, data: AchievementData): number => {
@@ -62,6 +77,13 @@ export const getAchievementMetric = (userId: string, rule: AchievementRule, data
       return data.streak;
     case 'activity_week_streak':
       return data.weekStreak;
+    case 'events_hosted':
+      return hostedEvents(userId, data.events).length;
+    case 'well_rated_events_hosted':
+      return hostedEvents(userId, data.events).filter(e => {
+        const ratings = e.feedbacks.filter(f => f.userId !== userId).map(f => f.satisfactionRating);
+        return ratings.length >= MIN_FEEDBACKS_FOR_RATING && ratings.reduce((a, b) => a + b, 0) / ratings.length >= WELL_RATED_AVERAGE;
+      }).length;
     case 'manual':
     default:
       return 0;

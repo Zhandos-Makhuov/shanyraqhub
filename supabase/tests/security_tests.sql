@@ -207,8 +207,8 @@ select t.ok(public.award_achievement('00000000-0000-0000-0000-000000000002', 'ac
 select t.ok(not public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'again'), 'awarding twice is a no-op');
 reset role;
 select t.ok((select count(*) from public.reward_ledger where idempotency_key like 'achievement:ach-knowledge-seeker:%') = 1, 'manual achievement rewarded once');
-select t.ok((select count(*) from public.achievements) = 28 and (select count(*) from public.achievements where rule ->> 'metric' = 'manual') = 4,
-            'seed: 28 achievements, 4 manual');
+select t.ok((select count(*) from public.achievements) = 31 and (select count(*) from public.achievements where rule ->> 'metric' = 'manual') = 4,
+            'seed: 31 achievements, 4 manual');
 
 -- Tier bonus on attendance coins: gold = +15% -> 40 * 1.15 = 46
 select private.grant_reward('00000000-0000-0000-0000-000000000001', 1000, 0, 'admin_adjustment', null, 'test: reach gold', 'test:gold');
@@ -219,6 +219,29 @@ select t.ok(private.tier_for_xp((select xp from public.user_balances where user_
 select private.record_attendance(:'gold_ev', '00000000-0000-0000-0000-000000000001', 'manual');
 select t.ok((select coin_delta from public.reward_ledger where idempotency_key = 'attendance:' || :'gold_ev' || ':00000000-0000-0000-0000-000000000001') = 46,
             'gold member gets 46 coins for attendance (+15%)');
+
+-- Host achievements: a started event with 3+ verified attendees counts for its creator
+insert into auth.users (id, email) values
+ ('00000000-0000-0000-0000-000000000003', 'm3@x.kz'), ('00000000-0000-0000-0000-000000000004', 'm4@x.kz');
+-- created_by is forced to auth.uid() by a trigger, so create it as the organizer
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', false);
+insert into public.events (title, direction, starts_at, capacity, status)
+values ('Hosted', 'books', now() - interval '30 minutes', 10, 'published');
+select set_config('request.jwt.claims', '', false);
+select t.ok((select created_by from public.events where title = 'Hosted') = '00000000-0000-0000-0000-00000000000c', 'event host = creator');
+select id as host_ev from public.events where title = 'Hosted' \gset
+select private.record_attendance(:'host_ev', '00000000-0000-0000-0000-000000000002', 'manual');
+select private.record_attendance(:'host_ev', '00000000-0000-0000-0000-000000000003', 'manual');
+select t.ok(not exists (select 1 from public.user_achievements where user_id = '00000000-0000-0000-0000-00000000000c' and achievement_id = 'ach-first-hosted'),
+            'host: 2 attendees are not enough');
+select private.record_attendance(:'host_ev', '00000000-0000-0000-0000-000000000004', 'manual');
+select t.ok(exists (select 1 from public.user_achievements where user_id = '00000000-0000-0000-0000-00000000000c' and achievement_id = 'ach-first-hosted'),
+            'host: 3rd verified attendee unlocks ach-first-hosted');
+select t.ok(private.achievement_metric('00000000-0000-0000-0000-00000000000c', '{"metric":"well_rated_events_hosted"}') = 0, 'no rating yet without feedback');
+insert into public.event_feedback (event_id, user_id, satisfaction, usefulness) values
+ (:'host_ev', '00000000-0000-0000-0000-000000000002', 5, 5), (:'host_ev', '00000000-0000-0000-0000-000000000003', 5, 4),
+ (:'host_ev', '00000000-0000-0000-0000-000000000004', 4, 4);
+select t.ok(private.achievement_metric('00000000-0000-0000-0000-00000000000c', '{"metric":"well_rated_events_hosted"}') = 1, 'avg 4.67 from 3 reviews = well rated');
 
 -- Ledger integrity: balances always equal the sum of the ledger
 select t.ok(not exists (

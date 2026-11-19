@@ -940,6 +940,12 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
 // Saved data (localStorage) keeps the dates from the first visit; the
 // "Сбросить демо-данные" button regenerates them.
 // ---------------------------------------------------------------------------
+// Demo events are hosted by the demo member whose name matches the speaker.
+INITIAL_EVENTS.forEach(event => {
+  const host = INITIAL_USERS.find(u => u.name === event.speaker.name);
+  if (host) event.hostId = host.id;
+});
+
 // Demo members' tiers follow their XP under the current thresholds.
 INITIAL_USERS.forEach(user => {
   user.tier = tierForXp(user.xp);

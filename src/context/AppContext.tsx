@@ -578,6 +578,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       registrationDeadline: newEventData.registrationDeadline || 'За 2 часа до начала',
       registeredUserIds: [currentUser.id],
       attendedUserIds: [],
+      hostId: currentUser.id,
       speaker: newEventData.speaker || {
         name: currentUser.name,
         role: 'Ведущий Shanyraq Hub',
