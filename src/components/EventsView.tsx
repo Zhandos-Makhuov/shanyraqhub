@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { COMMUNITY_DIRECTIONS } from '../data/directions';
 import { exportEventToIcs } from '../utils/calendar';
-import { hasEventStarted } from '../utils/eventTime';
+import { hasEventStarted, isCheckInWindowOpen } from '../utils/eventTime';
+import { MyQrModal } from './CheckInQr';
 import { CommunityEvent, DirectionId } from '../types';
 import {
   Clock,
@@ -15,6 +16,7 @@ import {
   Check,
   X,
   FilterX,
+  QrCode,
 } from 'lucide-react';
 
 export const EventsView: React.FC = () => {
@@ -25,6 +27,7 @@ export const EventsView: React.FC = () => {
     cancelEventRegistration,
     submitEventFeedback,
     createEvent,
+    issueCheckInCode,
     language,
     t,
   } = useApp();
@@ -35,6 +38,7 @@ export const EventsView: React.FC = () => {
   const [activeModalEvent, setActiveModalEvent] = useState<CommunityEvent | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState<CommunityEvent | null>(null);
+  const [qrEvent, setQrEvent] = useState<CommunityEvent | null>(null);
 
   // Feedback form state
   const [satisfactionScore, setSatisfactionScore] = useState(5);
@@ -330,6 +334,15 @@ export const EventsView: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-1.5">
+                    {issueCheckInCode && isRegistered && !hasAttended && isCheckInWindowOpen(event) && (
+                      <button
+                        onClick={() => setQrEvent(event)}
+                        className="px-2.5 py-1.5 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-[11px] font-semibold text-[#1e1b1a] flex items-center gap-1"
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                        {t('qrMyCodeButton')}
+                      </button>
+                    )}
                     {hasAttended && !event.feedbacks.some(f => f.userId === currentUser.id) && (
                       <button
                         onClick={() => setShowFeedbackModal(event)}
@@ -363,6 +376,8 @@ export const EventsView: React.FC = () => {
           })}
         </div>
       )}
+
+      {qrEvent && <MyQrModal event={qrEvent} onClose={() => setQrEvent(null)} />}
 
       {/* Event Details Modal */}
       {activeModalEvent && (

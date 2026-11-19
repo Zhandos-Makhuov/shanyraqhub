@@ -64,6 +64,12 @@ interface AppContextType {
   cancelEventRegistration: (eventId: string) => void;
   /** Staff confirm another member's visit. Live: server RPC (event organizer or moderator+). */
   checkInAttendance: (eventId: string, userId: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Live only: the member's one-time QR code for an event (undefined in demo). */
+  issueCheckInCode?: (eventId: string) => Promise<{ ok: true; code: string; expiresAt: string } | { ok: false; error: string }>;
+  /** Live only: organizer confirms a visit from a scanned code (undefined in demo). */
+  checkInWithCode?: (code: string) => Promise<{ ok: boolean; error?: string; userId?: string; eventId?: string; newlyCheckedIn?: boolean }>;
+  /** Live only: reload server data (e.g. while a member shows their QR code). */
+  refreshData?: () => Promise<void>;
   submitEventFeedback: (eventId: string, satisfaction: number, usefulness: number, comment: string) => void;
   createEvent: (newEventData: Partial<CommunityEvent>) => void;
 
@@ -574,6 +580,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     } catch {}
     return { ok: true };
   };
+
+  const issueCheckInCode = live ? (eventId: string) => live.issueCheckinToken(eventId) : undefined;
+  const checkInWithCode = live
+    ? async (code: string) => {
+        const r = await live.checkInWithToken(code);
+        if (!r.ok) return r;
+        await refreshLive();
+        try { confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } }); } catch {}
+        return r;
+      }
+    : undefined;
 
   const submitEventFeedback = (
     eventId: string,
@@ -1347,6 +1364,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         registerForEvent,
         cancelEventRegistration,
         checkInAttendance,
+        issueCheckInCode,
+        checkInWithCode,
+        refreshData: account ? refreshLive : undefined,
         submitEventFeedback,
         createEvent,
         allReadBooks,

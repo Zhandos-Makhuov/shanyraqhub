@@ -99,6 +99,10 @@ const SERVER_ERRORS: [RegExp, string][] = [
   [/feedback_requires_attendance/, 'liveErrFeedbackAttendance'],
   [/duplicate key/, 'liveErrDuplicate'],
   [/checkin_window_closed/, 'liveErrCheckinWindow'],
+  [/not_registered/, 'liveErrNotRegistered'],
+  [/invalid_token/, 'liveErrQrInvalid'],
+  [/token_already_used/, 'liveErrQrUsed'],
+  [/token_expired/, 'liveErrQrExpired'],
   [/cannot_check_in_yourself/, 'liveErrCheckinSelf'],
   [/not an organizer of this event/, 'liveErrNotEventOrganizer'],
   [/forbidden|permission denied|row-level security/, 'liveErrForbidden'],
@@ -155,6 +159,39 @@ export const markAllNotificationsRead = async (): Promise<ActionResult> => {
   try {
     const { error } = await db().from('notifications').update({ read_at: new Date().toISOString() }).is('read_at', null);
     return error ? { ok: false, error: serverErrorKey(error.message) } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
+};
+
+/** QR content prefix (the server strips it): lets the scanner ignore unrelated QR codes. */
+export const QR_PREFIX = 'shq1:';
+
+/** Member: one-time check-in code for an event they registered for (valid 5 minutes, see issue_checkin_token). */
+export const issueCheckinToken = async (
+  eventId: string,
+): Promise<{ ok: true; code: string; expiresAt: string } | { ok: false; error: string }> => {
+  try {
+    const { data, error } = await db().rpc('issue_checkin_token', { p_event: eventId });
+    if (error) return { ok: false, error: serverErrorKey(error.message) };
+    const row = (data as { token: string; expires_at: string }[] | null)?.[0];
+    if (!row) return { ok: false, error: 'authErrorGeneric' };
+    return { ok: true, code: QR_PREFIX + row.token, expiresAt: row.expires_at };
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
+};
+
+/** Organizer: confirms the visit of the member whose code was scanned (event organizer or moderator+). */
+export const checkInWithToken = async (
+  code: string,
+): Promise<{ ok: true; userId: string; eventId: string; newlyCheckedIn: boolean } | { ok: false; error: string }> => {
+  try {
+    const { data, error } = await db().rpc('check_in_with_token', { p_token: code.trim() });
+    if (error) return { ok: false, error: serverErrorKey(error.message) };
+    const row = (data as { event_id: string; user_id: string; newly_checked_in: boolean }[] | null)?.[0];
+    if (!row) return { ok: false, error: 'authErrorGeneric' };
+    return { ok: true, userId: row.user_id, eventId: row.event_id, newlyCheckedIn: row.newly_checked_in };
   } catch (e) {
     return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
   }

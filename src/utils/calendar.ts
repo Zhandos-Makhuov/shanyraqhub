@@ -1,14 +1,12 @@
 import { CommunityEvent } from '../types';
+import { getEventStart } from './eventTime';
 
 /**
  * Generates an iCalendar (.ics) RFC 5545 string and prompts file download
  */
 export function exportEventToIcs(event: CommunityEvent): void {
-  // Parse event date and time
-  const [year, month, day] = event.date.split('-').map(Number);
-  const [hours, minutes] = event.time.split(':').map(Number);
-
-  const startDate = new Date(year, month - 1, day, hours, minutes);
+  // Event date and time are the club's local time (Almaty), whatever the device's time zone.
+  const startDate = getEventStart(event);
   const endDate = new Date(startDate.getTime() + (event.durationMinutes || 90) * 60 * 1000);
 
   const formatDate = (date: Date): string => {

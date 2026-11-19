@@ -15,8 +15,9 @@ export default defineConfig(() => {
       rolldownOptions: {
         output: {
           // Third-party libraries in their own chunk: cached across app deploys.
+          // QR libraries stay out of it: they load only when a QR window is opened.
           codeSplitting: {
-            groups: [{ name: 'vendor', test: /node_modules/ }],
+            groups: [{ name: 'vendor', test: /node_modules[\\/](?!qrcode|qr-scanner|pngjs|dijkstrajs)/ }],
           },
         },
       },

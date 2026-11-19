@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { isStaffRole } from '../utils/permissions';
 import { isDemoData } from '../config/runtime';
+import { QrScanModal } from './CheckInQr';
 import { ATTENDANCE_XP, TIERS, attendanceCoinsForTier } from '../data/gamification';
 import { pluralDaysRu, pluralWeeksRu } from '../utils/streak';
 import {
@@ -14,10 +15,11 @@ import {
   Flame,
   Award,
   Users,
+  ScanLine,
 } from 'lucide-react';
 
 export const AttendanceView: React.FC = () => {
-  const { allUsers, events, currentUser, checkInAttendance, setSelectedUserModal, getActivityStreak, getWeekStreak, t } = useApp();
+  const { allUsers, events, currentUser, checkInAttendance, checkInWithCode, setSelectedUserModal, getActivityStreak, getWeekStreak, t } = useApp();
   const myStreak = getActivityStreak(currentUser.id);
   const myWeekStreak = getWeekStreak(currentUser.id);
 
@@ -28,6 +30,7 @@ export const AttendanceView: React.FC = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>(checkInCandidates[0]?.id || '');
   const [qrScanning, setQrScanning] = useState(false);
   const [scanSuccessMsg, setScanSuccessMsg] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
 
   const currentEvent = events.find(e => e.id === selectedEventId) || events[0];
 
@@ -140,7 +143,7 @@ export const AttendanceView: React.FC = () => {
           <div className="space-y-1.5 max-w-lg">
             <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[#dfcfb3]">
               <QrCode className="w-4 h-4" />
-              <span>{t('qrCheckInSimulator')}</span>
+              <span>{isDemoData ? t('qrCheckInSimulator') : t('qrScanTitle')}</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-950/60 text-amber-300 border border-amber-800">
                 {isDemoData ? 'Демо-сканер' : 'Ручная отметка'}
               </span>
@@ -185,6 +188,17 @@ export const AttendanceView: React.FC = () => {
               </select>
             </div>
 
+            {checkInWithCode && (
+              <div className="w-full sm:w-auto sm:self-end">
+                <button
+                  onClick={() => setShowScanner(true)}
+                  className="w-full px-4 py-2 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] border border-[#483f3a] text-xs font-semibold text-[#dfcfb3] transition-all flex items-center justify-center gap-1.5"
+                >
+                  <ScanLine className="w-3.5 h-3.5" />
+                  <span>{t('qrScanButton')}</span>
+                </button>
+              </div>
+            )}
             <div className="w-full sm:w-auto sm:self-end">
               <button
                 onClick={handleSimulateQrCheckIn}
@@ -207,6 +221,8 @@ export const AttendanceView: React.FC = () => {
         )}
       </div>
       )}
+
+      {showScanner && <QrScanModal onClose={() => setShowScanner(false)} />}
 
       {/* Attendance History */}
       <div className="rounded-2xl bg-[#23201e] border border-[#352f2c] overflow-hidden">
