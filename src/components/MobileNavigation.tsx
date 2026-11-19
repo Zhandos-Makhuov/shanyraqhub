@@ -84,7 +84,7 @@ export const MobileNavigation: React.FC = () => {
           >
             <Calendar className="w-4 h-4" />
             <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
-              {t('tabEvents')}
+              {t('tabEventsShort')}
             </span>
           </button>
 

@@ -10,14 +10,15 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     // Main Navigation Tabs
     tabDashboard: 'Главная',
     tabEvents: 'Мероприятия',
-    tabAchievements: 'Достижения участников',
-    tabLibrary: 'Книжная полка',
+    tabEventsShort: 'События',
+    tabAchievements: 'Достижения',
+    tabLibrary: 'Книги',
     tabAttendance: 'Посещения',
     tabLeaderboard: 'Рейтинг',
     tabForum: 'Форум и Чаты',
-    tabShop: 'Магазин и Аватар',
+    tabShop: 'Магазин',
     tabProfile: 'Личный кабинет',
-    tabAdmin: 'Панель управления',
+    tabAdmin: 'Управление',
 
     // Common actions & buttons
     actionRegister: 'Записаться',
@@ -144,14 +145,15 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     // Main Navigation Tabs
     tabDashboard: 'Басты бет',
     tabEvents: 'Іс-шаралар',
-    tabAchievements: 'Барлық жетістіктер',
-    tabLibrary: 'Кітап сөресі',
+    tabEventsShort: 'Шаралар',
+    tabAchievements: 'Жетістіктер',
+    tabLibrary: 'Кітаптар',
     tabAttendance: 'Қатысу тарихы',
     tabLeaderboard: 'Рейтинг',
     tabForum: 'Форум және Чаттар',
-    tabShop: 'Дүкен және Аватар',
+    tabShop: 'Дүкен',
     tabProfile: 'Жеке кабинет',
-    tabAdmin: 'Басқару тақтасы',
+    tabAdmin: 'Басқару',
 
     // Common actions & buttons
     actionRegister: 'Жазылу',
@@ -278,14 +280,15 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     // Main Navigation Tabs
     tabDashboard: 'Home',
     tabEvents: 'Events',
-    tabAchievements: 'All Achievements',
-    tabLibrary: 'Reading Shelf',
+    tabEventsShort: 'Events',
+    tabAchievements: 'Achievements',
+    tabLibrary: 'Books',
     tabAttendance: 'Attendance',
     tabLeaderboard: 'Leaderboard',
     tabForum: 'Forum & Chats',
-    tabShop: 'Shop & Avatar',
+    tabShop: 'Shop',
     tabProfile: 'My Profile',
-    tabAdmin: 'Admin Console',
+    tabAdmin: 'Admin',
 
     // Common actions & buttons
     actionRegister: 'Register',
