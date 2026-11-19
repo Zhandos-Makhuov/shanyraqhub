@@ -379,6 +379,7 @@ export const AuthGate: React.FC<{ children: (account: LiveAccount) => React.Reac
     setSnapshot(null);
     loadOwnProfile(userId, email)
       .then(async p => {
+        await liveApi.loadCatalog(); // tiers, shop, achievements from the database (before profiles are built)
         const snap = await liveApi.loadSnapshot(email, userId);
         if (cancelled) return;
         setProfile(p);

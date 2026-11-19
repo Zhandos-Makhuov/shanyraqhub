@@ -6,6 +6,7 @@
  * Loaded only in live mode (AuthGate is a dynamic import), so demo builds never include it.
  */
 import { supabase } from './client';
+import { applyCatalog, type AchievementRow, type CatalogReport, type ShopItemRow, type TierRow } from '../catalog';
 import { buildPublicNames, eventFromRow, profileFromRows, CLUB_TIME_ZONE } from './adapters';
 import type {
   AchievementRevocationRow, EventAttendanceRow, EventFeedbackRow, EventRegistrationRow, EventRow,
@@ -195,4 +196,18 @@ export const checkInWithToken = async (
   } catch (e) {
     return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
   }
+};
+
+/**
+ * Tiers, shop and achievements from the database (owner decision, stage 6.2). Applied to the lists
+ * the screens use before the app renders. Must run before loadSnapshot (profiles use ALL_ACHIEVEMENTS).
+ */
+export const loadCatalog = async (): Promise<CatalogReport> => {
+  const c = db();
+  const [tiers, shopItems, achievements] = await Promise.all([
+    rows<TierRow>(c.from('tiers').select('*').order('sort_order')),
+    rows<ShopItemRow>(c.from('shop_items').select('*')),
+    rows<AchievementRow>(c.from('achievements').select('*')),
+  ]);
+  return applyCatalog({ tiers, shopItems, achievements });
 };
