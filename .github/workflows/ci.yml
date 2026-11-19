@@ -1,0 +1,34 @@
+# Checks every push and pull request: type check, demo build, live (production) build,
+# and that no demo record ever reaches the live bundle.
+name: CI
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Type check
+        run: bun run lint
+      - name: Demo build
+        run: bun run build
+      - name: Live build (production mode)
+        run: VITE_DATA_SOURCE=live bunx vite build --outDir dist-live
+      - name: No demo data in the live build
+        run: |
+          for name in "Алихан Берік" "Дана Серік" "Айзере Мұрат"; do
+            if grep -rl "$name" dist-live/assets/*.js; then
+              echo "::error::Demo record '$name' found in the live build"; exit 1
+            fi
+          done
+          if ls dist-live/assets | grep -q '^mockData'; then echo "::error::mockData chunk in the live build"; exit 1; fi
+          echo "Live build is clean"
