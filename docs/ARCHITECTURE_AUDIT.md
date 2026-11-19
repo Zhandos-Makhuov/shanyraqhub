@@ -188,3 +188,46 @@ The proposed backend closes gaps 1–5, 7 and 8 **on the server side**. They are
 - A privacy policy and consent text, because the app collects personal data (email, phone, city).
 - A decision on what happens to existing demo data. Recommendation: **do not migrate it**, because it is fictional.
 - **Not load-tested:** the capacity check depends on a row lock (`SELECT … FOR UPDATE`) that serialises concurrent registrations. That is correct by design, but I did not run a concurrency benchmark.
+
+---
+
+## 12. Phase 2 audit (2026-11-19)
+
+The ChatGPT "Phase 2" prompt was reviewed and adopted as a plan with corrections (see the conversation log). Findings that were checked, not assumed:
+
+### GitHub (verified)
+- The code lives in **`Zhandos-Makhuov/shanyraqhub`** (chosen as the main repository). The prompt named `Zhandos-Makhuov/shanyraq.hub`: that repository, and `Zhandos-Makhuov/shanyraq`, are **empty** (no commits). Archive or delete them to avoid confusion.
+- `main` has only the first 3 commits. All later work is on `claude/sleepy-brown-4zolp6` and is **not merged**, because the hosting of the published version is unknown. If hosting deploys from `main` automatically, merging would update the live site.
+- A scan of the full history of every branch found **no secrets**: no API keys, no Supabase keys, no `.env` files. Only `.env.example` is tracked.
+
+### Demo vs live data (implemented)
+- **Data source switch.** `VITE_DATA_SOURCE=demo` (default) or `live`, defined in `src/config/runtime.ts`.
+- **Demo data is a dynamic import** (`src/data/sources.ts` → `src/data/mockData.ts`). A live build does not contain it at all; this was verified by searching the built files for demo names.
+- **Separate browser storage.** Demo uses `shanyraq_hub_app_state_v1_*`, live uses `shanyraq_hub_live_v1_*`. The "reset demo data" button exists only in demo mode and touches only demo keys.
+- **Live mode starts empty.** It has only the visitor's own new-member profile: no "Демо" badge, no "Demo Environment" footer, no account switcher. The data-status dialog states honestly that the server is not connected yet.
+- **Reference data moved out of the demo file**: `src/data/directions.ts` and `src/data/newMember.ts`.
+- **Every tab and sub-tab was checked in live mode with empty data**, as a member and as a super admin, with no errors. Closed chat rooms gained an empty state; it previously crashed.
+
+### Fabricated statistics (removed)
+These numbers were shown in every mode and are now computed only from real data (`src/utils/communityStats.ts`):
+
+| Shown as | Previously |
+|---|---|
+| Members | users × 28 + 14 |
+| Books | books × 4 + 18 |
+| Visits | visits × 12 + 64 |
+| Events held | events + 24 |
+| Satisfaction | always "4.96" |
+| Members caption | always "+18% this month" |
+| Events caption | always "100% speaker turnout" |
+| Visits caption | always "average turnout 89%" |
+| Books caption | always "rating 4.9★" |
+| Reach per direction | a hard-coded list of percentages |
+| Attendance rate | "100%" when there were no registrations |
+
+Captions that judged the club regardless of data, such as "high club discipline", were replaced with neutral descriptions. Empty data shows "—".
+
+### Still open from the prompt
+- Schema additions: `moderation_reports`, `user_preferences`, and Storage buckets and policies for avatars, book covers and event photos.
+- Supabase project (created by the owner), the auth UI, and the live data layer.
+- A decision on hosting, then merging into `main`.

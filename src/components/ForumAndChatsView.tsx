@@ -311,6 +311,13 @@ export const ForumAndChatsView: React.FC = () => {
 
       {/* SECTION 2: CLOSED MEMBERS-ONLY ROOMS */}
       {activeSection === 'encrypted_rooms' && (
+        visibleRooms.length === 0 ? (
+          <div className="rounded-2xl bg-[#23201e] border border-[#352f2c] p-8 text-center space-y-2">
+            <Lock className="w-6 h-6 text-[#8c8279] mx-auto" />
+            <p className="text-sm font-semibold text-[#f5f2eb]">Закрытых комнат пока нет</p>
+            <p className="text-xs text-[#8c8279]">Комнаты направлений создаёт администрация клуба. Они появятся здесь.</p>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Room Selector (4 cols) */}
           <div className={`lg:col-span-4 space-y-3 ${mobileChatView === 'chat' ? 'hidden lg:block' : 'block'}`}>
@@ -446,6 +453,7 @@ export const ForumAndChatsView: React.FC = () => {
             </form>
           </div>
         </div>
+        )
       )}
 
       {/* Create Topic Modal */}

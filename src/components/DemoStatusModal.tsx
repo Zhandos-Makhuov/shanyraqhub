@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { STORAGE_KEY, isDemoData } from '../config/runtime';
 import { X, Database, ShieldCheck, RefreshCw, Server, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface DemoStatusModalProps {
@@ -13,19 +14,11 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   const handleResetDemoData = () => {
+    if (!isDemoData) return;
     if (window.confirm('Сбросить все демонстрационные данные к начальному состоянию?')) {
-      const keys = [
-        'shanyraq_hub_app_state_v1_users',
-        'shanyraq_hub_app_state_v1_events',
-        'shanyraq_hub_app_state_v1_topics',
-        'shanyraq_hub_app_state_v1_chats',
-        'shanyraq_hub_app_state_v1_notifs',
-        'shanyraq_hub_app_state_v1_txs',
-        'shanyraq_hub_app_state_v1_audits',
-        'shanyraq_hub_app_state_v1_rewards',
-        'shanyraq_hub_app_state_v1_activity',
-      ];
-      keys.forEach(k => localStorage.removeItem(k));
+      // Demo keys only: live data is never touched by this button.
+      const suffixes = ['users', 'events', 'topics', 'chats', 'notifs', 'txs', 'audits', 'rewards', 'activity'];
+      suffixes.forEach(suffix => localStorage.removeItem(`${STORAGE_KEY}_${suffix}`));
       window.location.reload();
     }
   };
@@ -48,19 +41,32 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
             <h3 className="font-display text-base sm:text-lg font-bold text-[#f5f2eb]">
               Статус Данных и Архитектура
             </h3>
-            <span className="text-[11px] text-amber-400 font-mono">
-              Режим демонстрации (Demo Mode Active)
+            <span className={`text-[11px] font-mono ${isDemoData ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {isDemoData ? 'Режим демонстрации (Demo Mode Active)' : 'Боевой режим (Live)'}
             </span>
           </div>
         </div>
 
         <div className="p-3.5 rounded-xl bg-[#1a1716] border border-[#352f2c] text-xs space-y-2 text-[#b0a79d] leading-relaxed">
-          <p>
-            <strong className="text-[#f5f2eb]">Внимание:</strong> Отображаемые пользователи, книги, мероприятия, отзывы и транзакции сгенерированы для наглядной демонстрации интерфейса и возможностей Shanyraq Hub.
-          </p>
-          <p>
-            Они <strong className="text-amber-300">не являются</strong> реальными персональными данными или официальной статистикой сообщества.
-          </p>
+          {isDemoData ? (
+            <>
+              <p>
+                <strong className="text-[#f5f2eb]">Внимание:</strong> Отображаемые пользователи, книги, мероприятия, отзывы и транзакции сгенерированы для наглядной демонстрации интерфейса и возможностей Shanyraq Hub.
+              </p>
+              <p>
+                Они <strong className="text-amber-300">не являются</strong> реальными персональными данными или официальной статистикой сообщества.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                <strong className="text-[#f5f2eb]">Боевой режим:</strong> показываются только реальные данные сообщества. Демонстрационные записи сюда не загружаются и не смешиваются с ними.
+              </p>
+              <p>
+                Сервер (Supabase) <strong className="text-amber-300">ещё не подключён</strong>: пока данные хранятся только в этом браузере и видны только на этом устройстве.
+              </p>
+            </>
+          )}
         </div>
 
         {/* Backend & Integration Status Matrix */}
@@ -79,7 +85,7 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-950/80 text-amber-300 border border-amber-800">
-                Готов к подключению (.env)
+                Не подключён (схема готова)
               </span>
             </div>
 
@@ -126,7 +132,7 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
 
         {/* Current Demo Cache Count */}
         <div className="p-3 rounded-xl bg-[#1a1716] border border-[#302a28] flex items-center justify-between text-xs text-[#8c8279]">
-          <span>Загружено демо-записей:</span>
+          <span>{isDemoData ? 'Загружено демо-записей:' : 'Записей в этом браузере:'}</span>
           <span className="font-mono text-[#dfcfb3]">
             {allUsers.length} пользователей · {events.length} событий · {allReadBooks.length} книг
           </span>
@@ -134,6 +140,7 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-2 border-t border-[#302a28]">
+          {isDemoData ? (
           <button
             onClick={handleResetDemoData}
             className="px-3 py-1.5 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3d3632] text-xs text-[#dfcfb3] flex items-center gap-1.5 transition-colors"
@@ -141,6 +148,9 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Сбросить демо-данные</span>
           </button>
+          ) : (
+            <span />
+          )}
 
           <button
             onClick={onClose}

@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { loadInitialData, InitialData } from './data/sources';
+import { isDemoData } from './config/runtime';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { NavigationTabs } from './components/NavigationTabs';
@@ -58,8 +60,12 @@ const MainContent: React.FC = () => {
             <span>Алматы · Астана</span>
             <span>·</span>
             <span>Закрытые комнаты</span>
-            <span>·</span>
-            <span className="font-mono text-amber-400/80">Demo Environment</span>
+            {isDemoData && (
+              <>
+                <span>·</span>
+                <span className="font-mono text-amber-400/80">Demo Environment</span>
+              </>
+            )}
             <span>·</span>
             <span>© 2026 Shanyraq Hub Ecosystem</span>
           </div>
@@ -72,9 +78,30 @@ const MainContent: React.FC = () => {
   );
 };
 
+/** Shown for the moment the initial data loads (demo module or, later, Supabase). */
+const LoadingScreen: React.FC<{ error?: string }> = ({ error }) => (
+  <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#191615] text-[#8c8279] px-6 text-center">
+    <div className="w-14 h-14 rounded-full overflow-hidden bg-[#24201e] ring-1 ring-[#dfcfb3]/40 p-1 flex items-center justify-center animate-pulse">
+      <img src="/icons/icon-192.png" alt="Shanyraq Hub" className="w-full h-full object-contain rounded-full" />
+    </div>
+    <span className="text-xs">{error ? `Не удалось загрузить данные: ${error}` : 'Загрузка…'}</span>
+  </div>
+);
+
 export default function App() {
+  const [initialData, setInitialData] = useState<InitialData | null>(null);
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    loadInitialData()
+      .then(setInitialData)
+      .catch(e => setError(e instanceof Error ? e.message : String(e)));
+  }, []);
+
+  if (!initialData) return <LoadingScreen error={error} />;
+
   return (
-    <AppProvider>
+    <AppProvider initialData={initialData}>
       <MainContent />
     </AppProvider>
   );

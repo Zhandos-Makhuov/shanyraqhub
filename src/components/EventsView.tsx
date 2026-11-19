@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { COMMUNITY_DIRECTIONS } from '../data/mockData';
+import { COMMUNITY_DIRECTIONS } from '../data/directions';
 import { exportEventToIcs } from '../utils/calendar';
 import { hasEventStarted } from '../utils/eventTime';
 import { CommunityEvent, DirectionId } from '../types';

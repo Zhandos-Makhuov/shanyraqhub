@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { TIERS, SHOP_ITEMS } from '../data/gamification';
-import { COMMUNITY_DIRECTIONS } from '../data/mockData';
+import { COMMUNITY_DIRECTIONS } from '../data/directions';
 import {
   X,
   Star,

@@ -17,14 +17,15 @@ import {
   Achievement,
 } from '../types';
 import { TRANSLATIONS } from '../data/translations';
-import { NEW_MEMBER_ID, NEW_MEMBER_PROFILE, INITIAL_USERS, INITIAL_EVENTS, INITIAL_FORUM_TOPICS, INITIAL_CHAT_ROOMS, INITIAL_COIN_TRANSACTIONS, INITIAL_AUDIT_LOGS, INITIAL_NOTIFICATIONS } from '../data/mockData';
+import { NEW_MEMBER_ID, NEW_MEMBER_PROFILE } from '../data/newMember';
+import type { InitialData } from '../data/sources';
 import { SHOP_ITEMS, TIERS, ATTENDANCE_XP, attendanceCoinsForTier, tierForXp } from '../data/gamification';
 import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 import { getAchievementMetric } from '../utils/achievementProgress';
 import { sendLocalPushNotification, requestWebPushPermission } from '../utils/notifications';
 import { canAccessRoom, canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
 import { hasEventStarted } from '../utils/eventTime';
-import { isDemoMode } from '../utils/demoMode';
+import { STORAGE_KEY, canSwitchTestAccounts } from '../config/runtime';
 import { hasQualifyingReview, isWeekFreeForCredit } from '../utils/bookCredit';
 import { computeDayStreak, computeWeekStreak, toLocalDay } from '../utils/streak';
 
@@ -106,9 +107,8 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-const STORAGE_KEY = 'shanyraq_hub_app_state_v1';
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AppProvider: React.FC<{ children: React.ReactNode; initialData: InitialData }> = ({ children, initialData }) => {
   const [language, setLanguageState] = useState<Language>(() => {
     const saved = localStorage.getItem('shanyraq_lang');
     return (saved as Language) || 'ru';
@@ -117,7 +117,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_users`);
-    const users: UserProfile[] = saved ? JSON.parse(saved) : INITIAL_USERS;
+    const users: UserProfile[] = saved ? JSON.parse(saved) : initialData.users;
     // Every visitor starts as a new first-tier member (also added to data saved before this existed).
     const withNewcomer = users.some(u => u.id === NEW_MEMBER_ID) ? users : [NEW_MEMBER_PROFILE, ...users];
     // Tier is always derived from XP (keeps saved data correct when thresholds change).
@@ -128,32 +128,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [events, setEvents] = useState<CommunityEvent[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_events`);
-    return saved ? JSON.parse(saved) : INITIAL_EVENTS;
+    return saved ? JSON.parse(saved) : initialData.events;
   });
 
   const [forumTopics, setForumTopics] = useState<ForumTopic[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_topics`);
-    return saved ? JSON.parse(saved) : INITIAL_FORUM_TOPICS;
+    return saved ? JSON.parse(saved) : initialData.forumTopics;
   });
 
   const [chatRooms, setChatRooms] = useState<EncryptedChatRoom[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_chats`);
-    return saved ? JSON.parse(saved) : INITIAL_CHAT_ROOMS;
+    return saved ? JSON.parse(saved) : initialData.chatRooms;
   });
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_notifs`);
-    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+    return saved ? JSON.parse(saved) : initialData.notifications;
   });
 
   const [coinTransactions, setCoinTransactions] = useState<CoinTransaction[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_txs`);
-    return saved ? JSON.parse(saved) : INITIAL_COIN_TRANSACTIONS;
+    return saved ? JSON.parse(saved) : initialData.coinTransactions;
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_audits`);
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
+    return saved ? JSON.parse(saved) : initialData.auditLogs;
   });
 
   // Days (YYYY-MM-DD, local) on which each user did something real. Drives the activity streak.
@@ -224,9 +224,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const currentUser = allUsers.find(u => u.id === currentUserId) || allUsers[0];
 
-  // Test-account switching exists only in demo mode (see isDemoMode).
+  // Test-account switching exists only with demo data (see config/runtime.ts).
   const switchCurrentUser = (userId: string) => {
-    if (!isDemoMode) return;
+    if (!canSwitchTestAccounts) return;
     setCurrentUserId(userId);
   };
 

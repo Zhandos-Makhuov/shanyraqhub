@@ -4,7 +4,7 @@ import { TIERS } from '../data/gamification';
 import { Bell, Globe, Sparkles, ChevronDown, Coins, Database } from 'lucide-react';
 import { Language } from '../types';
 import { DemoStatusModal } from './DemoStatusModal';
-import { isDemoMode } from '../utils/demoMode';
+import { canSwitchTestAccounts, isDemoData } from '../config/runtime';
 
 export const Header: React.FC = () => {
   const {
@@ -63,15 +63,17 @@ export const Header: React.FC = () => {
 
           {/* Right Action Zone */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* Demo Status Badge */}
-            <button
-              onClick={() => setShowDemoModal(true)}
-              className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-950/40 hover:bg-amber-950/60 border border-amber-800/60 text-[10px] font-mono text-amber-300 transition-colors"
-              title="Статус данных: Режим демонстрации (нажмите для подробностей)"
-            >
-              <Database className="w-3 h-3 text-amber-400 shrink-0" />
-              <span className="hidden sm:inline">Демо</span>
-            </button>
+            {/* Demo Status Badge (demo data only) */}
+            {isDemoData && (
+              <button
+                onClick={() => setShowDemoModal(true)}
+                className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-950/40 hover:bg-amber-950/60 border border-amber-800/60 text-[10px] font-mono text-amber-300 transition-colors"
+                title="Статус данных: Режим демонстрации (нажмите для подробностей)"
+              >
+                <Database className="w-3 h-3 text-amber-400 shrink-0" />
+                <span className="hidden sm:inline">Демо</span>
+              </button>
+            )}
 
             {/* Language Switcher */}
             <div className="relative">
@@ -258,7 +260,7 @@ export const Header: React.FC = () => {
                     </div>
                   </div>
 
-                  {isDemoMode && (
+                  {canSwitchTestAccounts && (
                   <div className="pt-2">
                     <div className="text-[10px] font-semibold text-[#8c8279] uppercase tracking-wider mb-1 px-1">
                       {t('actionSwitchUser')}
@@ -294,7 +296,7 @@ export const Header: React.FC = () => {
                   </div>
                   )}
 
-                  <div className={`flex items-center justify-between ${isDemoMode ? 'mt-3 pt-2 border-t border-[#38322e]' : 'pt-2'}`}>
+                  <div className={`flex items-center justify-between ${canSwitchTestAccounts ? 'mt-3 pt-2 border-t border-[#38322e]' : 'pt-2'}`}>
                     <button
                       onClick={() => {
                         setActiveTab('profile');

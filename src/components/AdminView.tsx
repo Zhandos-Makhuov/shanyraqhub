@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserProfile, UserRole } from '../types';
 import { canAssignRole, hasRole } from '../utils/permissions';
+import { computeCommunityStats, computeDirectionReach } from '../utils/communityStats';
+import { hasQualifyingReview } from '../utils/bookCredit';
 import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
@@ -11,7 +13,7 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'admin', label: 'Admin' },
   { value: 'super_admin', label: 'Super Admin' },
 ];
-import { COMMUNITY_DIRECTIONS } from '../data/mockData';
+import { COMMUNITY_DIRECTIONS } from '../data/directions';
 import { formatTelegramMarkdown, formatWhatsAppMessage } from '../utils/notifications';
 import {
   ShieldCheck,
@@ -59,10 +61,12 @@ export const AdminView: React.FC = () => {
   const [adjustAmount, setAdjustAmount] = useState(50);
   const [adjustReason, setAdjustReason] = useState('Особый вклад в развитие книжного клуба');
 
-  const totalVisits = allUsers.reduce(
-    (acc, u) => acc + u.attendedEvents.filter(e => e.status === 'attended').length,
-    0
-  );
+  // Real numbers only (see utils/communityStats.ts).
+  const stats = computeCommunityStats(allUsers, events);
+  const directionReach = computeDirectionReach(allUsers, COMMUNITY_DIRECTIONS.map(d => d.id));
+  const ratedBooks = allReadBooks.filter(hasQualifyingReview);
+  const avgBookRating = ratedBooks.length > 0 ? ratedBooks.reduce((s, b) => s + b.userRating, 0) / ratedBooks.length : null;
+
 
   const handleBroadcastSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,33 +209,39 @@ export const AdminView: React.FC = () => {
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
               <span className="text-xs text-[#8c8279] block">Всего участников</span>
               <span className="text-2xl font-bold font-mono-numbers text-[#f5f2eb] mt-1 block">
-                {allUsers.length * 28 + 14}
+                {stats.members}
               </span>
-              <span className="text-[11px] text-emerald-400 mt-1 block">+18% за текущий месяц</span>
+              <span className={`text-[11px] mt-1 block ${stats.newMembersLast30Days > 0 ? 'text-emerald-400' : 'text-[#8c8279]'}`}>
+                {stats.newMembersLast30Days > 0 ? `+${stats.newMembersLast30Days} за 30 дней` : 'новых за 30 дней нет'}
+              </span>
             </div>
 
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
               <span className="text-xs text-[#8c8279] block">Проведено встреч</span>
               <span className="text-2xl font-bold font-mono-numbers text-[#dfcfb3] mt-1 block">
-                {events.length + 24}
+                {stats.eventsHeld}
               </span>
-              <span className="text-[11px] text-[#8c8279] mt-1 block">100% явка спикеров</span>
+              <span className="text-[11px] text-[#8c8279] mt-1 block">всего в календаре: {events.length}</span>
             </div>
 
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
               <span className="text-xs text-[#8c8279] block">Всего посещений</span>
               <span className="text-2xl font-bold font-mono-numbers text-[#f5d77f] mt-1 block">
-                {totalVisits * 12 + 64}
+                {stats.verifiedVisits}
               </span>
-              <span className="text-[11px] text-[#8c8279] mt-1 block">средняя явка: 89%</span>
+              <span className="text-[11px] text-[#8c8279] mt-1 block">
+                {stats.attendanceRate !== null ? `явка: ${stats.attendanceRate}% от записей` : 'записей пока нет'}
+              </span>
             </div>
 
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
               <span className="text-xs text-[#8c8279] block">Книг отрецензировано</span>
               <span className="text-2xl font-bold font-mono-numbers text-cyan-300 mt-1 block">
-                {allReadBooks.length * 4 + 18}
+                {stats.reviewedBooks}
               </span>
-              <span className="text-[11px] text-[#8c8279] mt-1 block">средний рейтинг: 4.9★</span>
+              <span className="text-[11px] text-[#8c8279] mt-1 block">
+                {avgBookRating !== null ? `средняя оценка: ${avgBookRating.toFixed(1)}★` : 'оценок пока нет'}
+              </span>
             </div>
           </div>
 
@@ -242,14 +252,13 @@ export const AdminView: React.FC = () => {
             </h3>
 
             <div className="space-y-3">
-              {COMMUNITY_DIRECTIONS.map((dir, i) => {
-                const percentages = [88, 76, 45, 68, 82, 54, 60];
-                const pct = percentages[i % percentages.length];
+              {COMMUNITY_DIRECTIONS.map(dir => {
+                const pct = directionReach[dir.id] ?? 0;
                 return (
                   <div key={dir.id} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium text-[#d6cebf]">{dir.nameRu}</span>
-                      <span className="font-mono text-[#dfcfb3]">{pct}% охват аудитории</span>
+                      <span className="font-mono text-[#dfcfb3]" title="Доля участников, посетивших хотя бы одну встречу направления">{pct}% участников</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-[#181514] overflow-hidden">
                       <div

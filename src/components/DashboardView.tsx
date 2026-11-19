@@ -1,8 +1,9 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
-import { COMMUNITY_DIRECTIONS } from '../data/mockData';
+import { COMMUNITY_DIRECTIONS } from '../data/directions';
 import { getEventStart, hasEventStarted } from '../utils/eventTime';
+import { computeCommunityStats } from '../utils/communityStats';
 import {
   Calendar,
   BookOpen,
@@ -48,10 +49,8 @@ export const DashboardView: React.FC = () => {
     .filter(e => !hasEventStarted(e))
     .sort((a, b) => getEventStart(a).getTime() - getEventStart(b).getTime())
     .slice(0, 3);
-  const totalVisitsCount = allUsers.reduce(
-    (acc, u) => acc + u.attendedEvents.filter(e => e.status === 'attended').length,
-    0
-  );
+  // Real numbers only (see utils/communityStats.ts).
+  const stats = computeCommunityStats(allUsers, events);
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-12 w-full max-w-full">
@@ -148,9 +147,9 @@ export const DashboardView: React.FC = () => {
             <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
           </div>
           <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
-            {allUsers.length * 28 + 14}
+            {stats.members}
           </div>
-          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">активное комьюнити</span>
+          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">участников в клубе</span>
         </div>
 
         <div className="p-3 sm:p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
@@ -159,7 +158,7 @@ export const DashboardView: React.FC = () => {
             <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
           </div>
           <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
-            {allReadBooks.length * 4 + 18}
+            {stats.reviewedBooks}
           </div>
           <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">с рецензиями</span>
         </div>
@@ -170,7 +169,7 @@ export const DashboardView: React.FC = () => {
             <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
           </div>
           <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
-            {totalVisitsCount * 12 + 64}
+            {stats.verifiedVisits}
           </div>
           <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">подтвержденная явка</span>
         </div>
@@ -181,9 +180,12 @@ export const DashboardView: React.FC = () => {
             <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
           </div>
           <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
-            4.96 <span className="text-[10px] sm:text-xs text-[#8c8279] font-normal">/ 5.0</span>
+            {stats.avgSatisfaction !== null ? stats.avgSatisfaction.toFixed(2) : '—'}{' '}
+            <span className="text-[10px] sm:text-xs text-[#8c8279] font-normal">/ 5.0</span>
           </div>
-          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">по отзывам резидентов</span>
+          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">
+            {stats.feedbackCount > 0 ? `по ${stats.feedbackCount} отзывам о встречах` : 'отзывов о встречах пока нет'}
+          </span>
         </div>
       </div>
 

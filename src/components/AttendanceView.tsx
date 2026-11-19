@@ -43,10 +43,11 @@ export const AttendanceView: React.FC = () => {
   );
 
   const attendedVisits = allVisits.filter(v => v.status === 'attended');
-  const totalRegistrations = allVisits.length;
+  const totalRegistrations = allVisits.filter(v => v.status !== 'cancelled').length;
+  // null when there are no registrations yet (shown as "—", never a made-up 100%).
   const attendanceRate = totalRegistrations > 0
     ? Math.round((attendedVisits.length / totalRegistrations) * 100)
-    : 100;
+    : null;
 
   const handleSimulateQrCheckIn = () => {
     setQrScanning(true);
@@ -105,9 +106,11 @@ export const AttendanceView: React.FC = () => {
         <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
           <span className="text-xs text-[#8c8279] block mb-1">{t('attendanceRate')}</span>
           <span className="text-2xl font-bold font-mono-numbers text-[#dfcfb3]">
-            {attendanceRate}%
+            {attendanceRate !== null ? `${attendanceRate}%` : '—'}
           </span>
-          <span className="text-[11px] text-[#8c8279] block mt-1">высокая дисциплина клуба</span>
+          <span className="text-[11px] text-[#8c8279] block mt-1">
+            {attendanceRate !== null ? 'доля записей с подтверждённым визитом' : 'записей пока нет'}
+          </span>
         </div>
 
         <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
@@ -115,7 +118,7 @@ export const AttendanceView: React.FC = () => {
           <span className="text-2xl font-bold font-mono-numbers text-[#f5d77f]">
             {currentUser.attendedEvents.filter(e => e.status === 'attended').length}
           </span>
-          <span className="text-[11px] text-[#8c8279] block mt-1">личный рекорд</span>
+          <span className="text-[11px] text-[#8c8279] block mt-1">подтверждено персоналом</span>
         </div>
 
         <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
@@ -184,7 +187,8 @@ export const AttendanceView: React.FC = () => {
             <div className="w-full sm:w-auto sm:self-end">
               <button
                 onClick={handleSimulateQrCheckIn}
-                disabled={qrScanning}
+                disabled={qrScanning || !selectedEventId || !selectedUserId}
+                title={!selectedEventId ? 'В календаре пока нет мероприятий' : undefined}
                 className="w-full px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] disabled:opacity-50 text-xs font-semibold text-[#1e1b1a] transition-all flex items-center justify-center gap-1.5"
               >
                 <QrCode className="w-3.5 h-3.5" />
