@@ -73,6 +73,7 @@ export type AchievementMetric =
   | 'forum_replies'
   | 'upvotes_received'
   | 'activity_streak'
+  | 'activity_week_streak'
   | 'manual';
 
 /** How an achievement is unlocked. See src/data/achievements.ts. */

@@ -1078,6 +1078,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     events,
     forumTopics,
     streak: getActivityStreak(userId),
+    weekStreak: getWeekStreak(userId),
   });
 
   const getAchievementProgress = (userId: string, achievementId: string): number => {

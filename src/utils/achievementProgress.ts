@@ -5,8 +5,9 @@ export interface AchievementData {
   users: UserProfile[];
   events: CommunityEvent[];
   forumTopics: ForumTopic[];
-  /** Current activity streak of the user being measured. */
+  /** Current activity streaks of the user being measured. */
   streak: number;
+  weekStreak: number;
 }
 
 /**
@@ -59,6 +60,8 @@ export const getAchievementMetric = (userId: string, rule: AchievementRule, data
       return replies().reduce((sum, r) => sum + r.upvotes.filter(id => id !== userId).length, 0);
     case 'activity_streak':
       return data.streak;
+    case 'activity_week_streak':
+      return data.weekStreak;
     case 'manual':
     default:
       return 0;

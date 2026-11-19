@@ -168,6 +168,14 @@ select t.ok(exists (select 1 from public.user_achievements where user_id = '0000
 select t.ok(exists (select 1 from public.user_achievements where user_id = '00000000-0000-0000-0000-000000000002' and achievement_id = 'ach-first-event'),
             'verified attendance unlocks ach-first-event');
 select t.ok(private.activity_streak('00000000-0000-0000-0000-000000000002') = 1, 'activity streak = 1 day for today''s activity');
+select t.ok(private.activity_week_streak('00000000-0000-0000-0000-000000000002') = 1, 'week streak = 1 for activity this week');
+-- back-fill activity 1 and 2 weeks ago -> 3 weeks in a row; 4 weeks ago is a gap
+insert into public.forum_topics (category_id, author_id, title, content, created_at) values
+  ('books', '00000000-0000-0000-0000-000000000002', 'Week -1', 'x', now() - interval '7 days'),
+  ('books', '00000000-0000-0000-0000-000000000002', 'Week -2', 'x', now() - interval '14 days'),
+  ('books', '00000000-0000-0000-0000-000000000002', 'Week -4', 'x', now() - interval '28 days');
+select t.ok(private.activity_week_streak('00000000-0000-0000-0000-000000000002') = 3, 'week streak = 3 (this week + 2 previous), gap before');
+select t.ok(private.activity_streak('00000000-0000-0000-0000-000000000002') = 1, 'day streak unaffected by weekly activity');
 set role authenticated;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
 -- Books are self-reported: credited only with a 100+ char review, one book per week
@@ -199,8 +207,8 @@ select t.ok(public.award_achievement('00000000-0000-0000-0000-000000000002', 'ac
 select t.ok(not public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'again'), 'awarding twice is a no-op');
 reset role;
 select t.ok((select count(*) from public.reward_ledger where idempotency_key like 'achievement:ach-knowledge-seeker:%') = 1, 'manual achievement rewarded once');
-select t.ok((select count(*) from public.achievements) = 25 and (select count(*) from public.achievements where rule ->> 'metric' = 'manual') = 4,
-            'seed: 25 achievements, 4 manual');
+select t.ok((select count(*) from public.achievements) = 28 and (select count(*) from public.achievements where rule ->> 'metric' = 'manual') = 4,
+            'seed: 28 achievements, 4 manual');
 
 -- Tier bonus on attendance coins: gold = +15% -> 40 * 1.15 = 46
 select private.grant_reward('00000000-0000-0000-0000-000000000001', 600, 0, 'admin_adjustment', null, 'test: reach gold', 'test:gold');

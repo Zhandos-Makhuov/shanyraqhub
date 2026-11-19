@@ -22,6 +22,7 @@ import { Achievement, AchievementRule } from '../types';
  *   forum_replies              forum replies written
  *   upvotes_received           "useful" votes received on forum replies
  *   activity_streak            consecutive active days (see utils/streak.ts)
+ *   activity_week_streak       consecutive weeks (Mon–Sun) with at least one activity
  *
  * Rewards are paid once per member and achievement.
  * After editing, regenerate the database seed:  npx tsx scripts/generate-seed.ts > supabase/seed.sql
@@ -379,9 +380,51 @@ const DEFINITIONS: AchievementDefinition[] = [
     titleRu: 'Неделя в ритме',
     titleKz: 'Ырғақты апта',
     titleEn: 'A Week in Rhythm',
-    descriptionRu: 'Будьте активны в клубе 7 дней подряд',
-    descriptionKz: 'Клубта 7 күн қатарынан белсенді болыңыз',
-    descriptionEn: 'Be active in the club 7 days in a row',
+    descriptionRu: 'Будьте активны в клубе 7 дней подряд — редкая награда для самых увлечённых',
+    descriptionKz: 'Клубта 7 күн қатарынан белсенді болыңыз — ең ынталыларға арналған сирек марапат',
+    descriptionEn: 'Be active in the club 7 days in a row — a rare award for the most dedicated',
+  },
+  {
+    id: 'ach-weeks-4',
+    category: 'challenges',
+    icon: 'CalendarClock',
+    rule: auto('activity_week_streak', 4),
+    xpReward: 150,
+    coinReward: 80,
+    titleRu: 'Месяц в ритме',
+    titleKz: 'Ырғақты ай',
+    titleEn: 'A Month in Rhythm',
+    descriptionRu: '4 недели подряд хотя бы одно действие в клубе: встреча, книга, форум',
+    descriptionKz: '4 апта қатарынан клубта кемінде бір әрекет: кездесу, кітап, форум',
+    descriptionEn: '4 weeks in a row with at least one club activity: meeting, book, forum',
+  },
+  {
+    id: 'ach-weeks-12',
+    category: 'challenges',
+    icon: 'Sunrise',
+    rule: auto('activity_week_streak', 12),
+    xpReward: 300,
+    coinReward: 150,
+    titleRu: 'Сезон в ритме',
+    titleKz: 'Ырғақты маусым',
+    titleEn: 'A Season in Rhythm',
+    descriptionRu: '12 недель подряд с клубом — целый сезон без пропусков',
+    descriptionKz: '12 апта қатарынан клубпен — үзіліссіз бір маусым',
+    descriptionEn: '12 weeks in a row with the club — a whole season without a gap',
+  },
+  {
+    id: 'ach-weeks-26',
+    category: 'challenges',
+    icon: 'Trophy',
+    rule: auto('activity_week_streak', 26),
+    xpReward: 500,
+    coinReward: 250,
+    titleRu: 'Полгода с клубом',
+    titleKz: 'Клубпен жарты жыл',
+    titleEn: 'Half a Year with the Club',
+    descriptionRu: '26 недель подряд активности — вы часть фундамента Шаңырақа',
+    descriptionKz: '26 апта қатарынан белсенділік — сіз Шаңырақтың іргетасысыз',
+    descriptionEn: '26 weeks of activity in a row — you are part of the Shanyraq foundation',
   },
   {
     id: 'ach-30-day-streak',

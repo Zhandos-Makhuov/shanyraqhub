@@ -8,6 +8,7 @@ import {
   BookOpen,
   Brain,
   CalendarCheck,
+  CalendarClock,
   CalendarDays,
   CheckCircle,
   ClipboardCheck,
@@ -30,7 +31,9 @@ import {
   PenTool,
   ShieldCheck,
   Sparkles,
+  Sunrise,
   ThumbsUp,
+  Trophy,
 } from 'lucide-react';
 
 /** Icon names used in data/achievements.ts. Unknown names fall back to Award. */
@@ -40,6 +43,7 @@ export const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<{ className?:
   BookOpen,
   Brain,
   CalendarCheck,
+  CalendarClock,
   CalendarDays,
   ClipboardCheck,
   Compass,
@@ -58,7 +62,9 @@ export const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<{ className?:
   Palette,
   PenLine,
   PenTool,
+  Sunrise,
   ThumbsUp,
+  Trophy,
 };
 
 export const AchievementsView: React.FC = () => {

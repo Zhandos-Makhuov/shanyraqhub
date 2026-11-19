@@ -165,28 +165,49 @@ $$;
 -- Achievements: evaluated only from verified tables
 -- ---------------------------------------------------------------------
 -- Distinct local days (Asia/Almaty) with real activity, as in src/utils/streak.ts.
+create function private.activity_days(p_user uuid) returns setof date
+language sql stable security definer set search_path = '' as $$
+  select distinct (ts at time zone 'Asia/Almaty')::date from (
+    select checked_in_at as ts from public.event_attendance where user_id = p_user
+    union all select created_at from public.event_feedback where user_id = p_user
+    union all select created_at from public.user_books where user_id = p_user
+    union all select created_at from public.forum_topics where author_id = p_user
+    union all select created_at from public.forum_replies where author_id = p_user
+    union all select created_at from public.peer_reviews where author_id = p_user
+  ) t
+$$;
+
+-- Consecutive active days ending today (or yesterday if nothing happened yet today).
 create function private.activity_streak(p_user uuid) returns int
 language sql stable security definer set search_path = '' as $$
-  with days as (
-    select distinct (ts at time zone 'Asia/Almaty')::date as d from (
-      select checked_in_at as ts from public.event_attendance where user_id = p_user
-      union all select created_at from public.event_feedback where user_id = p_user
-      union all select created_at from public.user_books where user_id = p_user
-      union all select created_at from public.forum_topics where author_id = p_user
-      union all select created_at from public.forum_replies where author_id = p_user
-      union all select created_at from public.peer_reviews where author_id = p_user
-    ) t
-  ),
+  with days as (select d from private.activity_days(p_user) as d),
   anchor as (
-    -- streak may end today, or yesterday if nothing happened yet today
     select case when exists (select 1 from days where d = (now() at time zone 'Asia/Almaty')::date)
                 then (now() at time zone 'Asia/Almaty')::date
                 else (now() at time zone 'Asia/Almaty')::date - 1 end as a
   ),
   ranked as (
-    select d, (select a from anchor) - d as back,
-           row_number() over (order by d desc) - 1 as rn
+    select (select a from anchor) - d as back, row_number() over (order by d desc) - 1 as rn
       from days where d <= (select a from anchor)
+  )
+  select count(*)::int from ranked where back = rn
+$$;
+
+-- Consecutive Mon–Sun weeks with at least one active day, ending this week
+-- (or last week if nothing happened yet this week). Fits weekly club meetings.
+create function private.activity_week_streak(p_user uuid) returns int
+language sql stable security definer set search_path = '' as $$
+  with weeks as (
+    select distinct date_trunc('week', d)::date as w from private.activity_days(p_user) as d
+  ),
+  this_week as (select date_trunc('week', (now() at time zone 'Asia/Almaty')::date)::date as w),
+  anchor as (
+    select case when exists (select 1 from weeks where w = (select w from this_week))
+                then (select w from this_week) else (select w from this_week) - 7 end as a
+  ),
+  ranked as (
+    select ((select a from anchor) - w) / 7 as back, row_number() over (order by w desc) - 1 as rn
+      from weeks where w <= (select a from anchor)
   )
   select count(*)::int from ranked where back = rn
 $$;
@@ -231,6 +252,8 @@ begin
                where fr.author_id = p_user and v.user_id <> p_user);
     when 'activity_streak' then
       return private.activity_streak(p_user);
+    when 'activity_week_streak' then
+      return private.activity_week_streak(p_user);
     else
       return 0;   -- 'manual' and unknown metrics never auto-unlock
   end case;
