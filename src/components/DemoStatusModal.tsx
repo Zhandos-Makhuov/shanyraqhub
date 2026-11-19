@@ -63,7 +63,7 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
                 <strong className="text-[#f5f2eb]">Боевой режим:</strong> показываются только реальные данные сообщества. Демонстрационные записи сюда не загружаются и не смешиваются с ними.
               </p>
               <p>
-                Сервер (Supabase) <strong className="text-amber-300">ещё не подключён</strong>: пока данные хранятся только в этом браузере и видны только на этом устройстве.
+                <strong className="text-emerald-300">Вход и аккаунты</strong> работают через сервер (Supabase): имя, почта и роль берутся из базы. Остальные данные (события, книги, форум, коины) <strong className="text-amber-300">пока хранятся только в этом браузере</strong> — перенос на сервер идёт следующим этапом.
               </p>
             </>
           )}
@@ -84,8 +84,8 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
                   <span className="text-[10px] text-[#8c8279]">Хранилище и серверная авторизация</span>
                 </div>
               </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-950/80 text-amber-300 border border-amber-800">
-                Не подключён (схема готова)
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-950/80 text-amber-300 border border-amber-800 shrink-0">
+                {isDemoData ? 'Не подключён (схема готова)' : 'Вход подключён · данные — далее'}
               </span>
             </div>
 

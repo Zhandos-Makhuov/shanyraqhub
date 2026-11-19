@@ -288,3 +288,21 @@ Project `shanyraq-hub-test` (ref `fwhcaspbbktgpjiskpln`, Frankfurt, **PostgreSQL
 
 ### Re-running checks
 `python3 supabase/tests/run-cloud.py tests|dryrun|lint` — non-destructive (single transaction, always rolled back). `dryrun` applies only migrations not yet recorded in `schema_migrations`. Never run `run-local.sh` against Supabase.
+
+## 15. Stage 5 — real sign-in with Supabase Auth (2026-11-19)
+Live mode only (`VITE_DATA_SOURCE=live`); demo mode is unchanged and its bundle does not contain supabase-js (AuthGate is a dynamic import behind the inlined env check).
+
+### What exists now
+- `src/data/supabase/client.ts` — browser client from `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (public values only). Implicit flow, so a confirmation link works on another device. Session persisted under `shanyraq_hub_auth`, refreshed automatically.
+- `src/data/supabase/auth.ts` — `signUp` (sends `display_name` for the sign-up trigger; existing e-mail detected via empty `identities`), `signIn`, `resendConfirmation`, `requestPasswordReset` (neutral answer — no account enumeration), `updatePassword`, `signOut` (this browser only), `loadOwnProfile` (profiles + user_roles + user_balances → `profileFromRows`). Errors map to translation keys, never raw server text.
+- `src/components/AuthGate.tsx` — nothing of the club without an account (anon has no table access in the DB anyway): sign in / sign up / forgot password / "check your e-mail" / new password after a recovery link / expired-link message / "not configured" / profile load error with retry. Texts in ru/kz/en (`auth*` keys; Kazakh needs a native check like the achievements table).
+- `AppContext` takes the signed-in account: current user = DB profile; **role, e-mail and handle always from the DB**; local data (still localStorage until stage 6) is stored per account: `shanyraq_hub_live_v1_<user_id>_*`, so members sharing a device never mix. Header menu: e-mail + "Выйти". "Статус данных" says honestly: sign-in via server, other data still in the browser.
+- Bug found and fixed while testing: the `PASSWORD_RECOVERY` event fires during client start-up and could be missed → member would land in the app without setting a password. The recovery link type is now read from the URL before the client consumes it.
+
+### Checks
+lint, build (demo + live; live bundle has no demo names; demo bundle has no supabase-js), 26 browser checks with Playwright against a mocked Auth/REST API: sign-in screen, validation, wrong password, unconfirmed e-mail + resend, sign-up (+ display_name, redirect URL), taken e-mail, SMTP-restricted address, password reset request, KZ language, sign-in → app with DB profile, session after reload, account menu, sign-out (session removed), per-account storage, recovery link → new password → app, expired link, demo unchanged, no page errors.
+
+### Needed from the owner (dashboard, not reachable with the current token)
+- The project's **publishable/anon key** (Project Settings → API Keys) — public by design; never the secret/service_role key.
+- Authentication → URL Configuration: Site URL / Redirect URLs for the real address (stage 8); now `http://localhost:3000`.
+- Built-in e-mail sending is for testing only (limited rate, team addresses); real members need custom SMTP (stage 8).

@@ -1,0 +1,36 @@
+/**
+ * Supabase browser client. Live mode only: App.tsx loads this module with a dynamic
+ * import behind the VITE_DATA_SOURCE check, so demo builds never contain supabase-js.
+ *
+ * Only PUBLIC values are used here (VITE_SUPABASE_URL + the anon/publishable key).
+ * Security comes from RLS and the server-side RPCs, never from hiding these values.
+ */
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ?? '';
+const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? '';
+
+/** False when the env still has the .env.example placeholders (or nothing at all). */
+export const supabaseConfigured =
+  /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(url) && anonKey.length > 20 && !anonKey.startsWith('YOUR_');
+
+/**
+ * True when the page was opened from a password-recovery e-mail link. Read here, before
+ * createClient consumes and clears the URL: the PASSWORD_RECOVERY event fires during client
+ * start-up and can come before the sign-in screen subscribes to auth events.
+ */
+export const openedFromRecoveryLink = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
+
+export const supabase: SupabaseClient | null = supabaseConfigured
+  ? createClient(url, anonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        // Picks up the session from e-mail links (confirmation, password recovery).
+        detectSessionInUrl: true,
+        // Implicit flow: a confirmation link works even when opened on another device/browser.
+        flowType: 'implicit',
+        storageKey: 'shanyraq_hub_auth',
+      },
+    })
+  : null;

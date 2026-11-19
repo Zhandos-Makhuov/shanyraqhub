@@ -19,6 +19,7 @@ import {
 import { TRANSLATIONS } from '../data/translations';
 import { NEW_MEMBER_ID, NEW_MEMBER_PROFILE } from '../data/newMember';
 import type { InitialData } from '../data/sources';
+import type { LiveAccount } from '../components/AuthGate';
 import { SHOP_ITEMS, TIERS, ATTENDANCE_XP, attendanceCoinsForTier, tierForXp } from '../data/gamification';
 import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 import { getAchievementMetric } from '../utils/achievementProgress';
@@ -50,6 +51,8 @@ interface AppContextType {
 
   currentUser: UserProfile;
   allUsers: UserProfile[];
+  /** Live mode: signs this browser out of the member's account. Undefined in demo. */
+  signOut?: () => Promise<void>;
   switchCurrentUser: (userId: string) => void;
   updateProfile: (updated: Partial<UserProfile>) => void;
 
@@ -108,7 +111,14 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 
-export const AppProvider: React.FC<{ children: React.ReactNode; initialData: InitialData }> = ({ children, initialData }) => {
+export const AppProvider: React.FC<{ children: React.ReactNode; initialData: InitialData; account?: LiveAccount }> = ({
+  children,
+  initialData,
+  account,
+}) => {
+  // Live mode keeps each account's local data separately (shared devices must not mix members).
+  const storeKey = account ? `${STORAGE_KEY}_${account.profile.id}` : STORAGE_KEY;
+
   const [language, setLanguageState] = useState<Language>(() => {
     const saved = localStorage.getItem('shanyraq_lang');
     return (saved as Language) || 'ru';
@@ -116,50 +126,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_users`);
+    const saved = localStorage.getItem(`${storeKey}_users`);
     const users: UserProfile[] = saved ? JSON.parse(saved) : initialData.users;
-    // Every visitor starts as a new first-tier member (also added to data saved before this existed).
-    const withNewcomer = users.some(u => u.id === NEW_MEMBER_ID) ? users : [NEW_MEMBER_PROFILE, ...users];
+    let withNewcomer: UserProfile[];
+    if (account) {
+      // Signed-in member: identity and role always come from the database (role is never trusted locally).
+      const db = account.profile;
+      const stored = users.find(u => u.id === db.id);
+      const me = stored ? { ...stored, email: db.email, handle: db.handle, role: db.role } : db;
+      withNewcomer = [me, ...users.filter(u => u.id !== db.id)];
+    } else {
+      // Every visitor starts as a new first-tier member (also added to data saved before this existed).
+      withNewcomer = users.some(u => u.id === NEW_MEMBER_ID) ? users : [NEW_MEMBER_PROFILE, ...users];
+    }
     // Tier is always derived from XP (keeps saved data correct when thresholds change).
     return withNewcomer.map(u => ({ ...u, tier: tierForXp(u.xp) }));
   });
 
-  const [currentUserId, setCurrentUserId] = useState<string>(NEW_MEMBER_ID);
+  const [currentUserId, setCurrentUserId] = useState<string>(account?.profile.id ?? NEW_MEMBER_ID);
 
   const [events, setEvents] = useState<CommunityEvent[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_events`);
+    const saved = localStorage.getItem(`${storeKey}_events`);
     return saved ? JSON.parse(saved) : initialData.events;
   });
 
   const [forumTopics, setForumTopics] = useState<ForumTopic[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_topics`);
+    const saved = localStorage.getItem(`${storeKey}_topics`);
     return saved ? JSON.parse(saved) : initialData.forumTopics;
   });
 
   const [chatRooms, setChatRooms] = useState<EncryptedChatRoom[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_chats`);
+    const saved = localStorage.getItem(`${storeKey}_chats`);
     return saved ? JSON.parse(saved) : initialData.chatRooms;
   });
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_notifs`);
+    const saved = localStorage.getItem(`${storeKey}_notifs`);
     return saved ? JSON.parse(saved) : initialData.notifications;
   });
 
   const [coinTransactions, setCoinTransactions] = useState<CoinTransaction[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_txs`);
+    const saved = localStorage.getItem(`${storeKey}_txs`);
     return saved ? JSON.parse(saved) : initialData.coinTransactions;
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_audits`);
+    const saved = localStorage.getItem(`${storeKey}_audits`);
     return saved ? JSON.parse(saved) : initialData.auditLogs;
   });
 
   // Days (YYYY-MM-DD, local) on which each user did something real. Drives the activity streak.
   const [activityLog, setActivityLog] = useState<Record<string, string[]>>(() => {
     try {
-      return JSON.parse(localStorage.getItem(`${STORAGE_KEY}_activity`) || '{}');
+      return JSON.parse(localStorage.getItem(`${storeKey}_activity`) || '{}');
     } catch {
       return {};
     }
@@ -169,35 +188,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
   // Sync to local storage
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_users`, JSON.stringify(allUsers));
+    localStorage.setItem(`${storeKey}_users`, JSON.stringify(allUsers));
   }, [allUsers]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_events`, JSON.stringify(events));
+    localStorage.setItem(`${storeKey}_events`, JSON.stringify(events));
   }, [events]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_topics`, JSON.stringify(forumTopics));
+    localStorage.setItem(`${storeKey}_topics`, JSON.stringify(forumTopics));
   }, [forumTopics]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_chats`, JSON.stringify(chatRooms));
+    localStorage.setItem(`${storeKey}_chats`, JSON.stringify(chatRooms));
   }, [chatRooms]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_notifs`, JSON.stringify(notifications));
+    localStorage.setItem(`${storeKey}_notifs`, JSON.stringify(notifications));
   }, [notifications]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_txs`, JSON.stringify(coinTransactions));
+    localStorage.setItem(`${storeKey}_txs`, JSON.stringify(coinTransactions));
   }, [coinTransactions]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_audits`, JSON.stringify(auditLogs));
+    localStorage.setItem(`${storeKey}_audits`, JSON.stringify(auditLogs));
   }, [auditLogs]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_activity`, JSON.stringify(activityLog));
+    localStorage.setItem(`${storeKey}_activity`, JSON.stringify(activityLog));
   }, [activityLog]);
 
   // Reward idempotency log: key -> timestamp (ms). A key is paid out at most once.
@@ -205,7 +224,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   const rewardLogRef = useRef<Record<string, number>>(
     (() => {
       try {
-        return JSON.parse(localStorage.getItem(`${STORAGE_KEY}_rewards`) || '{}');
+        return JSON.parse(localStorage.getItem(`${storeKey}_rewards`) || '{}');
       } catch {
         return {};
       }
@@ -346,7 +365,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     }
 
     log[key] = Date.now();
-    localStorage.setItem(`${STORAGE_KEY}_rewards`, JSON.stringify(log));
+    localStorage.setItem(`${storeKey}_rewards`, JSON.stringify(log));
     addXpAndCoins(userId, xpDelta, coinsDelta, reasonRu);
     return true;
   };
@@ -1257,6 +1276,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         setActiveTab,
         currentUser,
         allUsers,
+        signOut: account?.signOut,
         switchCurrentUser,
         updateProfile,
         selectedUserModal,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { loadInitialData, InitialData } from './data/sources';
 import { isDemoData } from './config/runtime';
 import { AppProvider, useApp } from './context/AppContext';
@@ -16,6 +16,10 @@ import { ForumAndChatsView } from './components/ForumAndChatsView';
 import { ProfileView } from './components/ProfileView';
 import { AdminView } from './components/AdminView';
 import { MemberProfileModal } from './components/MemberProfileModal';
+
+// Live mode only: sign-in gate + Supabase client. Compared against the inlined env value
+// so demo builds drop this chunk (and supabase-js) entirely.
+const AuthGate = import.meta.env.VITE_DATA_SOURCE === 'live' ? lazy(() => import('./components/AuthGate')) : null;
 
 const MainContent: React.FC = () => {
   const { activeTab } = useApp();
@@ -99,6 +103,20 @@ export default function App() {
   }, []);
 
   if (!initialData) return <LoadingScreen error={error} />;
+
+  if (AuthGate) {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <AuthGate>
+          {account => (
+            <AppProvider initialData={initialData} account={account}>
+              <MainContent />
+            </AppProvider>
+          )}
+        </AuthGate>
+      </Suspense>
+    );
+  }
 
   return (
     <AppProvider initialData={initialData}>

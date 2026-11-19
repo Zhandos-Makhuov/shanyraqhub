@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
-import { Bell, Globe, Sparkles, ChevronDown, Coins, Database } from 'lucide-react';
+import { Bell, Globe, Sparkles, ChevronDown, Coins, Database, LogOut } from 'lucide-react';
 import { Language } from '../types';
 import { DemoStatusModal } from './DemoStatusModal';
 import { canSwitchTestAccounts, isDemoData } from '../config/runtime';
@@ -14,6 +14,7 @@ export const Header: React.FC = () => {
     currentUser,
     allUsers,
     switchCurrentUser,
+    signOut,
     notifications,
     markAllNotificationsAsRead,
     togglePushNotifications,
@@ -316,6 +317,23 @@ export const Header: React.FC = () => {
                       Статус данных
                     </button>
                   </div>
+                  {signOut && (
+                    <div className="mt-2 pt-2 border-t border-[#38322e]">
+                      {currentUser.email && (
+                        <div className="text-[10px] text-[#8c8279] truncate px-1 mb-1.5">{currentUser.email}</div>
+                      )}
+                      <button
+                        onClick={() => {
+                          setShowUserDropdown(false);
+                          void signOut();
+                        }}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-[#d6cebf] hover:bg-[#2d2825] transition-colors"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        {t('authSignOut')}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
