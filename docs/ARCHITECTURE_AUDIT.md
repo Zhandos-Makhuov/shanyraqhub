@@ -264,3 +264,27 @@ Captions that judged the club regardless of data, such as "high club discipline"
 - New direction ids need `alter type public.direction_id add value …` (one-line migration).
 - Uploading files from the UI is not wired (stage 6).
 - `supabase db lint` and real Storage behaviour can only be checked on a real (test) Supabase project (stage 4).
+
+## 14. Stage 4 — schema applied to the TEST Supabase project (2026-11-19)
+Project `shanyraq-hub-test` (ref `fwhcaspbbktgpjiskpln`, Frankfurt, **PostgreSQL 17.12**). Production is untouched (there is no production project yet). Access: Management API, token injected by the environment proxy.
+
+### What was done
+1. **Dry run first:** all 4 migrations + `seed.sql` + all security tests in one transaction that ends with a deliberate exception → nothing committed. Result: 144/144 checks pass on PG 17.
+2. **Applied** each migration in its own atomic transaction via `POST /v1/projects/{ref}/database/query`, recording it in `supabase_migrations.schema_migrations` (the table the Supabase CLI uses) **with the version from the file name** (`20261118000001`…`20261119000001`). The `/database/migrations` endpoint was not used because it assigns its own timestamp as version, which would desync `supabase db push`/`migration list` from the repo.
+3. **Seed** (reference data only, idempotent `on conflict`): 6 tiers, 34 achievements, 13 shop items, 7 forum categories, 7 directions. No users, no demo data.
+4. **Checks against the applied schema** (rolled back): 144/144 pass. After every run: 0 users, no schema `t`, 0 storage objects.
+5. State: 37 tables in `public`, RLS enabled on all of them, 3 storage buckets.
+
+### Real-Supabase difference found
+`storage.objects` has trigger `protect_objects_delete` (`storage.protect_delete()`): SQL `DELETE` is refused unless `storage.allow_delete_query = 'true'` (the Storage API sets it). RLS still applies. The cloud test sets the flag transaction-locally for its one delete check; the app must delete files via the Storage API (supabase-js `storage.remove`), never SQL.
+
+### Lint (`plpgsql_check` 2.8 — what `supabase db lint` uses; 41 plpgsql functions)
+- **Errors: none.**
+- Warnings (harmless, left as is): implicit casts `text → registration_status/membership_status` (string literals in CASE), `bigint/numeric → integer` (count(*)/round into int vars), unused `p_finished_at` in `save_user_book` (intentional: kept for signature compatibility; the server sets the finish date).
+
+### Supabase advisors
+- Security: 24 × WARN `authenticated_security_definer_function_executable` — **intentional**: these are the app's RPC API; each checks the caller's role inside (`private.require_role`, ownership checks), covered by tests. `anon` cannot execute any of them (no anon lint). 2 × INFO `rls_enabled_no_policy` (`event_checkin_tokens`, `scheduled_notifications`) — intentional deny-all, only SECURITY DEFINER functions touch them.
+- Performance: 25 × INFO `unindexed_foreign_keys` (mostly audit columns like `created_by`, `decided_by`), 8 × INFO `unused_index` (empty DB — expected), 4 × WARN `multiple_permissive_policies` (`achievements`, `chat_rooms`, `forum_categories`, `shop_items`: `*_read` + `*_admin` both apply to SELECT). Not a problem at club scale; optional follow-up migration.
+
+### Re-running checks
+`python3 supabase/tests/run-cloud.py tests|dryrun|lint` — non-destructive (single transaction, always rolled back). `dryrun` applies only migrations not yet recorded in `schema_migrations`. Never run `run-local.sh` against Supabase.
