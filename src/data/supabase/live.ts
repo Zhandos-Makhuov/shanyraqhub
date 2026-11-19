@@ -9,12 +9,13 @@ import { supabase } from './client';
 import { applyCatalog, type AchievementRow, type CatalogReport, type ShopItemRow, type TierRow } from '../catalog';
 import { buildPublicNames, eventFromRow, profileFromRows, CLUB_TIME_ZONE } from './adapters';
 import type {
+  MembershipRow, ProfileContactRow, UserEquipmentRow, UserInventoryRow,
   AchievementRevocationRow, BookRow, UserBookRow, EventAttendanceRow, EventFeedbackRow, EventRegistrationRow, EventRow,
   PeerReviewRow, ProfileRow, UserAchievementRow, UserBalanceRow, UserRoleRow,
 } from './rows';
-import type { AppNotification, ChatMessage, CommunityEvent, DirectionId, EncryptedChatRoom, ForumTopic, ReadBook, UserProfile, UserRole } from '../../types';
+import type { AppNotification, AuditLog, ChatMessage, CoinTransaction, CommunityEvent, DirectionId, ItemCategory, PeerReview, EncryptedChatRoom, ForumTopic, ReadBook, UserProfile, UserRole } from '../../types';
 import { hasRole } from '../../utils/permissions';
-import { roleFromDb } from './adapters';
+import { roleFromDb, roleToDb } from './adapters';
 
 export interface LiveSnapshot {
   users: UserProfile[];
@@ -22,7 +23,22 @@ export interface LiveSnapshot {
   notifications: AppNotification[];
   forumTopics: ForumTopic[];
   chatRooms: EncryptedChatRoom[];
+  coinTransactions: CoinTransaction[];
+  auditLogs: AuditLog[];
+  /** Pending direction applications this member may decide on (lead of the direction or moderator+; RLS). */
+  membershipApplications: MembershipApplication[];
 }
+
+export interface MembershipApplication {
+  id: string;
+  userId: string;
+  userName: string;
+  direction: DirectionId;
+  message: string;
+  createdAt: string;
+}
+interface LedgerRow { id: number; user_id: string; coin_delta: number; reason: string; created_at: string }
+interface AuditRow { id: number; actor_id: string | null; action: string; target_type: string | null; target_id: string | null; details: Record<string, unknown>; created_at: string }
 
 interface ForumCategoryRow { id: string; name_ru: string; name_kz: string; name_en: string; sort_order: number }
 interface ForumTopicRow {
@@ -80,7 +96,7 @@ const formatWhen = (iso: string) =>
 export const loadSnapshot = async (email: string, myId: string): Promise<LiveSnapshot> => {
   const c = db();
   const [profiles, roles, balances, events, registrations, attendance, feedback, achievements, revocations, reviews, notifications, books, userBooks,
-    categories, topics, replies, topicVotes, replyVotes, rooms, messages] =
+    categories, topics, replies, topicVotes, replyVotes, rooms, messages, inventory, equipment, memberships, contacts, ledger, audits] =
     await Promise.all([
       rows<ProfileRow>(c.from('profiles').select('*')),
       rows<UserRoleRow>(c.from('user_roles').select('user_id, role')),
@@ -109,10 +125,18 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       rows<ChatRoomRow>(c.from('chat_rooms').select('*').order('created_at')),
       rows<ChatMessageRow>(c.from('chat_messages').select('id, room_id, sender_id, body, created_at')
         .order('created_at', { ascending: false }).limit(500)),
+      rows<UserInventoryRow>(c.from('user_inventory').select('user_id, item_id')),
+      rows<UserEquipmentRow>(c.from('user_equipment').select('user_id, category, item_id')),
+      // RLS: own applications, active members of every direction, and pending ones the member may decide on.
+      rows<MembershipRow & { message: string | null }>(c.from('memberships').select('id, user_id, direction, status, role, created_at, message')),
+      rows<ProfileContactRow>(c.from('profile_contacts').select('user_id, phone')),            // own (admins: all)
+      rows<LedgerRow>(c.from('reward_ledger').select('id, user_id, coin_delta, reason, created_at')    // own (admins: all)
+        .neq('coin_delta', 0).order('created_at', { ascending: false }).limit(300)),
+      rows<AuditRow>(c.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200)), // admins only
     ]);
   const names = buildPublicNames(profiles, roles);
   const rel = { roles, balances, events, registrations, attendance, feedback, peerReviews: reviews, names,
-    userAchievements: achievements, revocations, books, userBooks };
+    userAchievements: achievements, revocations, books, userBooks, inventory, equipment, memberships, contacts };
   const nameOf = (id: string) => names[id] ?? { name: '—', avatar: '/icons/icon-192.png', role: 'member' as UserRole };
   const forumTopics: ForumTopic[] = topics.map(t => {
     const cat = categories.find(cat => cat.id === t.category_id);
@@ -164,10 +188,29 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       }),
     };
   });
+  const coinTransactions: CoinTransaction[] = ledger.map(l => ({
+    id: String(l.id), userId: l.user_id, amount: Math.abs(l.coin_delta), type: l.coin_delta > 0 ? 'earn' : 'spend',
+    reasonRu: l.reason, reasonKz: l.reason, reasonEn: l.reason, createdAt: formatDateTime(l.created_at),
+  }));
+  const auditLogs: AuditLog[] = audits.map(a => ({
+    id: String(a.id), adminId: a.actor_id ?? '', adminName: a.actor_id ? nameOf(a.actor_id).name : 'Система',
+    action: a.action, target: [a.target_type, a.target_id].filter(Boolean).join(' '),
+    timestamp: formatDateTime(a.created_at), details: JSON.stringify(a.details),
+  }));
+  const membershipApplications: MembershipApplication[] = memberships
+    .filter(m => m.status === 'pending' && m.user_id !== myId)
+    .map(m => ({ id: m.id, userId: m.user_id, userName: nameOf(m.user_id).name, direction: m.direction,
+      message: m.message ?? '', createdAt: formatDateTime(m.created_at) }));
   return {
     forumTopics,
     chatRooms,
-    users: profiles.map(p => profileFromRows(p, { ...rel, email: p.id === myId ? email : undefined })),
+    coinTransactions,
+    auditLogs,
+    membershipApplications,
+    users: profiles.map(p => ({
+      ...profileFromRows(p, { ...rel, email: p.id === myId ? email : undefined }),
+      pendingDirections: memberships.filter(m => m.user_id === p.id && m.status === 'pending').map(m => m.direction),
+    })),
     events: events.map(e => eventFromRow(e, { registrations, attendance, feedback, names })),
     notifications: notifications.map(n => ({
       id: n.id,
@@ -193,6 +236,16 @@ const SERVER_ERRORS: [RegExp, string][] = [
   [/checkin_window_closed/, 'liveErrCheckinWindow'],
   [/not_registered/, 'liveErrNotRegistered'],
   [/cannot_vote_own/, 'liveErrOwnVote'],
+  [/insufficient_coins/, 'liveErrNotEnoughCoins'],
+  [/already_owned/, 'liveErrAlreadyOwned'],
+  [/item_not_owned|item_not_available/, 'liveErrItemNotOwned'],
+  [/reapply_too_soon/, 'liveErrReapplyTooSoon'],
+  [/membership_removed/, 'liveErrMembershipRemoved'],
+  [/membership_not_pending/, 'liveErrDuplicate'],
+  [/reason_required/, 'liveErrReasonRequired'],
+  [/cannot change your own role|cannot adjust your own balance|cannot award an achievement to yourself|cannot revoke your own achievement|cannot review own membership/, 'liveErrSelfAction'],
+  [/cannot demote the last superadmin/, 'liveErrLastSuperadmin'],
+  [/amount out of range/, 'liveErrInvalid'],
   [/invalid_token/, 'liveErrQrInvalid'],
   [/token_already_used/, 'liveErrQrUsed'],
   [/token_expired/, 'liveErrQrExpired'],
@@ -361,3 +414,49 @@ export const setTopicVote = async (topicId: string, on: boolean) => {
 };
 export const sendChatMessage = async (roomId: string, text: string) =>
   insertOrDelete(db().from('chat_messages').insert({ room_id: roomId, body: text, sender_id: await myId() }));
+
+// --- Shop (server checks coins and ownership; the purchase is written to the reward ledger) ---
+export const purchaseShopItem = (itemId: string) => call('purchase_shop_item', { p_item: itemId });
+export const equipItem = (itemId: string) => call('equip_item', { p_item: itemId });
+export const unequipItem = (category: ItemCategory) => call('unequip_item', { p_category: category });
+
+// --- Own profile (RLS: only own row; directions are NOT written here — memberships decide them) ---
+export const updateOwnProfile = async (p: Partial<UserProfile>): Promise<ActionResult> => {
+  const me = await myId();
+  const fields: Record<string, unknown> = {};
+  if (p.name !== undefined) fields.display_name = p.name;
+  if (p.bio !== undefined) fields.bio = p.bio;
+  if (p.city !== undefined) fields.city = p.city || null;
+  if (p.telegram !== undefined) fields.telegram_handle = p.telegram || null;
+  if (p.avatar !== undefined) fields.avatar_url = p.avatar || null;
+  if (p.pushNotificationsEnabled !== undefined) fields.push_notifications_enabled = p.pushNotificationsEnabled;
+  if (p.telegramNotificationsEnabled !== undefined) fields.telegram_notifications_enabled = p.telegramNotificationsEnabled;
+  if (p.preferredLanguage !== undefined) fields.preferred_language = p.preferredLanguage;
+  if (Object.keys(fields).length) {
+    const r = await insertOrDelete(db().from('profiles').update(fields).eq('id', me));
+    if (!r.ok) return r;
+  }
+  if (p.phone !== undefined) return insertOrDelete(db().from('profile_contacts').update({ phone: p.phone || null }).eq('user_id', me));
+  return { ok: true };
+};
+
+// --- Directions: joining needs approval (owner decision) ---
+export const requestMembership = (direction: DirectionId, message = '') => call('request_membership', { p_direction: direction, p_message: message });
+export const leaveMembership = (direction: DirectionId) => call('leave_membership', { p_direction: direction });
+export const reviewMembership = (membershipId: string, approve: boolean, note = '') =>
+  call('review_membership', { p_membership: membershipId, p_approve: approve, p_note: note || null });
+
+// --- Peer reviews (rewards and the notification are database triggers) ---
+export const addPeerReview = async (targetId: string, rating: number, comment: string, aspect: PeerReview['aspect']) =>
+  insertOrDelete(db().from('peer_reviews').insert({ author_id: await myId(), target_id: targetId, rating, comment, aspect }));
+
+// --- Administration (each RPC checks the caller's role on the server) ---
+export const setUserRole = (userId: string, role: UserRole) => call('set_user_role', { p_user: userId, p_role: roleToDb(role) });
+export const adminAdjustCoins = (userId: string, amount: number, reason: string) =>
+  call('admin_adjust_coins', { p_user: userId, p_amount: amount, p_reason: reason });
+export const awardAchievement = (userId: string, achievementId: string, note: string) =>
+  call('award_achievement', { p_user: userId, p_achievement: achievementId, p_note: note });
+export const revokeAchievement = (userId: string, achievementId: string, reason: string) =>
+  call('revoke_achievement', { p_user: userId, p_achievement: achievementId, p_reason: reason });
+export const dispatchBroadcast = (title: string, body: string, channels: string[], direction?: DirectionId) =>
+  call('dispatch_broadcast', { p_title: title, p_body: body, p_channels: channels, p_direction: direction ?? null });

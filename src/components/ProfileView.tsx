@@ -18,6 +18,8 @@ import {
   X,
 } from 'lucide-react';
 import { DirectionId } from '../types';
+import { isDemoData } from '../config/runtime';
+import { MembershipApplications } from './MembershipApplications';
 
 export const ProfileView: React.FC = () => {
   const { currentUser, updateProfile, setActiveTab, language, t } = useApp();
@@ -31,7 +33,11 @@ export const ProfileView: React.FC = () => {
   const [editCity, setEditCity] = useState(currentUser.city);
   const [editTelegram, setEditTelegram] = useState(currentUser.telegram || '');
   const [editPhone, setEditPhone] = useState(currentUser.phone || '');
-  const [editDirections, setEditDirections] = useState<DirectionId[]>(currentUser.directions);
+  // Live: directions with a pending application count as chosen (unselecting withdraws/leaves).
+  const [editDirections, setEditDirections] = useState<DirectionId[]>([
+    ...currentUser.directions,
+    ...(currentUser.pendingDirections ?? []),
+  ]);
 
   const userTier = TIERS[currentUser.tier];
   const equippedFrame = SHOP_ITEMS.find(i => i.id === currentUser.inventory.equippedFrame);
@@ -61,6 +67,8 @@ export const ProfileView: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* Live: a direction lead who is not staff decides on applications here */}
+      <MembershipApplications />
       {/* Profile Overview Card */}
       <div className="relative rounded-2xl bg-gradient-to-br from-[#27211e] via-[#211e1c] to-[#191615] border border-[#3f3834] p-6 lg:p-8 shadow-xl overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
@@ -134,6 +142,14 @@ export const ProfileView: React.FC = () => {
                     </span>
                   );
                 })}
+                {(currentUser.pendingDirections ?? []).map(dirId => (
+                  <span
+                    key={`pending-${dirId}`}
+                    className="text-[11px] px-2.5 py-0.5 rounded-md bg-[#1a1716] text-[#8c8279] border border-dashed border-[#4a413b]"
+                  >
+                    {COMMUNITY_DIRECTIONS.find(d => d.id === dirId)?.shortNameRu || dirId} · {t('liveMembershipPending')}
+                  </span>
+                ))}
               </div>
             </div>
           </div>
@@ -425,6 +441,7 @@ export const ProfileView: React.FC = () => {
                 <label className="font-medium text-[#d6cebf] block mb-1.5">
                   Интересующие направления:
                 </label>
+                {!isDemoData && <p className="text-[11px] text-[#8c8279] mb-2">{t('liveMembershipHint')}</p>}
                 <div className="flex flex-wrap gap-2">
                   {COMMUNITY_DIRECTIONS.map(dir => (
                     <button
@@ -438,6 +455,7 @@ export const ProfileView: React.FC = () => {
                       }`}
                     >
                       {dir.nameRu}
+                      {currentUser.pendingDirections?.includes(dir.id) && ` · ${t('liveMembershipPending')}`}
                     </button>
                   ))}
                 </div>

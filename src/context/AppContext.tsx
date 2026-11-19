@@ -20,6 +20,7 @@ import { TRANSLATIONS } from '../data/translations';
 import { NEW_MEMBER_ID, NEW_MEMBER_PROFILE } from '../data/newMember';
 import type { InitialData } from '../data/sources';
 import type { LiveAccount } from '../components/AuthGate';
+import type { MembershipApplication } from '../data/supabase/live';
 import { SHOP_ITEMS, TIERS, ATTENDANCE_XP, attendanceCoinsForTier, tierForXp } from '../data/gamification';
 import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 import { getAchievementMetric } from '../utils/achievementProgress';
@@ -86,7 +87,7 @@ interface AppContextType {
   chatRooms: EncryptedChatRoom[];
   sendChatMessage: (roomId: string, text: string) => void;
 
-  buyShopItem: (itemId: string) => boolean;
+  buyShopItem: (itemId: string) => boolean | Promise<boolean>;
   equipShopItem: (itemId: string, category: ItemCategory) => void;
   unequipShopItem: (category: ItemCategory) => void;
 
@@ -97,7 +98,7 @@ interface AppContextType {
   togglePushNotifications: () => Promise<boolean>;
 
   updateUserRole: (targetUserId: string, newRole: UserRole) => void;
-  adjustUserCoins: (targetUserId: string, amount: number, reason: string) => boolean;
+  adjustUserCoins: (targetUserId: string, amount: number, reason: string) => boolean | Promise<boolean>;
   dispatchBroadcast: (title: string, content: string, channels: ('push' | 'telegram' | 'whatsapp')[], directionTarget?: string) => void;
 
   addPeerReview: (targetUserId: string, rating: number, comment: string, aspect: PeerReview['aspect']) => void;
@@ -110,9 +111,13 @@ interface AppContextType {
   /** Current progress towards an achievement (0 for manual ones). */
   getAchievementProgress: (userId: string, achievementId: string) => number;
   /** Moderator+ awards a manual achievement to another member. */
-  awardAchievement: (userId: string, achievementId: string, note: string) => boolean;
+  awardAchievement: (userId: string, achievementId: string, note: string) => boolean | Promise<boolean>;
   /** Admin+ revokes an achievement (abuse or mistake): reward returned, never auto-unlocked again. */
-  revokeAchievement: (userId: string, achievementId: string, reason: string) => boolean;
+  revokeAchievement: (userId: string, achievementId: string, reason: string) => boolean | Promise<boolean>;
+  /** Live: pending direction applications this member may decide on (lead or moderator+). */
+  membershipApplications: MembershipApplication[];
+  /** Live: approve or reject a direction application (undefined in demo). */
+  reviewMembership?: (membershipId: string, approve: boolean) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -174,11 +179,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   });
 
   const [coinTransactions, setCoinTransactions] = useState<CoinTransaction[]>(() => {
+    if (account) return account.snapshot.coinTransactions;
     const saved = localStorage.getItem(`${storeKey}_txs`);
     return saved ? JSON.parse(saved) : initialData.coinTransactions;
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    if (account) return account.snapshot.auditLogs;
     const saved = localStorage.getItem(`${storeKey}_audits`);
     return saved ? JSON.parse(saved) : initialData.auditLogs;
   });
@@ -193,6 +200,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   });
 
   const [selectedUserModal, setSelectedUserModal] = useState<UserProfile | null>(null);
+  const [membershipApplications, setMembershipApplications] = useState<MembershipApplication[]>(
+    () => account?.snapshot.membershipApplications ?? [],
+  );
 
   // Sync to local storage
   useEffect(() => {
@@ -221,10 +231,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   }, [notifications]);
 
   useEffect(() => {
+    if (account) return; // live: server-owned, never cached in the browser
     localStorage.setItem(`${storeKey}_txs`, JSON.stringify(coinTransactions));
   }, [coinTransactions]);
 
   useEffect(() => {
+    if (account) return; // live: server-owned, never cached in the browser
     localStorage.setItem(`${storeKey}_audits`, JSON.stringify(auditLogs));
   }, [auditLogs]);
 
@@ -396,6 +408,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       setNotifications(snap.notifications);
       setForumTopics(snap.forumTopics);
       setChatRooms(snap.chatRooms);
+      setCoinTransactions(snap.coinTransactions);
+      setAuditLogs(snap.auditLogs);
+      setMembershipApplications(snap.membershipApplications);
     } catch {
       alert(t('authErrorNetwork'));
     }
@@ -412,6 +427,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   const updateProfile = (updated: Partial<UserProfile>) => {
+    if (live) {
+      void (async () => {
+        const { directions, ...fields } = updated;
+        const r = await live.updateOwnProfile(fields);
+        if (!r.ok) return alert(t(r.error));
+        if (directions) {
+          // Joining needs approval (request_membership); leaving is immediate. profiles.directions is set by the DB.
+          const pending = currentUser.pendingDirections ?? [];
+          const added = directions.filter(d => !currentUser.directions.includes(d) && !pending.includes(d));
+          const removed = [...currentUser.directions, ...pending].filter(d => !directions.includes(d));
+          for (const d of added) {
+            const a = await live.requestMembership(d);
+            if (!a.ok) alert(t(a.error));
+          }
+          for (const d of removed) {
+            const a = await live.leaveMembership(d);
+            if (!a.ok) alert(t(a.error));
+          }
+        }
+        await refreshLive();
+      })();
+      return;
+    }
     setAllUsers(prev =>
       prev.map(u => (u.id === currentUser.id ? { ...u, ...updated } : u))
     );
@@ -936,9 +974,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   // Virtual Shop & Avatar
-  const buyShopItem = (itemId: string): boolean => {
+  const buyShopItem = (itemId: string): boolean | Promise<boolean> => {
     const item = SHOP_ITEMS.find(i => i.id === itemId);
     if (!item) return false;
+    if (live) return runLive(live.purchaseShopItem(itemId)).then(r => r.ok);
     if (currentUser.coins < item.priceCoins) {
       alert('Недостаточно Шаңырақ Коинов! Участвуйте в событиях и читайте книги для пополнения баланса.');
       return false;
@@ -972,6 +1011,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   const equipShopItem = (itemId: string, category: ItemCategory) => {
+    if (live) {
+      void runLive(live.equipItem(itemId));
+      return;
+    }
     setAllUsers(prev =>
       prev.map(u => {
         if (u.id !== currentUser.id) return u;
@@ -987,6 +1030,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   const unequipShopItem = (category: ItemCategory) => {
+    if (live) {
+      void runLive(live.unequipItem(category));
+      return;
+    }
     setAllUsers(prev =>
       prev.map(u => {
         if (u.id !== currentUser.id) return u;
@@ -1011,6 +1058,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
   const togglePushNotifications = async (): Promise<boolean> => {
     const granted = await requestWebPushPermission();
+    if (live) await runLive(live.updateOwnProfile({ pushNotificationsEnabled: granted }), true);
     setAllUsers(prev =>
       prev.map(u => (u.id === currentUser.id ? { ...u, pushNotificationsEnabled: granted } : u))
     );
@@ -1026,6 +1074,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   const updateUserRole = (targetUserId: string, newRole: UserRole) => {
     const target = allUsers.find(u => u.id === targetUserId);
     if (!target || target.role === newRole) return;
+    if (live) {
+      void runLive(live.setUserRole(targetUserId, newRole));
+      return;
+    }
     if (!canAssignRole(currentUser.role, currentUser.id, targetUserId, target.role, newRole)) {
       alert('Недостаточно прав для назначения этой роли.');
       return;
@@ -1051,7 +1103,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     ]);
   };
 
-  const adjustUserCoins = (targetUserId: string, amount: number, reason: string): boolean => {
+  const adjustUserCoins = (targetUserId: string, amount: number, reason: string): boolean | Promise<boolean> => {
+    if (live) return runLive(live.adminAdjustCoins(targetUserId, amount, reason)).then(r => r.ok);
     const target = allUsers.find(u => u.id === targetUserId);
     if (!target || !hasRole(currentUser.role, 'admin')) {
       alert('Корректировать баланс могут только администраторы.');
@@ -1091,6 +1144,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     channels: ('push' | 'telegram' | 'whatsapp')[],
     directionTarget?: string
   ) => {
+    if (live) {
+      const dir = directionTarget && directionTarget !== 'all' ? (directionTarget as DirectionId) : undefined;
+      void runLive(live.dispatchBroadcast(title, content, channels, dir));
+      return;
+    }
     const targetUsers = allUsers.filter(u => {
       if (!directionTarget || directionTarget === 'all') return true;
       return u.directions.includes(directionTarget as DirectionId);
@@ -1138,6 +1196,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     aspect: PeerReview['aspect']
   ) => {
     if (targetUserId === currentUser.id) return; // no self-reviews
+    if (live) {
+      void runLive(live.addPeerReview(targetUserId, rating, comment, aspect));
+      return;
+    }
     const target = allUsers.find(u => u.id === targetUserId);
     if (!target) return;
     // One review per author, target and aspect.
@@ -1278,7 +1340,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allUsers, events, forumTopics, activityLog]);
 
-  const revokeAchievement = (userId: string, achievementId: string, reason: string): boolean => {
+  const revokeAchievement = (userId: string, achievementId: string, reason: string): boolean | Promise<boolean> => {
+    if (live) return runLive(live.revokeAchievement(userId, achievementId, reason)).then(r => r.ok);
     const target = allUsers.find(u => u.id === userId);
     const owned = target?.achievements.find(a => a.id === achievementId);
     const ach = ALL_ACHIEVEMENTS.find(a => a.id === achievementId) || owned;
@@ -1338,7 +1401,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     return true;
   };
 
-  const awardAchievement = (userId: string, achievementId: string, note: string): boolean => {
+  const awardAchievement = (userId: string, achievementId: string, note: string): boolean | Promise<boolean> => {
+    if (live) return runLive(live.awardAchievement(userId, achievementId, note)).then(r => r.ok);
     const ach = ALL_ACHIEVEMENTS.find(a => a.id === achievementId);
     const target = allUsers.find(u => u.id === userId);
     if (!ach || !target) return false;
@@ -1404,6 +1468,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         issueCheckInCode,
         checkInWithCode,
         refreshData: account ? refreshLive : undefined,
+        membershipApplications,
+        reviewMembership: live ? (id: string, approve: boolean) => runLive(live.reviewMembership(id, approve)).then(r => r.ok) : undefined,
         submitEventFeedback,
         createEvent,
         allReadBooks,

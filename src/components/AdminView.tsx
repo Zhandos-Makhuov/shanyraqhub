@@ -15,6 +15,7 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
 ];
 import { COMMUNITY_DIRECTIONS } from '../data/directions';
 import { formatTelegramMarkdown, formatWhatsAppMessage } from '../utils/notifications';
+import { MembershipApplications } from './MembershipApplications';
 import {
   ShieldCheck,
   Award,
@@ -103,28 +104,28 @@ export const AdminView: React.FC = () => {
     ? revokeAchievementId
     : revokeUserAchievements[0]?.id || '';
 
-  const handleRevokeAchievement = (e: React.FormEvent) => {
+  const handleRevokeAchievement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRevokeId) return;
     const ach = revokeUserAchievements.find(a => a.id === selectedRevokeId);
     const user = allUsers.find(u => u.id === revokeUserId);
     if (!window.confirm(`Отозвать «${ach?.titleRu}» у ${user?.name}? Награда за него будет списана.`)) return;
-    if (!revokeAchievement(revokeUserId, selectedRevokeId, revokeReason)) return;
+    if (!(await revokeAchievement(revokeUserId, selectedRevokeId, revokeReason))) return;
     setRevokeReason('');
   };
 
-  const handleAwardAchievement = (e: React.FormEvent) => {
+  const handleAwardAchievement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!awardAchievement(awardUserId, awardAchievementId, awardNote)) return;
+    if (!(await awardAchievement(awardUserId, awardAchievementId, awardNote))) return;
     const ach = manualAchievements.find(a => a.id === awardAchievementId);
     const user = allUsers.find(u => u.id === awardUserId);
     setAwardNote('');
     alert(`Достижение «${ach?.titleRu}» выдано: ${user?.name}.`);
   };
 
-  const handleCoinAdjust = (e: React.FormEvent) => {
+  const handleCoinAdjust = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adjustUserCoins(adjustTargetUserId, Number(adjustAmount), adjustReason.trim())) return;
+    if (!(await adjustUserCoins(adjustTargetUserId, Number(adjustAmount), adjustReason.trim()))) return;
     alert(`Баланс монет пользователя обновлен на ${adjustAmount > 0 ? '+' : ''}${adjustAmount} коинов.`);
   };
 
@@ -149,6 +150,9 @@ export const AdminView: React.FC = () => {
           Права: {currentUser.role.toUpperCase()}
         </span>
       </div>
+
+      {/* Live: direction applications (moderators see all, leads see their direction) */}
+      <MembershipApplications showWhenEmpty />
 
       {/* Admin Tab Switcher */}
       <div className="flex items-center gap-2 border-b border-[#302a28] pb-2 overflow-x-auto scrollbar-none">

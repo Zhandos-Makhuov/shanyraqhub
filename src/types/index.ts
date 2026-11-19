@@ -160,6 +160,8 @@ export interface CoinTransaction {
 
 export interface UserProfile {
   id: string;
+  /** Live: directions the member applied to, waiting for approval. */
+  pendingDirections?: DirectionId[];
   name: string;
   email: string;
   handle: string;

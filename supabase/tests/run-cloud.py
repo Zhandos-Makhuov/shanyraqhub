@@ -31,6 +31,9 @@ def convert_tests() -> str:
     """psql-only syntax -> plain SQL: \\gset vars become set_config('shq.<var>'), PASS lines bump a counter."""
     out = []
     for line in (HERE / "security_tests.sql").read_text().splitlines():
+        # Non-empty project: "the first reply" must be the reply of the test's own topic.
+        line = line.replace("select id as reply from public.forum_replies limit 1 \\gset",
+                            "select id as reply from public.forum_replies where topic_id = :'topic' limit 1 \\gset")
         if re.match(r"^\\(set|echo)\b", line):
             continue
         m = re.match(r"^select (.*) as (\w+)( from .*)? \\gset$", line)
@@ -59,11 +62,15 @@ def convert_tests() -> str:
     sql = "\n".join(out)
     # A non-empty project (e.g. test accounts from earlier stages): absolute row counts become
     # "baseline + N", with the baseline captured at the start of the same (rolled-back) transaction.
-    for table, key in (("public.profiles", "profiles"), ("public.user_balances", "balances"), ("public.member_stats", "stats")):
+    counted = (("public.profiles", "profiles"), ("public.user_balances", "balances"), ("public.member_stats", "stats"),
+               ("public.audit_logs where action = 'COIN_ADJUST'", "coin_adjust"))
+    for table, key in counted:
         sql = sql.replace(f"(select count(*) from {table}) = ", f"(select count(*) from {table}) - current_setting('shq.base_{key}')::int = ")
-    baseline = "".join(
-        f"select set_config('shq.base_{key}', (select count(*) from {table})::text, false);\n"
-        for table, key in (("public.profiles", "profiles"), ("public.user_balances", "balances"), ("public.member_stats", "stats")))
+    # Memberships are checked as ordinary members, who see every ACTIVE membership: offset by the existing active ones.
+    sql = sql.replace("(select count(*) from public.memberships) = ",
+                      "(select count(*) from public.memberships) - current_setting('shq.base_active_memberships')::int = ")
+    baseline = "".join(f"select set_config('shq.base_{key}', (select count(*) from {table})::text, false);\n" for table, key in counted)
+    baseline += "select set_config('shq.base_active_memberships', (select count(*) from public.memberships where status = 'active')::text, false);\n"
     return baseline + sql
 
 
