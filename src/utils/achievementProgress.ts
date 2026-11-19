@@ -1,3 +1,4 @@
+import { countCreditedBooks, hasQualifyingReview } from './bookCredit';
 import { AchievementRule, CommunityEvent, DirectionId, ForumTopic, UserProfile } from '../types';
 
 export interface AchievementData {
@@ -34,9 +35,10 @@ export const getAchievementMetric = (userId: string, rule: AchievementRule, data
 
   switch (rule.metric) {
     case 'books_completed':
-      return user.readBooks.filter(b => b.status === 'completed').length;
+      // Finished books with a 100+ character review, at most one per week.
+      return countCreditedBooks(user.readBooks);
     case 'books_reviewed':
-      return user.readBooks.filter(b => (b.review || '').trim().length > 0).length;
+      return user.readBooks.filter(hasQualifyingReview).length;
     case 'events_attended': {
       const attended = [...attendedEvents(user, data.events).values()];
       return rule.direction ? attended.filter(d => d === rule.direction).length : attended.length;

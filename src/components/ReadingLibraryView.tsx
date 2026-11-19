@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { MIN_REVIEW_CHARS, isWeekFreeForCredit, reviewLength } from '../utils/bookCredit';
+import { toLocalDay } from '../utils/streak';
 import { useApp } from '../context/AppContext';
 import {
   BookOpen,
@@ -27,6 +29,24 @@ export const ReadingLibraryView: React.FC = () => {
   const [bookRating, setBookRating] = useState(5);
   const [bookReview, setBookReview] = useState('');
   const [bookStatus, setBookStatus] = useState<'completed' | 'reading'>('completed');
+
+  // Live hint: will this book count for the reward and book achievements?
+  const reviewChars = reviewLength(bookReview);
+  const creditHint = (() => {
+    if (bookStatus !== 'completed') {
+      return { ok: false, text: 'В награды и достижения засчитываются только прочитанные книги с рецензией.' };
+    }
+    if (reviewChars < MIN_REVIEW_CHARS) {
+      return {
+        ok: false,
+        text: `Ещё ${MIN_REVIEW_CHARS - reviewChars} симв. своими словами — и книга засчитается (+50 XP, +30 коинов, прогресс достижений).`,
+      };
+    }
+    if (!isWeekFreeForCredit(currentUser.readBooks, toLocalDay())) {
+      return { ok: false, text: 'На этой неделе книга уже засчитана (одна в неделю). Эта сохранится в библиотеке без награды.' };
+    }
+    return { ok: true, text: '✓ Книга засчитается: +50 XP, +30 коинов и прогресс книжных достижений.' };
+  })();
 
   const genres = [
     'Классика / Философия',
@@ -63,8 +83,8 @@ export const ReadingLibraryView: React.FC = () => {
       author: bookAuthor.trim(),
       genre: bookGenre,
       userRating: bookRating,
-      review: bookReview.trim() || 'Отличная вдохновляющая книга, рекомендую резидентам Shanyraq Hub!',
-      dateFinished: new Date().toISOString().split('T')[0],
+      review: bookReview.trim() || undefined,
+      dateFinished: toLocalDay(),
       coverColor: randomCoverColor,
       status: bookStatus,
     });
@@ -273,7 +293,7 @@ export const ReadingLibraryView: React.FC = () => {
               {t('actionAddBook')}
             </h3>
             <p className="text-xs text-[#a39b94]">
-              Поделитесь прочитанной книгой с сообществом Shanyraq. За рецензию вы получите +50 XP и +30 коинов!
+              Поделитесь прочитанной книгой с сообществом Shanyraq. За прочитанную книгу с рецензией от 100 символов — +50 XP и +30 коинов (одна книга в неделю).
             </p>
 
             <form onSubmit={handleAddBook} className="space-y-3 text-xs">
@@ -362,6 +382,13 @@ export const ReadingLibraryView: React.FC = () => {
                   placeholder="О чем заставила задуматься книга? Какие инсайты вынесли?"
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
                 />
+                {/* Book credit rule: finished + review of 100+ chars, one book per week */}
+                <div className="mt-1 flex items-start justify-between gap-3 text-[11px]">
+                  <span className={creditHint.ok ? 'text-emerald-400' : 'text-[#9e948c]'}>{creditHint.text}</span>
+                  <span className={`font-mono shrink-0 ${reviewChars >= MIN_REVIEW_CHARS ? 'text-emerald-400' : 'text-[#736a62]'}`}>
+                    {reviewChars}/{MIN_REVIEW_CHARS}
+                  </span>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2 border-t border-[#302a28]">
@@ -376,7 +403,7 @@ export const ReadingLibraryView: React.FC = () => {
                   type="submit"
                   className="px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-xs font-semibold text-[#1e1b1a]"
                 >
-                  {t('actionSave')} (+50 XP, +30 🪙)
+                  {t('actionSave')}{creditHint.ok ? ' (+50 XP, +30 🪙)' : ''}
                 </button>
               </div>
             </form>

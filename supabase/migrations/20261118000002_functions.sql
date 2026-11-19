@@ -203,8 +203,10 @@ begin
                 join public.events e on e.id = a.event_id
                where a.user_id = p_user and (v_dir is null or e.direction = v_dir));
     when 'books_completed' then
-      return (select count(*) from public.user_books ub
-               where ub.user_id = p_user and ub.status = 'completed');
+      -- finished books with a 100+ char review, at most one per week
+      return (select count(distinct date_trunc('week', ub.finished_at)) from public.user_books ub
+               where ub.user_id = p_user and ub.status = 'completed'
+                 and char_length(coalesce(trim(ub.review), '')) >= 100);
     when 'positive_reviews_received' then
       return (select count(*) from public.peer_reviews r
                where r.target_id = p_user and r.rating >= 4 and not r.is_hidden);
@@ -212,7 +214,8 @@ begin
       return (select count(*) from public.forum_replies fr where fr.author_id = p_user and not fr.is_hidden);
     when 'books_reviewed' then
       return (select count(*) from public.user_books ub
-               where ub.user_id = p_user and coalesce(trim(ub.review), '') <> '');
+               where ub.user_id = p_user and ub.status = 'completed'
+                 and char_length(coalesce(trim(ub.review), '')) >= 100);
     when 'event_directions' then
       return (select count(distinct e.direction) from public.event_attendance a
                 join public.events e on e.id = a.event_id where a.user_id = p_user);
@@ -507,29 +510,36 @@ declare
   uid uuid := private.require_role('member');
   v_book uuid;
   v_ub uuid;
-  v_today int;
 begin
   insert into public.books (title, author, genre, created_by)
   values (trim(p_title), trim(p_author), nullif(trim(p_genre), ''), uid)
   on conflict (lower(title), lower(author)) do nothing;
   select id into v_book from public.books where lower(title) = lower(trim(p_title)) and lower(author) = lower(trim(p_author));
 
+  -- finished_at is set by the server (today), never taken from the client:
+  -- a back-dated finish date would defeat the one-book-per-week rule.
+  -- p_finished_at is kept in the signature for compatibility and ignored.
   insert into public.user_books (user_id, book_id, status, rating, review, finished_at)
-  values (uid, v_book, p_status, p_rating, p_review,
-          case when p_status = 'completed' then coalesce(p_finished_at, current_date) end)
+  values (uid, v_book, p_status, p_rating, nullif(trim(p_review), ''),
+          case when p_status = 'completed' then (now() at time zone 'Asia/Almaty')::date end)
   on conflict (user_id, book_id) do update
     set status = excluded.status, rating = excluded.rating, review = excluded.review,
-        finished_at = coalesce(excluded.finished_at, public.user_books.finished_at)
+        finished_at = coalesce(public.user_books.finished_at, excluded.finished_at)
   returning id into v_ub;
 
+  -- Self-reported: rewarded only for a finished book with a 100+ character review,
+  -- and only if no other book was credited in the same week (see src/utils/bookCredit.ts).
+  if p_status = 'completed' and char_length(coalesce(trim(p_review), '')) >= 100
+     and not exists (
+       select 1 from public.user_books ub
+        where ub.user_id = uid and ub.id <> v_ub and ub.status = 'completed'
+          and char_length(coalesce(trim(ub.review), '')) >= 100
+          and date_trunc('week', ub.finished_at) = date_trunc('week', (now() at time zone 'Asia/Almaty')::date))
+  then
+    perform private.grant_reward(uid, 50, 30, 'book_added', v_book::text,
+      format('Книга «%s» с рецензией', trim(p_title)), 'book:' || v_book || ':' || uid);
+  end if;
   if p_status = 'completed' then
-    -- Self-reported activity: rewarded once per book and at most 3 books per day.
-    select count(*) into v_today from public.reward_ledger
-     where user_id = uid and source = 'book_added' and created_at > now() - interval '24 hours';
-    if v_today < 3 then
-      perform private.grant_reward(uid, 50, 30, 'book_added', v_book::text,
-        format('Добавление книги «%s» в библиотеку', trim(p_title)), 'book:' || v_book || ':' || uid);
-    end if;
     perform private.evaluate_achievements(uid);
   end if;
   return v_ub;

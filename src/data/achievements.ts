@@ -11,8 +11,8 @@ import { Achievement, AchievementRule } from '../types';
  *     a race result...). A moderator awards it in the admin panel.
  *
  * Metrics (all counted from verified data only):
- *   books_completed            finished books in the member's library
- *   books_reviewed             books with a written review
+ *   books_completed            finished books with a 100+ char review, max one per week
+ *   books_reviewed             finished books with a 100+ char review
  *   events_attended            check-ins confirmed by staff (optionally per direction)
  *   event_directions           number of different directions attended
  *   feedback_given             feedback forms sent after attended events
@@ -47,9 +47,9 @@ const DEFINITIONS: AchievementDefinition[] = [
     titleRu: 'Первая прочитанная книга',
     titleKz: 'Алғашқы оқылған кітап',
     titleEn: 'First Book Finished',
-    descriptionRu: 'Внесите в библиотеку свою первую прочитанную книгу',
-    descriptionKz: 'Кітапхана қорына алғашқы оқылған кітабыңызды қосыңыз',
-    descriptionEn: 'Log your first completed book in the reading log',
+    descriptionRu: 'Внесите первую прочитанную книгу с рецензией от 100 символов',
+    descriptionKz: 'Алғашқы оқылған кітабыңызды 100 таңбадан асатын пікірмен қосыңыз',
+    descriptionEn: 'Log your first finished book with a review of 100+ characters',
   },
   {
     id: 'ach-first-book-review',
@@ -61,9 +61,9 @@ const DEFINITIONS: AchievementDefinition[] = [
     titleRu: 'Первая рецензия',
     titleKz: 'Алғашқы пікір',
     titleEn: 'First Review',
-    descriptionRu: 'Напишите рецензию на прочитанную книгу',
-    descriptionKz: 'Оқылған кітапқа пікір жазыңыз',
-    descriptionEn: 'Write a review of a book you have read',
+    descriptionRu: 'Напишите рецензию от 100 символов на прочитанную книгу',
+    descriptionKz: 'Оқылған кітапқа 100 таңбадан асатын пікір жазыңыз',
+    descriptionEn: 'Write a review of 100+ characters for a book you have read',
   },
   {
     id: 'ach-5-books',
@@ -75,9 +75,9 @@ const DEFINITIONS: AchievementDefinition[] = [
     titleRu: 'Книжный путник: 5 книг',
     titleKz: 'Кітап жолаушысы: 5 кітап',
     titleEn: 'Book Wanderer: 5 Books',
-    descriptionRu: 'Прочитайте 5 книг и внесите их в библиотеку',
-    descriptionKz: '5 кітап оқып, кітапханаға қосыңыз',
-    descriptionEn: 'Read 5 books and add them to your library',
+    descriptionRu: '5 книг с рецензиями (засчитывается одна книга в неделю)',
+    descriptionKz: 'Пікірімен 5 кітап (аптасына бір кітап есептеледі)',
+    descriptionEn: '5 books with reviews (one book per week counts)',
   },
   {
     id: 'ach-10-books',
@@ -89,9 +89,9 @@ const DEFINITIONS: AchievementDefinition[] = [
     titleRu: 'Мастер Чтения: 10 книг',
     titleKz: 'Оқу Шебері: 10 кітап',
     titleEn: 'Master Reader: 10 Books',
-    descriptionRu: 'Освойте 10 литературных произведений в книжном клубе Shanyraq',
-    descriptionKz: 'Шаңырақ кітап клубында 10 әдеби шығарманы толық оқып шығыңыз',
-    descriptionEn: 'Complete 10 literary works in the Shanyraq reading log',
+    descriptionRu: '10 книг с рецензиями (засчитывается одна книга в неделю)',
+    descriptionKz: 'Пікірімен 10 кітап (аптасына бір кітап есептеледі)',
+    descriptionEn: '10 books with reviews (one book per week counts)',
   },
   {
     id: 'ach-25-books',
@@ -103,9 +103,9 @@ const DEFINITIONS: AchievementDefinition[] = [
     titleRu: 'Хранитель библиотеки: 25 книг',
     titleKz: 'Кітапхана сақшысы: 25 кітап',
     titleEn: 'Keeper of the Library: 25 Books',
-    descriptionRu: 'Прочитайте 25 книг — настоящая домашняя библиотека',
-    descriptionKz: '25 кітап оқыңыз — нағыз үй кітапханасы',
-    descriptionEn: 'Read 25 books — a true home library',
+    descriptionRu: '25 книг с рецензиями — полгода чтения без перерыва',
+    descriptionKz: 'Пікірімен 25 кітап — жарты жыл үзіліссіз оқу',
+    descriptionEn: '25 books with reviews — half a year of steady reading',
   },
 
   // -------------------------------------------------------------- Community

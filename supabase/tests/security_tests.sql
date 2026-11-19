@@ -170,9 +170,27 @@ select t.ok(exists (select 1 from public.user_achievements where user_id = '0000
 select t.ok(private.activity_streak('00000000-0000-0000-0000-000000000002') = 1, 'activity streak = 1 day for today''s activity');
 set role authenticated;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
-select public.save_user_book('Қан мен тер', 'Нұрпейісов', 'Роман', 'completed', 5, 'Сильная эпопея');
+-- Books are self-reported: credited only with a 100+ char review, one book per week
+select public.save_user_book('Короткая', 'Автор', 'Роман', 'completed', 5, 'Сильная эпопея');
+select t.ok(not exists (select 1 from public.reward_ledger where user_id = auth.uid() and source = 'book_added'),
+            'book with a short review: no reward');
+select t.ok(not exists (select 1 from public.user_achievements where user_id = auth.uid() and achievement_id = 'ach-first-book'),
+            'book with a short review: no book achievement');
+select public.save_user_book('Қан мен тер', 'Нұрпейісов', 'Роман', 'completed', 5,
+  'Сильная эпопея о судьбе казахского народа в начале двадцатого века. Заставила иначе посмотреть на историю.');
 select t.ok((select count(*) from public.user_achievements where user_id = auth.uid()
-              and achievement_id in ('ach-first-book', 'ach-first-book-review')) = 2, 'book with review unlocks first-book + first-review');
+              and achievement_id in ('ach-first-book', 'ach-first-book-review')) = 2, 'book with 100+ char review unlocks first-book + first-review');
+select public.save_user_book('Абай жолы', 'Әуезов', 'Роман', 'completed', 5,
+  'Великий роман о поэте и мыслителе. Показывает степь, её людей и вечный поиск правды, знания и справедливости.',
+  (current_date - 30));
+select t.ok((select count(*) from public.reward_ledger where user_id = auth.uid() and source = 'book_added') = 1,
+            'second credited-quality book in the same week: no reward (one per week)');
+select t.ok((select finished_at from public.user_books ub join public.books b on b.id = ub.book_id
+              where ub.user_id = auth.uid() and b.title = 'Абай жолы') = (now() at time zone 'Asia/Almaty')::date,
+            'client-supplied back-dated finish date is ignored');
+reset role;
+select t.ok(private.achievement_metric('00000000-0000-0000-0000-000000000001', '{"metric":"books_completed"}') = 1, 'books_completed counts one book this week');
+set role authenticated;
 select t.expect_fail($$select public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'x')$$, '%forbidden%');
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
 select t.expect_fail($$select public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-first-book', 'x')$$, '%not manually awardable%');

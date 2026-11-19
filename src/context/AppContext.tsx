@@ -25,6 +25,7 @@ import { sendLocalPushNotification, requestWebPushPermission } from '../utils/no
 import { canAccessRoom, canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
 import { hasEventStarted } from '../utils/eventTime';
 import { isDemoMode } from '../utils/demoMode';
+import { hasQualifyingReview, isWeekFreeForCredit } from '../utils/bookCredit';
 import { computeDayStreak, computeWeekStreak, toLocalDay } from '../utils/streak';
 
 export type NavTab =
@@ -62,7 +63,8 @@ interface AppContextType {
   createEvent: (newEventData: Partial<CommunityEvent>) => void;
 
   allReadBooks: (ReadBook & { readerName: string; readerAvatar: string; readerId: string })[];
-  addReadBook: (book: Omit<ReadBook, 'id'>) => void;
+  /** Returns true if the book was credited (reward + book achievements). */
+  addReadBook: (book: Omit<ReadBook, 'id'>) => boolean;
 
   forumTopics: ForumTopic[];
   createForumTopic: (title: string, content: string, categoryId: string, direction?: DirectionId) => void;
@@ -651,19 +653,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     recordActivity(currentUser.id);
-    const bookKey = `${book.title.trim().toLowerCase()}|${book.author.trim().toLowerCase()}`;
-    grantRewardOnce(
-      `book:${bookKey}:${currentUser.id}`,
-      currentUser.id,
-      50,
-      30,
-      `Добавление книги «${book.title}» в библиотеку`,
-      { group: 'book', dailyCap: 3 }
-    );
 
-    try {
-      confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
-    } catch {}
+    // Self-reported: rewarded only for a finished book with a real review,
+    // at most one book per week (see utils/bookCredit.ts). Otherwise it is
+    // simply saved to the library.
+    const credited =
+      hasQualifyingReview(newBook) && isWeekFreeForCredit(currentUser.readBooks, newBook.dateFinished);
+    if (credited) {
+      const bookKey = `${book.title.trim().toLowerCase()}|${book.author.trim().toLowerCase()}`;
+      grantRewardOnce(
+        `book:${bookKey}:${currentUser.id}`,
+        currentUser.id,
+        50,
+        30,
+        `Книга «${book.title}» с рецензией`
+      );
+      try {
+        confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
+      } catch {}
+    }
+    return credited;
   };
 
   // Forum
