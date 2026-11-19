@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { isStaffRole } from '../utils/permissions';
+import { isDemoData } from '../config/runtime';
 import { ATTENDANCE_XP, TIERS, attendanceCoinsForTier } from '../data/gamification';
 import { pluralDaysRu, pluralWeeksRu } from '../utils/streak';
 import {
@@ -53,7 +54,7 @@ export const AttendanceView: React.FC = () => {
     setQrScanning(true);
     setScanSuccessMsg('');
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const user = allUsers.find(u => u.id === selectedUserId);
       const ev = events.find(e => e.id === selectedEventId);
       const isAlreadyCheckedIn = ev?.attendedUserIds.includes(selectedUserId);
@@ -65,10 +66,10 @@ export const AttendanceView: React.FC = () => {
         return;
       }
 
-      const ok = checkInAttendance(selectedEventId, selectedUserId);
+      const result = await checkInAttendance(selectedEventId, selectedUserId);
       setQrScanning(false);
-      if (!ok) {
-        setScanSuccessMsg('Отметка недоступна: подтверждать посещения может только персонал клуба.');
+      if (!result.ok) {
+        setScanSuccessMsg(result.error ? t(result.error) : 'Отметка недоступна: подтверждать посещения может только персонал клуба.');
         setTimeout(() => setScanSuccessMsg(''), 5000);
         return;
       }
@@ -141,7 +142,7 @@ export const AttendanceView: React.FC = () => {
               <QrCode className="w-4 h-4" />
               <span>{t('qrCheckInSimulator')}</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-950/60 text-amber-300 border border-amber-800">
-                Демо-сканер
+                {isDemoData ? 'Демо-сканер' : 'Ручная отметка'}
               </span>
             </div>
             <h3 className="font-display text-base font-bold text-[#f5f2eb]">

@@ -79,7 +79,7 @@ export const EventsView: React.FC = () => {
       showFeedbackModal.id,
       satisfactionScore,
       usefulnessScore,
-      feedbackComment.trim() || 'Отличная организация и теплая атмосфера!'
+      feedbackComment.trim()
     );
     setShowFeedbackModal(null);
     setFeedbackComment('');

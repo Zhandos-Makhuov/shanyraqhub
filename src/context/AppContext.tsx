@@ -62,7 +62,8 @@ interface AppContextType {
   events: CommunityEvent[];
   registerForEvent: (eventId: string) => void;
   cancelEventRegistration: (eventId: string) => void;
-  checkInAttendance: (eventId: string, userId: string) => boolean;
+  /** Staff confirm another member's visit. Live: server RPC (event organizer or moderator+). */
+  checkInAttendance: (eventId: string, userId: string) => Promise<{ ok: boolean; error?: string }>;
   submitEventFeedback: (eventId: string, satisfaction: number, usefulness: number, comment: string) => void;
   createEvent: (newEventData: Partial<CommunityEvent>) => void;
 
@@ -126,16 +127,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
-    const saved = localStorage.getItem(`${storeKey}_users`);
-    const users: UserProfile[] = saved ? JSON.parse(saved) : initialData.users;
     let withNewcomer: UserProfile[];
     if (account) {
-      // Signed-in member: identity and role always come from the database (role is never trusted locally).
-      const db = account.profile;
-      const stored = users.find(u => u.id === db.id);
-      const me = stored ? { ...stored, email: db.email, handle: db.handle, role: db.role } : db;
-      withNewcomer = [me, ...users.filter(u => u.id !== db.id)];
+      // Live: members, roles, balances and history come from the server only (never from this browser).
+      withNewcomer = account.snapshot.users;
     } else {
+      const saved = localStorage.getItem(`${storeKey}_users`);
+      const users: UserProfile[] = saved ? JSON.parse(saved) : initialData.users;
       // Every visitor starts as a new first-tier member (also added to data saved before this existed).
       withNewcomer = users.some(u => u.id === NEW_MEMBER_ID) ? users : [NEW_MEMBER_PROFILE, ...users];
     }
@@ -146,6 +144,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   const [currentUserId, setCurrentUserId] = useState<string>(account?.profile.id ?? NEW_MEMBER_ID);
 
   const [events, setEvents] = useState<CommunityEvent[]>(() => {
+    if (account) return account.snapshot.events;
     const saved = localStorage.getItem(`${storeKey}_events`);
     return saved ? JSON.parse(saved) : initialData.events;
   });
@@ -161,6 +160,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   });
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    if (account) return account.snapshot.notifications;
     const saved = localStorage.getItem(`${storeKey}_notifs`);
     return saved ? JSON.parse(saved) : initialData.notifications;
   });
@@ -188,10 +188,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
   // Sync to local storage
   useEffect(() => {
+    if (account) return; // live: server-owned, never cached in the browser
     localStorage.setItem(`${storeKey}_users`, JSON.stringify(allUsers));
   }, [allUsers]);
 
   useEffect(() => {
+    if (account) return; // live: server-owned, never cached in the browser
     localStorage.setItem(`${storeKey}_events`, JSON.stringify(events));
   }, [events]);
 
@@ -204,6 +206,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   }, [chatRooms]);
 
   useEffect(() => {
+    if (account) return; // live: server-owned, never cached in the browser
     localStorage.setItem(`${storeKey}_notifs`, JSON.stringify(notifications));
   }, [notifications]);
 
@@ -343,6 +346,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
    * Returns true if the reward was granted.
    * Mirrors private.grant_reward() in the proposed Supabase schema.
    */
+  // Live mode: the client never grants rewards — private.grant_reward on the server does.
   const grantRewardOnce = (
     key: string,
     userId: string,
@@ -351,6 +355,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     reasonRu: string,
     cap?: { group: string; dailyCap: number }
   ): boolean => {
+    if (account) return false;
     const log = rewardLogRef.current;
     if (log[key]) return false;
 
@@ -370,6 +375,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     return true;
   };
 
+  // Live mode: reload everything the server owns after each action (the server decides, the client shows).
+  const live = account?.api;
+  const refreshLive = async () => {
+    if (!account || !live) return;
+    try {
+      const snap = await live.loadSnapshot(account.profile.email, account.profile.id);
+      setAllUsers(snap.users.map(u => ({ ...u, tier: tierForXp(u.xp) })));
+      setEvents(snap.events);
+      setNotifications(snap.notifications);
+    } catch {
+      alert(t('authErrorNetwork'));
+    }
+  };
+  /** Runs a server action; on success refreshes the data, on failure shows a translated message. */
+  const runLive = async (action: Promise<{ ok: true } | { ok: false; error: string }>, quiet = false): Promise<{ ok: boolean; error?: string }> => {
+    const r = await action;
+    if (!r.ok) {
+      if (!quiet) alert(t(r.error));
+      return { ok: false, error: r.error };
+    }
+    await refreshLive();
+    return { ok: true };
+  };
+
   const updateProfile = (updated: Partial<UserProfile>) => {
     setAllUsers(prev =>
       prev.map(u => (u.id === currentUser.id ? { ...u, ...updated } : u))
@@ -378,6 +407,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
   // Event Registrations
   const registerForEvent = (eventId: string) => {
+    if (live) {
+      void runLive(live.registerForEvent(eventId)).then(r => {
+        if (r.ok) try { confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } }); } catch {}
+      });
+      return;
+    }
     const target = events.find(e => e.id === eventId);
     if (!target) return;
     if (target.registeredUserIds.includes(currentUser.id)) return; // no duplicate registration
@@ -448,6 +483,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   const cancelEventRegistration = (eventId: string) => {
+    if (live) {
+      void runLive(live.cancelEventRegistration(eventId));
+      return;
+    }
     const target = events.find(e => e.id === eventId);
     if (!target || hasEventStarted(target) || target.attendedUserIds.includes(currentUser.id)) return;
 
@@ -475,14 +514,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   // Only staff (organizer+) can confirm attendance, and never their own.
-  const checkInAttendance = (eventId: string, targetUserId: string): boolean => {
-    if (!isStaffRole(currentUser.role) || targetUserId === currentUser.id) return false;
+  const checkInAttendance = async (eventId: string, targetUserId: string): Promise<{ ok: boolean; error?: string }> => {
+    if (!isStaffRole(currentUser.role) || targetUserId === currentUser.id) return { ok: false };
+    if (live) {
+      const r = await runLive(live.manualCheckIn(eventId, targetUserId, 'Отметка персоналом на входе (выбор участника из списка)'), true);
+      if (r.ok) try { confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } }); } catch {}
+      return r;
+    }
     const uid = targetUserId;
     const ev = events.find(e => e.id === eventId);
-    if (!ev) return false;
+    if (!ev) return { ok: false };
 
     if (ev.attendedUserIds.includes(uid)) {
-      return false; // Already checked in
+      return { ok: false, error: 'liveErrDuplicate' }; // Already checked in
     }
 
     setEvents(prev =>
@@ -528,7 +572,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     try {
       confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
     } catch {}
-    return true;
+    return { ok: true };
   };
 
   const submitEventFeedback = (
@@ -549,6 +593,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       createdAt: new Date().toLocaleDateString('ru-RU'),
     };
 
+    if (live) {
+      void runLive(live.submitEventFeedback(eventId, satisfactionRating, usefulnessRating, comment));
+      return;
+    }
     const targetEvent = events.find(e => e.id === eventId);
     if (!targetEvent || !targetEvent.attendedUserIds.includes(currentUser.id)) return; // only attendees
     const alreadyGiven =
@@ -583,6 +631,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   const createEvent = (newEventData: Partial<CommunityEvent>) => {
+    if (live) {
+      void runLive(live.createEvent({
+        ...newEventData,
+        date: newEventData.date || new Date().toISOString().split('T')[0],
+        time: newEventData.time || '19:00',
+        speaker: newEventData.speaker || { name: currentUser.name, role: 'Ведущий Shanyraq Hub', avatar: currentUser.avatar },
+      }));
+      return;
+    }
     const newEvent: CommunityEvent = {
       id: `event-${Date.now()}`,
       title: newEventData.title || 'Новая клубная встреча',
@@ -891,6 +948,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   const markAllNotificationsAsRead = () => {
+    if (live) {
+      void runLive(live.markAllNotificationsRead(), true);
+      return;
+    }
     setNotifications(prev => prev.map(n => (n.userId === currentUser.id ? { ...n, read: true } : n)));
   };
 
@@ -1148,6 +1209,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   // Re-check automatic achievements whenever verified data changes.
   // Each unlock is idempotent (achievement already on the profile + reward key).
   useEffect(() => {
+    if (account) return; // live: private.evaluate_achievements on the server unlocks and rewards
     allUsers.forEach(user => {
       const data = achievementData(user.id);
       ALL_ACHIEVEMENTS.forEach(ach => {

@@ -14,12 +14,18 @@ import {
   MIN_PASSWORD_LENGTH, loadOwnProfile, requestPasswordReset, resendConfirmation,
   signIn, signOut, signUp, updatePassword, validateEmail,
 } from '../data/supabase/auth';
+import * as liveApi from '../data/supabase/live';
+import type { LiveSnapshot } from '../data/supabase/live';
 import { TRANSLATIONS } from '../data/translations';
 import type { Language, UserProfile } from '../types';
 
 export interface LiveAccount {
   profile: UserProfile;
   signOut: () => Promise<void>;
+  /** The club's data at sign-in (members, events, notifications), read from the server. */
+  snapshot: LiveSnapshot;
+  /** Server reads and actions (RPCs). */
+  api: typeof liveApi;
 }
 
 type Mode = 'signin' | 'signup' | 'forgot' | 'check-email' | 'reset-sent';
@@ -346,6 +352,7 @@ export const AuthGate: React.FC<{ children: (account: LiveAccount) => React.Reac
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [recovery, setRecovery] = useState(openedFromRecoveryLink);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [snapshot, setSnapshot] = useState<LiveSnapshot | null>(null);
   const [profileError, setProfileError] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
@@ -369,8 +376,14 @@ export const AuthGate: React.FC<{ children: (account: LiveAccount) => React.Reac
     }
     let cancelled = false;
     setProfileError(false);
+    setSnapshot(null);
     loadOwnProfile(userId, email)
-      .then(p => !cancelled && setProfile(p))
+      .then(async p => {
+        const snap = await liveApi.loadSnapshot(email, userId);
+        if (cancelled) return;
+        setProfile(p);
+        setSnapshot(snap);
+      })
       .catch(() => !cancelled && setProfileError(true));
     return () => {
       cancelled = true;
@@ -392,9 +405,9 @@ export const AuthGate: React.FC<{ children: (account: LiveAccount) => React.Reac
       </CenterNote>
     );
   }
-  if (!profile || profile.id !== userId) return <CenterNote>{t('authLoading')}</CenterNote>;
+  if (!profile || !snapshot || profile.id !== userId) return <CenterNote>{t('authLoading')}</CenterNote>;
   // key: a different account gets a fresh app state (its own local storage namespace).
-  return <React.Fragment key={profile.id}>{children({ profile, signOut })}</React.Fragment>;
+  return <React.Fragment key={profile.id}>{children({ profile, signOut, snapshot, api: liveApi })}</React.Fragment>;
 };
 
 export default AuthGate;

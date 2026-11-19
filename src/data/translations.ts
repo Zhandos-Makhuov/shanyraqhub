@@ -184,6 +184,19 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     authErrorEmailSend: 'Не удалось отправить письмо. Попробуйте позже.',
     authErrorNameRequired: 'Укажите имя.',
     authErrorLinkExpired: 'Ссылка устарела или уже использована. Запросите новую.',
+
+    // Server actions (live mode)
+    liveErrEventFull: 'Все места на это мероприятие уже заняты.',
+    liveErrRegistrationClosed: 'Регистрация на это мероприятие закрыта.',
+    liveErrEventStarted: 'Мероприятие уже началось — запись и отмена закрыты.',
+    liveErrEventNotAvailable: 'Мероприятие недоступно (не опубликовано или удалено).',
+    liveErrFeedbackAttendance: 'Отзыв можно оставить только после подтверждённого визита.',
+    liveErrDuplicate: 'Это уже сделано ранее.',
+    liveErrCheckinWindow: 'Отмечать посещение можно не раньше чем за 2 часа до начала.',
+    liveErrCheckinSelf: 'Себя отметить нельзя — это делает другой организатор.',
+    liveErrNotEventOrganizer: 'Отмечать посещения может организатор этой встречи или модератор.',
+    liveErrForbidden: 'Недостаточно прав для этого действия.',
+    liveErrInvalid: 'Проверьте введённые данные.',
   },
   kz: {
     // Brand & Tagline
@@ -368,6 +381,19 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     authErrorEmailSend: 'Хатты жіберу мүмкін болмады. Кейінірек қайталаңыз.',
     authErrorNameRequired: 'Атыңызды енгізіңіз.',
     authErrorLinkExpired: 'Сілтеменің мерзімі өткен немесе қолданылған. Жаңасын сұраңыз.',
+
+    // Server actions (live mode)
+    liveErrEventFull: 'Бұл іс-шараға барлық орын толды.',
+    liveErrRegistrationClosed: 'Бұл іс-шараға тіркелу жабық.',
+    liveErrEventStarted: 'Іс-шара басталып кетті — тіркелу мен бас тарту жабық.',
+    liveErrEventNotAvailable: 'Іс-шара қолжетімсіз (жарияланбаған немесе жойылған).',
+    liveErrFeedbackAttendance: 'Пікірді тек расталған қатысудан кейін қалдыруға болады.',
+    liveErrDuplicate: 'Бұл бұрын жасалған.',
+    liveErrCheckinWindow: 'Қатысуды басталуға 2 сағат қалғанда ғана белгілеуге болады.',
+    liveErrCheckinSelf: 'Өзіңізді белгілей алмайсыз — мұны басқа ұйымдастырушы жасайды.',
+    liveErrNotEventOrganizer: 'Қатысуды осы кездесудің ұйымдастырушысы немесе модератор белгілей алады.',
+    liveErrForbidden: 'Бұл әрекетке құқық жеткіліксіз.',
+    liveErrInvalid: 'Енгізілген деректерді тексеріңіз.',
   },
   en: {
     // Brand & Tagline
@@ -552,5 +578,18 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     authErrorEmailSend: 'Could not send the e-mail. Please try later.',
     authErrorNameRequired: 'Please enter your name.',
     authErrorLinkExpired: 'The link has expired or was already used. Request a new one.',
+
+    // Server actions (live mode)
+    liveErrEventFull: 'This event is fully booked.',
+    liveErrRegistrationClosed: 'Registration for this event is closed.',
+    liveErrEventStarted: 'The event has already started — registration and cancellation are closed.',
+    liveErrEventNotAvailable: 'This event is not available (not published or removed).',
+    liveErrFeedbackAttendance: 'Feedback is possible only after a confirmed visit.',
+    liveErrDuplicate: 'This has already been done.',
+    liveErrCheckinWindow: 'Check-in opens 2 hours before the start.',
+    liveErrCheckinSelf: 'You cannot check yourself in — another organizer does it.',
+    liveErrNotEventOrganizer: 'Only this event\'s organizer or a moderator can check members in.',
+    liveErrForbidden: 'You do not have permission for this action.',
+    liveErrInvalid: 'Please check the entered data.',
   },
 };
