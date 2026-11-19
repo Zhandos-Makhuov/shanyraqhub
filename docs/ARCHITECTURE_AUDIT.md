@@ -231,3 +231,36 @@ Captions that judged the club regardless of data, such as "high club discipline"
 - Schema additions: `moderation_reports`, `user_preferences`, and Storage buckets and policies for avatars, book covers and event photos.
 - Supabase project (created by the owner), the auth UI, and the live data layer.
 - A decision on hosting, then merging into `main`.
+
+## 13. Phase 3 — database foundation (2026-11-19)
+
+**Status:** written and verified on a local PostgreSQL 16 with a stubbed Supabase `auth` + `storage`.
+**Not applied to any Supabase project** (none is connected). 144 checks in `supabase/tests/security_tests.sql` pass.
+
+### Mapping of the Phase 3 prompt to the existing schema (no duplicate tables)
+| Prompt table | Implemented as |
+|---|---|
+| profiles | `profiles` (username = `handle`) |
+| user_preferences | **new** `user_preferences` (auto-created per profile) |
+| events / event_registrations / event_attendance / event_feedback | existing tables (events got `cover_url`) |
+| books / reading_records / book_reviews | `books` (+ `cover_url`), `user_books` (status, rating, review) |
+| user_xp / user_levels / coin_transactions | `user_balances` + `tiers` + `reward_ledger` (balances == SUM(ledger), tested) |
+| user_inventory / shop_items / achievements / user_achievements | existing tables |
+| community_directions / memberships | **new** tables |
+| — | **new** `moderation_reports`, Storage buckets `avatars`, `book-covers`, `event-photos` |
+
+### New migration `20261119000001_phase3_community.sql` (additive only)
+- **Directions & memberships.** Joining a direction requires approval (owner decision; per-direction `requires_approval` flag, admin-editable). Statuses `pending → active | rejected`, `active → left | removed`; one row per user+direction. RPCs: `request_membership`, `leave_membership`, `review_membership`, `remove_member`, `set_direction_lead`. Leads approve only in their direction and never themselves; re-apply after rejection only after 7 days; removed members need a moderator. `profiles.directions` is now read-only for clients and synced from active memberships by a trigger.
+- **User preferences:** notification types, e-mail, reminder lead time, quiet hours, leaderboard visibility. Own row only.
+- **Moderation reports:** `report_content` validates the target and its author, blocks reporting own content, de-duplicates open reports, 20 per day; `resolve_report` for moderator+ (not about themselves), audited.
+- **Storage:** avatars — own folder `<user_id>/…`; book covers — moderator+; event photos — folder `<event_id>/…`, the event's organizer or moderator+. 2–5 MB, JPEG/PNG/WebP.
+- RLS enabled on all new tables; all writes to memberships/reports go through SECURITY DEFINER RPCs; no `using (true)` on writes.
+
+### Frontend compatibility layer
+`src/data/supabase/rows.ts` (row types) and `src/data/supabase/adapters.ts` (rows → `UserProfile`, `CommunityEvent`, `ReadBook`…). Handles: `superadmin`↔`super_admin`, `starts_at` → Almaty date/time, registrations/attendance tables → id lists, feedback key `<event_id>:<user_id>`, tier from XP, reputation derived. Verified against rows exported from the test database (all checks pass). Not imported by the app yet → current demo/live bundles unchanged.
+
+### Known gaps / next
+- Profile screen still edits directions freely (demo/localStorage). In live mode it must call `request_membership` (stage 6).
+- New direction ids need `alter type public.direction_id add value …` (one-line migration).
+- Uploading files from the UI is not wired (stage 6).
+- `supabase db lint` and real Storage behaviour can only be checked on a real (test) Supabase project (stage 4).

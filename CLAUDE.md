@@ -21,7 +21,7 @@
 - Vite 8 + React 19 + TypeScript + Tailwind 4, SPA без роутера (`activeTab` в контексте). Пакетный менеджер: bun.
 - `bun run dev` (порт 3000), `bun run lint` (= `tsc --noEmit`), `bun run build`.
 - Режим данных: `VITE_DATA_SOURCE=demo|live` (по умолчанию `demo`). Боевую сборку проверять: `VITE_DATA_SOURCE=live npx vite build` — в `dist` не должно быть демо-имён.
-- Тесты схемы БД на локальном PostgreSQL 16: `PGHOST=… PGPORT=… PGUSER=postgres supabase/tests/run-local.sh` (сейчас **90 проверок, все проходят**).
+- Тесты схемы БД на локальном PostgreSQL 16: `PGHOST=… PGPORT=… PGUSER=postgres supabase/tests/run-local.sh` (сейчас **144 проверки, все проходят**; кластер: `PGHOST=/var/lib/postgresql/shq-test PGPORT=54329`, запуск — `pg_ctl -D /var/lib/postgresql/shq-test/data` от postgres).
 - После правки достижений/уровней/магазина: `npx tsx scripts/generate-seed.ts > supabase/seed.sql`.
 - Браузерные проверки — Playwright (`require('playwright')`, Chromium предустановлен). Тестовые скрипты лежат вне репозитория (scratchpad), пишутся заново под задачу.
 
@@ -33,8 +33,9 @@
 - `src/data/gamification.ts` — уровни (`TIERS`, `tierForXp`, бонус коинов), магазин.
 - `src/data/directions.ts`, `src/data/newMember.ts` — справочники (не демо).
 - `src/utils/`: `permissions.ts` (ранги ролей, `canAssignRole`, `canAccessRoom`), `achievementProgress.ts` (метрики), `bookCredit.ts`, `streak.ts` (дни/недели), `communityStats.ts` (честная статистика), `eventTime.ts`.
-- `supabase/migrations/` — схема (3 файла), `supabase/seed.sql` — только справочники, `supabase/tests/` — тесты.
+- `supabase/migrations/` — схема (4 файла; этап 3 — `20261119000001_phase3_community.sql`), `supabase/seed.sql` — только справочники, `supabase/tests/` — тесты.
 - `docs/ARCHITECTURE_AUDIT.md` — полный аудит (разделы 1–12), `docs/achievements-review.xlsx` — таблица для проверки казахских текстов носителем.
+- `src/data/supabase/rows.ts`, `adapters.ts` — переходник «строки базы → объекты экранов» (пока не подключён к приложению).
 - `design-review/` — скриншоты (в `.gitignore`).
 
 ## Принятые решения
@@ -59,6 +60,12 @@
 - **Демо и боевые данные строго разделены** (`VITE_DATA_SOURCE`). В live-сборке демо-модуля нет. Production должен работать в `live`.
 - **Статистика только из реальных данных** (`communityStats.ts`); прежние завышающие формулы и вписанные цифры удалены. Пусто — «—».
 
+### Направления и модерация (этап 3)
+- **Вступление в направление — с одобрением** (решение владельца): заявка → ведущий направления или модератор+ одобряет/отклоняет; статусы pending/active/rejected/left/removed; повторная заявка после отказа — через 7 дней; исключённого возвращает модератор. Флаг `requires_approval` админ может снять для отдельного направления. `profiles.directions` = активные членства (триггер), клиент его не меняет.
+- Жалобы (`moderation_reports`): нельзя на себя, без дублей, ≤20 в сутки; решает модератор+.
+- Хранилище: аватары — своя папка; обложки книг — модератор+; фото событий — организатор события или модератор+.
+- Промпт «Phase 3» (ChatGPT) принят выборочно: таблицы-дубли (`user_xp`, `coin_transactions`, `book_reviews`, `user_levels`, `reading_records`) не создаём — данные уже есть в существующих таблицах.
+
 ### Интерфейс и прочее
 - Короткие подписи вкладок: Достижения, Книги, Магазин, Управление; в нижнем меню «События».
 - PWA: service worker network-first для страниц, правильные иконки 192/512 + maskable.
@@ -67,8 +74,8 @@
 ## Состояние и следующие шаги
 Промпт владельца «Phase 2» (из ChatGPT) принят **как план с поправками**:
 1. ✅ Аудит + разделение демо/боевых данных + честная статистика (этап 2).
-2. ⏳ **Этап 3:** дополнить схему — `moderation_reports`, `user_preferences`, Storage (аватары, обложки, фото событий) с политиками и тестами.
-3. ⏳ Этап 4: владелец создаёт **тестовый** проект Supabase → применить схему, `supabase db lint`, прогнать проверки.
+2. ✅ Этап 3: направления+членства с одобрением, `user_preferences`, `moderation_reports`, Storage с политиками, переходник для фронтенда; 144 проверки (локально, не в Supabase).
+3. ⏳ **Этап 4 (следующий):** владелец создаёт **тестовый** проект Supabase → применить схему, `supabase db lint`, прогнать проверки.
 4. ⏳ Этап 5: настоящий вход (регистрация, подтверждение почты, восстановление пароля, сессии) через supabase-js.
 5. ⏳ Этап 6: перевод функций на RPC по одной (события+QR → книги → форум → магазин → админка), сохраняя имена функций контекста.
 6. ⏳ Этап 7: уведомления (in-app Realtime, Web Push, напоминания через pg_cron + Edge Function).

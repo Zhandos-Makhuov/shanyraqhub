@@ -273,4 +273,107 @@ select t.ok(not exists (
   select 1 from public.user_balances b
    left join (select user_id, sum(xp_delta) xp, sum(coin_delta) c from public.reward_ledger group by 1) l using (user_id)
   where b.coins <> coalesce(l.c, 0) or b.xp <> coalesce(l.xp, 0)), 'balances == SUM(ledger) for every user');
+
+-- ===================== Phase 3: directions, memberships, preferences, reports, storage =====================
+reset role;
+select t.ok((select count(*) from public.user_preferences) = (select count(*) from public.profiles), 'every profile has a preferences row');
+select t.ok((select count(*) from public.community_directions) = 7, '7 club directions seeded');
+set role anon;
+select t.expect_fail('select * from public.community_directions', '%permission denied%');
+reset role;
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.ok((select count(*) from public.user_preferences) = 1, 'member sees only own preferences');
+update public.user_preferences set reminder_hours_before = 2 where user_id = auth.uid();
+update public.user_preferences set show_on_leaderboard = false where user_id = '00000000-0000-0000-0000-000000000002';
+select t.expect_fail('update public.user_preferences set reminder_hours_before = 100 where user_id = auth.uid()', '%check%');
+select t.expect_fail($$update public.profiles set directions = '{books}' where id = auth.uid()$$, '%permission denied%');
+select t.expect_fail($$insert into public.memberships (user_id, direction, status) values (auth.uid(), 'books', 'active')$$, '%permission denied%');
+select t.expect_fail($$update public.memberships set status = 'active'$$, '%permission denied%');
+update public.community_directions set requires_approval = false where id = 'books';
+select t.ok(public.request_membership('books', 'Люблю читать') = 'pending', 'member applies -> pending');
+select t.ok(public.request_membership('books') = 'pending', 'repeated application is idempotent');
+select t.expect_fail($$select public.request_membership('general')$$, '%direction_not_available%');
+select t.expect_fail($$select public.review_membership((select id from public.memberships where user_id = auth.uid() and direction = 'books'), true)$$, '%forbidden%');
+select t.expect_fail($$select public.set_direction_lead(auth.uid(), 'books', true)$$, '%forbidden%');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select t.ok((select count(*) from public.memberships) = 0, 'other members do not see pending applications');
+reset role;
+select t.ok((select requires_approval from public.community_directions where id = 'books'), 'member cannot change direction settings');
+select t.ok((select user_id from public.user_preferences where show_on_leaderboard = false) is null, 'member cannot edit another user preferences');
+select t.ok((select reminder_hours_before from public.user_preferences where user_id = '00000000-0000-0000-0000-000000000001') = 2, 'member edits own preferences');
+select t.ok((select directions from public.profiles where id = '00000000-0000-0000-0000-000000000001') = '{}', 'pending application does not add direction to profile');
+select id as m1_books from public.memberships where user_id = '00000000-0000-0000-0000-000000000001' and direction = 'books' \gset
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b"}', false);
+select t.ok(public.review_membership(:'m1_books', true, 'Добро пожаловать') = 'active', 'admin approves application');
+select t.expect_fail($$select public.review_membership('$$ || :'m1_books' || $$', false)$$, '%membership_not_pending%');
+select t.ok(public.set_direction_lead('00000000-0000-0000-0000-000000000001', 'books', true), 'moderator+ appoints a direction lead');
+reset role;
+select t.ok((select directions from public.profiles where id = '00000000-0000-0000-0000-000000000001') = '{books}', 'approved membership synced to profile.directions');
+select t.ok(exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-000000000001' and title like 'Заявка%одобрена'), 'applicant notified');
+select t.ok(exists (select 1 from public.audit_logs where action = 'MEMBERSHIP_APPROVE'), 'approval audited');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select public.request_membership('books');
+select public.request_membership('arabic');
+select t.ok((select count(*) from public.memberships) = 3, 'member sees own applications + active members');
+select t.expect_fail($$select public.set_direction_lead(auth.uid(), 'books', true)$$, '%forbidden%');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.ok((select count(*) from public.memberships where status = 'pending') = 1, 'lead sees pending applications of own direction only');
+select t.ok(public.review_membership((select id from public.memberships where user_id = '00000000-0000-0000-0000-000000000002' and direction = 'books'), true) = 'active', 'lead approves application in own direction');
+reset role;
+select id as m2_arabic from public.memberships where user_id = '00000000-0000-0000-0000-000000000002' and direction = 'arabic' \gset
+select id as m2_books from public.memberships where user_id = '00000000-0000-0000-0000-000000000002' and direction = 'books' \gset
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.expect_fail($$select public.review_membership('$$ || :'m2_arabic' || $$', true)$$, '%forbidden%');
+select t.expect_fail($$select public.remove_member('$$ || :'m2_books' || $$', '  ')$$, '%reason_required%');
+select t.ok(public.remove_member(:'m2_books', 'Нарушение правил'), 'lead removes a member with reason');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select t.expect_fail($$select public.request_membership('books')$$, '%membership_removed%');
+select t.ok(public.leave_membership('arabic'), 'member withdraws application');
+select t.ok(public.request_membership('arabic') = 'pending', 're-apply after withdrawing');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b"}', false);
+select public.review_membership(:'m2_arabic', false, 'Группа набрана');
+update public.community_directions set requires_approval = false where id = 'art';
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select t.expect_fail($$select public.request_membership('arabic')$$, '%reapply_too_soon%');
+select t.ok(public.request_membership('art') = 'active', 'direction without approval joins instantly');
+reset role;
+select t.ok((select directions from public.profiles where id = '00000000-0000-0000-0000-000000000002') = '{art}', 'profile.directions = active memberships only');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select public.report_content('forum_topic', :'topic', 'spam', 'Реклама') as rep \gset
+select t.ok(public.report_content('forum_topic', :'topic', 'spam') = :'rep', 'duplicate open report returns the same report');
+select t.expect_fail($$select public.report_content('forum_topic', gen_random_uuid()::text, 'spam')$$, '%target_not_found%');
+select t.expect_fail($$select public.report_content('event_feedback', gen_random_uuid()::text || ':' || gen_random_uuid()::text, 'spam')$$, '%target_not_found%');
+select t.ok(public.report_content('profile', '00000000-0000-0000-0000-000000000001', 'harassment') is not null, 'member can report a profile');
+select t.expect_fail($$select public.resolve_report('$$ || :'rep' || $$', 'dismissed')$$, '%forbidden%');
+select t.expect_fail($$insert into public.moderation_reports (reporter_id, target_type, target_id, reason) values (auth.uid(), 'profile', 'x', 'spam')$$, '%permission denied%');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.expect_fail($$select public.report_content('forum_topic', '$$ || :'topic' || $$', 'spam')$$, '%own content%');
+select t.ok((select count(*) from public.moderation_reports) = 0, 'reported user does not see reports');
+select t.ok(public.report_content('event_feedback', :'ev' || ':00000000-0000-0000-0000-000000000002', 'inappropriate') is not null, 'member can report event feedback');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b"}', false);
+select t.ok((select count(*) from public.moderation_reports) = 3, 'moderators see the whole report queue');
+select t.ok(public.resolve_report(:'rep', 'resolved', 'Тема скрыта'), 'moderator resolves report');
+reset role;
+select t.ok((select status from public.moderation_reports where id = :'rep') = 'resolved' and exists (select 1 from public.audit_logs where action = 'REPORT_RESOLVED'), 'report resolved and audited');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+insert into storage.objects (bucket_id, name) values ('avatars', '00000000-0000-0000-0000-000000000001/me.png');
+select t.expect_fail($$insert into storage.objects (bucket_id, name) values ('avatars', '00000000-0000-0000-0000-000000000002/fake.png')$$, '%row-level security%');
+select t.expect_fail($$insert into storage.objects (bucket_id, name) values ('book-covers', 'abai.png')$$, '%row-level security%');
+select t.expect_fail($$insert into storage.objects (bucket_id, name) values ('event-photos', '$$ || :'ev' || $$/x.png')$$, '%row-level security%');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+delete from storage.objects where name = '00000000-0000-0000-0000-000000000001/me.png';
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', false);
+insert into storage.objects (bucket_id, name) values ('event-photos', :'ev' || '/photo1.jpg');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b"}', false);
+insert into storage.objects (bucket_id, name) values ('book-covers', 'abai.png');
+reset role;
+select t.ok(exists (select 1 from storage.objects where name = '00000000-0000-0000-0000-000000000001/me.png'), 'own avatar uploaded; others cannot delete it');
+select t.ok((select count(*) from storage.objects) = 3, 'organizer uploads photos of own event, moderator uploads covers');
+select t.ok((select count(*) from storage.buckets where public) = 3, '3 storage buckets created');
 \echo ALL_TESTS_PASSED
