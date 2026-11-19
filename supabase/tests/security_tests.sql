@@ -445,6 +445,13 @@ select t.ok((select count(*) from public.push_subscriptions) = 1, 'member sees o
 select t.expect_fail($$insert into public.push_subscriptions (user_id, endpoint, p256dh, auth_key) values ('00000000-0000-0000-0000-000000000002', 'https://push.example/fake', 'k', 'a')$$, '%row-level security%');
 insert into public.push_subscriptions (user_id, endpoint, p256dh, auth_key) values (auth.uid(), 'https://push.example/second-device', 'k', 'a');
 select t.ok((select count(*) from public.push_subscriptions) = 2, 'member registers a second device');
+select t.expect_fail($$select public.finish_push_batch(array['https://push.example/00000000-0000-0000-0000-000000000002'], null)$$, '%permission denied%');
 reset role;
+select t.ok(public.finish_push_batch(array['https://push.example/00000000-0000-0000-0000-000000000002'], array['https://push.example/00000000-0000-0000-0000-000000000001']) = 1,
+            'finish_push_batch reports one removed subscription');
+select t.ok(not exists (select 1 from public.push_subscriptions where endpoint = 'https://push.example/00000000-0000-0000-0000-000000000002'),
+            'gone subscription removed');
+select t.ok((select last_used_at is not null from public.push_subscriptions where endpoint = 'https://push.example/00000000-0000-0000-0000-000000000001'),
+            'used subscription stamped (last_used_at)');
 
 \echo ALL_TESTS_PASSED
