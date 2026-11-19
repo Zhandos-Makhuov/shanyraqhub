@@ -9,10 +9,10 @@ import { supabase } from './client';
 import { applyCatalog, type AchievementRow, type CatalogReport, type ShopItemRow, type TierRow } from '../catalog';
 import { buildPublicNames, eventFromRow, profileFromRows, CLUB_TIME_ZONE } from './adapters';
 import type {
-  AchievementRevocationRow, EventAttendanceRow, EventFeedbackRow, EventRegistrationRow, EventRow,
+  AchievementRevocationRow, BookRow, UserBookRow, EventAttendanceRow, EventFeedbackRow, EventRegistrationRow, EventRow,
   PeerReviewRow, ProfileRow, UserAchievementRow, UserBalanceRow, UserRoleRow,
 } from './rows';
-import type { AppNotification, CommunityEvent, UserProfile } from '../../types';
+import type { AppNotification, CommunityEvent, ReadBook, UserProfile } from '../../types';
 
 export interface LiveSnapshot {
   users: UserProfile[];
@@ -55,7 +55,7 @@ const formatWhen = (iso: string) =>
 /** Everything the screens need, read through RLS with the member's own token. */
 export const loadSnapshot = async (email: string, myId: string): Promise<LiveSnapshot> => {
   const c = db();
-  const [profiles, roles, balances, events, registrations, attendance, feedback, achievements, revocations, reviews, notifications] =
+  const [profiles, roles, balances, events, registrations, attendance, feedback, achievements, revocations, reviews, notifications, books, userBooks] =
     await Promise.all([
       rows<ProfileRow>(c.from('profiles').select('*')),
       rows<UserRoleRow>(c.from('user_roles').select('user_id, role')),
@@ -71,10 +71,12 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
         c.from('notifications').select('id, type, title, body, link_tab, read_at, created_at, user_id')
           .order('created_at', { ascending: false }).limit(50),
       ),
+      rows<BookRow>(c.from('books').select('id, title, author, genre, cover_color, cover_url')),
+      rows<UserBookRow>(c.from('user_books').select('id, user_id, book_id, status, rating, review, finished_at').order('updated_at', { ascending: false })),
     ]);
   const names = buildPublicNames(profiles, roles);
   const rel = { roles, balances, events, registrations, attendance, feedback, peerReviews: reviews, names,
-    userAchievements: achievements, revocations };
+    userAchievements: achievements, revocations, books, userBooks };
   return {
     users: profiles.map(p => profileFromRows(p, { ...rel, email: p.id === myId ? email : undefined })),
     events: events.map(e => eventFromRow(e, { registrations, attendance, feedback, names })),
@@ -210,4 +212,32 @@ export const loadCatalog = async (): Promise<CatalogReport> => {
     rows<AchievementRow>(c.from('achievements').select('*')),
   ]);
   return applyCatalog({ tiers, shopItems, achievements });
+};
+
+/**
+ * Saves a book to the member's library (save_user_book). The server decides about the reward
+ * (finished + review of 100+ characters + one credited book per week; finish date set by the DB).
+ * `credited` tells whether this save produced a new book reward.
+ */
+export const saveUserBook = async (book: Omit<ReadBook, 'id'>): Promise<{ ok: true; credited: boolean } | { ok: false; error: string }> => {
+  try {
+    const c = db();
+    const started = new Date(Date.now() - 5000).toISOString(); // small margin for clock differences
+    const { error } = await c.rpc('save_user_book', {
+      p_title: book.title,
+      p_author: book.author,
+      p_genre: book.genre ?? '',
+      p_status: book.status ?? 'completed',
+      p_rating: book.userRating || null,
+      p_review: book.review ?? null,
+    });
+    if (error) return { ok: false, error: serverErrorKey(error.message) };
+    // Own rows only: admins can read everyone's ledger.
+    const me = (await c.auth.getSession()).data.session?.user.id ?? '';
+    const { data } = await c.from('reward_ledger').select('id')
+      .eq('user_id', me).eq('source', 'book_added').gte('created_at', started).limit(1);
+    return { ok: true, credited: (data?.length ?? 0) > 0 };
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
 };

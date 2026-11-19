@@ -74,8 +74,8 @@ interface AppContextType {
   createEvent: (newEventData: Partial<CommunityEvent>) => void;
 
   allReadBooks: (ReadBook & { readerName: string; readerAvatar: string; readerId: string })[];
-  /** Returns true if the book was credited (reward + book achievements). */
-  addReadBook: (book: Omit<ReadBook, 'id'>) => boolean;
+  /** True if the book was credited (reward + book achievements). Live: decided by the server (async). */
+  addReadBook: (book: Omit<ReadBook, 'id'>) => boolean | Promise<boolean>;
 
   forumTopics: ForumTopic[];
   createForumTopic: (title: string, content: string, categoryId: string, direction?: DirectionId) => void;
@@ -726,7 +726,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     }))
   );
 
-  const addReadBook = (book: Omit<ReadBook, 'id'>) => {
+  const addReadBook = (book: Omit<ReadBook, 'id'>): boolean | Promise<boolean> => {
+    if (live) {
+      return live.saveUserBook(book).then(async r => {
+        if (!r.ok) {
+          alert(t(r.error));
+          return false;
+        }
+        await refreshLive();
+        if (r.credited) try { confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } }); } catch {}
+        return r.credited;
+      });
+    }
     const newBook: ReadBook = {
       ...book,
       id: `book-${Date.now()}`,
