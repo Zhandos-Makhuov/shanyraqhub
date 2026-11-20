@@ -86,13 +86,13 @@ export const AchievementsView: React.FC = () => {
   const getIcon = (iconName: string) => ACHIEVEMENT_ICONS[iconName] || Award;
 
   const categories = [
-    { id: 'all', label: 'Все награды' },
-    { id: 'books', label: 'Книги & Чтение' },
-    { id: 'community', label: 'Сообщество' },
+    { id: 'all', label: t('achCatAll') },
+    { id: 'books', label: t('achCatBooks') },
+    { id: 'community', label: t('achCatCommunity') },
     { id: 'english', label: 'English Club' },
-    { id: 'sport', label: 'Спорт & Tarlan' },
-    { id: 'general', label: 'Форум & Интеллект' },
-    { id: 'challenges', label: 'Челленджи' },
+    { id: 'sport', label: t('achCatSport') },
+    { id: 'general', label: t('achCatGeneral') },
+    { id: 'challenges', label: t('achCatChallenges') },
   ];
 
   const filteredAchievements = ALL_ACHIEVEMENTS.filter(ach => {
@@ -189,21 +189,21 @@ export const AchievementsView: React.FC = () => {
               <div className="mt-4 pt-3 border-t border-[#302a28] space-y-2">
                 {/* Progress / Status */}
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-[#8c8279]">Статус:</span>
+                  <span className="text-[#8c8279]">{t('achStatus')}:</span>
                   {isUnlockedByMe ? (
                     <span className="text-emerald-400 flex items-center gap-1 font-medium">
                       <CheckCircle className="w-3.5 h-3.5" />
-                      Разблокировано
+                      {t('achUnlocked')}
                     </span>
                   ) : (
                     isManualAchievement(ach) ? (
-                      <span className="text-[#8c8279] flex items-center gap-1" title="Подтверждается модератором клуба">
+                      <span className="text-[#8c8279] flex items-center gap-1" title={t('achByModeratorTitle')}>
                         <ShieldCheck className="w-3.5 h-3.5" />
-                        Выдаёт модератор
+                        {t('achByModerator')}
                       </span>
                     ) : (
                       <span className="text-[#736a62] font-mono">
-                        В процессе ({Math.min(getAchievementProgress(currentUser.id, ach.id), ach.requiredCount || 1)}/{ach.requiredCount || 1})
+                        {t('achInProgress')} ({Math.min(getAchievementProgress(currentUser.id, ach.id), ach.requiredCount || 1)}/{ach.requiredCount || 1})
                       </span>
                     )
                   )}
@@ -214,7 +214,7 @@ export const AchievementsView: React.FC = () => {
                   <span className="text-[#8c8279]">{t('unlockedBy')}:</span>
                   <div className="flex items-center -space-x-1.5">
                     {unlockedMembers.length === 0 ? (
-                      <span className="text-[#736a62] text-[10px]">Пока никто</span>
+                      <span className="text-[#736a62] text-[10px]">{t('achNobodyYet')}</span>
                     ) : (
                       unlockedMembers.slice(0, 4).map(member => (
                         <img

@@ -22,7 +22,7 @@ import { MemberProfileModal } from './components/MemberProfileModal';
 const AuthGate = import.meta.env.VITE_DATA_SOURCE === 'live' ? lazy(() => import('./components/AuthGate')) : null;
 
 const MainContent: React.FC = () => {
-  const { activeTab } = useApp();
+  const { activeTab, t } = useApp();
 
   return (
     <div className="min-h-screen flex flex-col bg-[#191615] text-[#f5f2eb] overflow-x-hidden w-full max-w-full">
@@ -57,13 +57,13 @@ const MainContent: React.FC = () => {
               />
             </div>
             <span className="font-display font-semibold text-[#f5f2eb] text-center sm:text-left">
-              SHAŃYRAQ HUB · Клуб Тұлғалық Даму Және Кітап Мәдениеті
+              SHAŃYRAQ HUB · {t('footerTagline')}
             </span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 text-[11px]">
             <span>Алматы · Астана</span>
             <span>·</span>
-            <span>Закрытые комнаты</span>
+            <span>{t('footerPrivateRooms')}</span>
             {isDemoData && (
               <>
                 <span>·</span>

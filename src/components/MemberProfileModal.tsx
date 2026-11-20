@@ -15,7 +15,7 @@ import {
 import { PeerReview } from '../types';
 
 export const MemberProfileModal: React.FC = () => {
-  const { selectedUserModal, setSelectedUserModal, addPeerReview, currentUser, t } = useApp();
+  const { selectedUserModal, setSelectedUserModal, addPeerReview, currentUser, t, ln, lf } = useApp();
 
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewAspect, setReviewAspect] = useState<PeerReview['aspect']>('inspiration');
@@ -75,7 +75,7 @@ export const MemberProfileModal: React.FC = () => {
                 {selectedUserModal.name}
               </h2>
               <span className={`text-[11px] font-semibold ${targetTier.textColor}`}>
-                {targetTier.nameRu}
+                {ln(targetTier)}
               </span>
             </div>
             <p className="text-xs text-[#a39b94] leading-relaxed">
@@ -100,7 +100,7 @@ export const MemberProfileModal: React.FC = () => {
                 key={dirId}
                 className="text-[10px] px-2 py-0.5 rounded bg-[#1c1918] text-[#d6cebf] border border-[#302a28]"
               >
-                {dir?.shortNameRu || dirId}
+                {lf(dir, 'shortName') || dirId}
               </span>
             );
           })}
@@ -110,11 +110,11 @@ export const MemberProfileModal: React.FC = () => {
         <div className="space-y-2">
           <h4 className="text-xs font-bold text-[#dfcfb3] flex items-center gap-1.5">
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Прочитанные книги ({selectedUserModal.readBooks.length}):</span>
+            <span>{t('mpBooks')} ({selectedUserModal.readBooks.length}):</span>
           </h4>
           <div className="space-y-1.5 max-h-36 overflow-y-auto">
             {selectedUserModal.readBooks.length === 0 ? (
-              <span className="text-xs text-[#8c8279]">Пока нет записей</span>
+              <span className="text-xs text-[#8c8279]">{t('mpNoEntries')}</span>
             ) : (
               selectedUserModal.readBooks.map(book => (
                 <div key={book.id} className="p-2.5 rounded-lg bg-[#1c1918] text-xs">
@@ -137,7 +137,7 @@ export const MemberProfileModal: React.FC = () => {
         <div className="space-y-2">
           <h4 className="text-xs font-bold text-[#dfcfb3] flex items-center gap-1.5">
             <Award className="w-3.5 h-3.5" />
-            <span>Награды и клубные знаки ({selectedUserModal.achievements.length}):</span>
+            <span>{t('mpAchievements')} ({selectedUserModal.achievements.length}):</span>
           </h4>
           <div className="flex flex-wrap gap-2">
             {selectedUserModal.achievements.map(ach => (
@@ -145,7 +145,7 @@ export const MemberProfileModal: React.FC = () => {
                 key={ach.id}
                 className="text-xs px-2.5 py-1 rounded-lg bg-[#1c1918] border border-[#38312d] text-[#f5f2eb]"
               >
-                ✓ {ach.titleRu}
+                ✓ {lf(ach, 'title')}
               </span>
             ))}
           </div>
@@ -155,14 +155,14 @@ export const MemberProfileModal: React.FC = () => {
         <div className="space-y-2 pt-2 border-t border-[#302a28]">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold text-[#f5f2eb]">
-              Отзывы участников ({selectedUserModal.peerReviews.length}):
+              {t('mpReviews')} ({selectedUserModal.peerReviews.length}):
             </h4>
             {selectedUserModal.id !== currentUser.id && (
               <button
                 onClick={() => setShowReviewForm(!showReviewForm)}
                 className="text-xs text-[#dfcfb3] hover:underline"
               >
-                {showReviewForm ? 'Отмена' : '+ Оставить отзыв'}
+                {showReviewForm ? t('mpCancel') : `+ ${t('mpLeaveReview')}`}
               </button>
             )}
           </div>
@@ -171,40 +171,40 @@ export const MemberProfileModal: React.FC = () => {
             <form onSubmit={handleReviewSubmit} className="p-3 rounded-xl bg-[#1c1918] border border-[#302a28] space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[#8c8279] block mb-1">Оценка (1-5)</label>
+                  <label className="text-[#8c8279] block mb-1">{t('mpRating')} (1-5)</label>
                   <select
                     value={reviewRating}
                     onChange={e => setReviewRating(Number(e.target.value))}
                     className="w-full p-1.5 rounded bg-[#24201e] border border-[#3b3430] text-[#f5f2eb]"
                   >
-                    <option value={5}>5★ Отлично</option>
-                    <option value={4}>4★ Хорошо</option>
-                    <option value={3}>3★ Нормально</option>
+                    <option value={5}>5★ {t('mpRate5')}</option>
+                    <option value={4}>4★ {t('mpRate4')}</option>
+                    <option value={3}>3★ {t('mpRate3')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-[#8c8279] block mb-1">Аспект</label>
+                  <label className="text-[#8c8279] block mb-1">{t('prfAspect')}</label>
                   <select
                     value={reviewAspect}
                     onChange={e => setReviewAspect(e.target.value as any)}
                     className="w-full p-1.5 rounded bg-[#24201e] border border-[#3b3430] text-[#f5f2eb]"
                   >
-                    <option value="inspiration">Вдохновение</option>
-                    <option value="knowledge">Глубокие знания</option>
-                    <option value="communication">Общение</option>
-                    <option value="teamwork">Командный дух</option>
+                    <option value="inspiration">{t('aspect_inspiration')}</option>
+                    <option value="knowledge">{t('aspect_knowledge')}</option>
+                    <option value="communication">{t('aspect_communication')}</option>
+                    <option value="teamwork">{t('aspect_teamwork')}</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="text-[#8c8279] block mb-1">Текст отзыва</label>
+                <label className="text-[#8c8279] block mb-1">{t('mpReviewText')}</label>
                 <textarea
                   rows={2}
                   required
                   value={reviewComment}
                   onChange={e => setReviewComment(e.target.value)}
-                  placeholder="Напишите пару слов благодарности участнику..."
+                  placeholder={t('mpReviewPlaceholder')}
                   className="w-full p-2 rounded bg-[#24201e] border border-[#3b3430] text-[#f5f2eb] focus:outline-none"
                 />
               </div>
@@ -213,14 +213,14 @@ export const MemberProfileModal: React.FC = () => {
                 type="submit"
                 className="px-3 py-1.5 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-xs font-semibold text-[#1e1b1a]"
               >
-                Отправить отзыв (+20 XP, +10 🪙)
+                {t('mpSendReview')} (+20 XP, +10 🪙)
               </button>
             </form>
           )}
 
           <div className="space-y-2 max-h-40 overflow-y-auto">
             {selectedUserModal.peerReviews.length === 0 ? (
-              <span className="text-xs text-[#8c8279]">Пока нет отзывов</span>
+              <span className="text-xs text-[#8c8279]">{t('mpNoReviews')}</span>
             ) : (
               selectedUserModal.peerReviews.map(rev => (
                 <div key={rev.id} className="p-2.5 rounded-lg bg-[#1c1918] text-xs space-y-1">

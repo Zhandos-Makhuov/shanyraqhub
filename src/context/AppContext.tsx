@@ -47,6 +47,10 @@ interface AppContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
+  /** Name in the current language for anything with nameRu/nameKz/nameEn (tiers, directions, items). */
+  ln: (o: { nameRu: string; nameKz?: string; nameEn?: string } | undefined | null) => string;
+  /** Any localized field: lf(ach, 'title') → titleKz / titleEn / titleRu by the current language. */
+  lf: (o: object | undefined | null, base: string) => string;
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
 
@@ -139,7 +143,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
   const [language, setLanguageState] = useState<Language>(() => {
     const saved = localStorage.getItem('shanyraq_lang');
-    return (saved as Language) || 'ru';
+    return (saved as Language) || 'kz'; // owner decision: Kazakh is the main language
   });
 
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -266,10 +270,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     setLanguageState(lang);
     localStorage.setItem('shanyraq_lang', lang);
   };
+  // Live: the server writes notifications (site, push, Telegram) in the member's profile language —
+  // keep it equal to the language chosen on the site.
+  useEffect(() => {
+    if (!account || account.profile.preferredLanguage === language) return;
+    void account.api.updateOwnProfile({ preferredLanguage: language });
+    account.profile.preferredLanguage = language;
+  }, [account, language]);
 
   const t = (key: string): string => {
     const dict = TRANSLATIONS[language] || TRANSLATIONS.ru;
     return dict[key] || TRANSLATIONS.ru[key] || key;
+  };
+  const ln = (o: { nameRu: string; nameKz?: string; nameEn?: string } | undefined | null): string =>
+    !o ? '' : (language === 'kz' ? o.nameKz : language === 'en' ? o.nameEn : undefined) || o.nameRu;
+  const lf = (o: object | undefined | null, base: string): string => {
+    if (!o) return '';
+    const r = o as Record<string, unknown>;
+    const pick = (suffix: string) => (typeof r[base + suffix] === 'string' ? (r[base + suffix] as string) : '');
+    return (language === 'kz' ? pick('Kz') : language === 'en' ? pick('En') : '') || pick('Ru');
   };
 
   const currentUser = allUsers.find(u => u.id === currentUserId) || allUsers[0];
@@ -504,7 +523,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     if (target.registeredUserIds.includes(currentUser.id)) return; // no duplicate registration
     if (hasEventStarted(target)) return; // registration closes when the event starts
     if (target.registeredUserIds.length >= target.maxCapacity) {
-      alert('Все места на это мероприятие уже заняты.');
+      alert(t('dashAllTaken'));
       return;
     }
 
@@ -1015,7 +1034,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     if (!item) return false;
     if (live) return runLive(live.purchaseShopItem(itemId)).then(r => r.ok);
     if (currentUser.coins < item.priceCoins) {
-      alert('Недостаточно Шаңырақ Коинов! Участвуйте в событиях и читайте книги для пополнения баланса.');
+      alert(t('ctxNotEnoughCoins'));
       return false;
     }
     if (currentUser.inventory.ownedItemIds.includes(itemId)) {
@@ -1104,7 +1123,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         return false;
       }
       const r = await runLive(live.enablePush());
-      if (r.ok) sendLocalPushNotification('SHANYRAQ HUB: Уведомления активированы', t('livePushEnabled'));
+      if (r.ok) sendLocalPushNotification(`SHANYRAQ HUB: ${t('ctxPushActivated')}`, t('livePushEnabled'));
       return r.ok;
     }
     const granted = await requestWebPushPermission();
@@ -1128,11 +1147,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       return;
     }
     if (!canAssignRole(currentUser.role, currentUser.id, targetUserId, target.role, newRole)) {
-      alert('Недостаточно прав для назначения этой роли.');
+      alert(t('ctxNoRightsRole'));
       return;
     }
     if (target.role === 'super_admin' && allUsers.filter(u => u.role === 'super_admin').length <= 1) {
-      alert('Нельзя понизить последнего Super Admin.');
+      alert(t('ctxLastSuperAdmin'));
       return;
     }
     setAllUsers(prev =>
@@ -1156,19 +1175,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     if (live) return runLive(live.adminAdjustCoins(targetUserId, amount, reason)).then(r => r.ok);
     const target = allUsers.find(u => u.id === targetUserId);
     if (!target || !hasRole(currentUser.role, 'admin')) {
-      alert('Корректировать баланс могут только администраторы.');
+      alert(t('ctxAdminsOnlyCoins'));
       return false;
     }
     if (targetUserId === currentUser.id) {
-      alert('Нельзя изменять собственный баланс.');
+      alert(t('ctxNotOwnBalance'));
       return false;
     }
     if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 10000 || !reason.trim()) {
-      alert('Укажите сумму (от -10000 до 10000, не 0) и причину.');
+      alert(t('ctxAmountAndReason'));
       return false;
     }
     if (target.coins + amount < 0) {
-      alert(`Недостаточно коинов: на балансе ${target.coins}.`);
+      alert(t('ctxTargetNotEnough').replace('{n}', String(target.coins)));
       return false;
     }
     addXpAndCoins(targetUserId, 0, amount, reason);
@@ -1253,7 +1272,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     if (!target) return;
     // One review per author, target and aspect.
     if (target.peerReviews.some(r => r.authorId === currentUser.id && r.aspect === aspect)) {
-      alert('Вы уже оставляли отзыв этому участнику по этому критерию.');
+      alert(t('ctxReviewDuplicate'));
       return;
     }
 
@@ -1396,15 +1415,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     const ach = ALL_ACHIEVEMENTS.find(a => a.id === achievementId) || owned;
     if (!target || !owned || !ach) return false;
     if (!hasRole(currentUser.role, 'admin')) {
-      alert('Отзывать достижения могут только администраторы.');
+      alert(t('ctxAdminsOnlyRevoke'));
       return false;
     }
     if (userId === currentUser.id) {
-      alert('Нельзя отозвать достижение у самого себя.');
+      alert(t('ctxNotOwnRevoke'));
       return false;
     }
     if (!reason.trim()) {
-      alert('Укажите причину отзыва.');
+      alert(t('ctxRevokeReason'));
       return false;
     }
 
@@ -1456,19 +1475,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     const target = allUsers.find(u => u.id === userId);
     if (!ach || !target) return false;
     if (!hasRole(currentUser.role, 'moderator')) {
-      alert('Выдавать достижения могут только модераторы и администраторы.');
+      alert(t('ctxModsOnlyAward'));
       return false;
     }
     if (userId === currentUser.id) {
-      alert('Нельзя выдать достижение самому себе.');
+      alert(t('ctxNotOwnAward'));
       return false;
     }
     if (!isManualAchievement(ach)) {
-      alert('Это достижение открывается автоматически за активность.');
+      alert(t('ctxAutoAchievement'));
       return false;
     }
     if (target.achievements.some(a => a.id === ach.id)) {
-      alert(`У участника уже есть достижение «${ach.titleRu}».`);
+      alert(t('ctxAlreadyHasAch').replace('{ach}', ach.titleRu));
       return false;
     }
     // A deliberate re-award lifts an earlier revocation.
@@ -1501,6 +1520,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         language,
         setLanguage,
         t,
+        ln,
+        lf,
         activeTab,
         setActiveTab,
         currentUser,

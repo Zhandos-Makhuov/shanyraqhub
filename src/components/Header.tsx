@@ -20,6 +20,7 @@ export const Header: React.FC = () => {
     markAllNotificationsAsRead,
     togglePushNotifications,
     setActiveTab,
+    ln,
   } = useApp();
 
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -70,10 +71,10 @@ export const Header: React.FC = () => {
               <button
                 onClick={() => setShowDemoModal(true)}
                 className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-950/40 hover:bg-amber-950/60 border border-amber-800/60 text-[10px] font-mono text-amber-300 transition-colors"
-                title="Статус данных: Режим демонстрации (нажмите для подробностей)"
+                title={t('hdrDemoStatusTitle')}
               >
                 <Database className="w-3 h-3 text-amber-400 shrink-0" />
-                <span className="hidden sm:inline">Демо</span>
+                <span className="hidden sm:inline">{t('hdrDemo')}</span>
               </button>
             )}
 
@@ -86,7 +87,7 @@ export const Header: React.FC = () => {
                   setShowUserDropdown(false);
                 }}
                 className="flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] text-xs font-medium text-[#dfcfb3] transition-colors"
-                title="Сменить язык"
+                title={t('hdrChangeLanguage')}
               >
                 <Globe className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
                 <span className="font-mono uppercase text-[11px] sm:text-xs">{language}</span>
@@ -120,7 +121,7 @@ export const Header: React.FC = () => {
             <button
               onClick={() => setActiveTab('shop')}
               className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] text-xs font-semibold text-[#f5d77f] transition-all"
-              title="Магазин артефактов и баланс коинов"
+              title={t('hdrShopTitle')}
             >
               <Coins className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span className="font-mono-numbers text-[11px] sm:text-xs">{currentUser.coins}</span>
@@ -131,7 +132,7 @@ export const Header: React.FC = () => {
             <button
               onClick={() => setActiveTab('profile')}
               className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#272321] border border-[#3f3834] text-xs"
-              title={userTier.nameRu}
+              title={ln(userTier)}
             >
               <Sparkles className="w-3 h-3 text-[#dfcfb3]" />
               <span className={`text-[11px] font-medium ${userTier.textColor}`}>
@@ -148,7 +149,7 @@ export const Header: React.FC = () => {
                   setShowLangDropdown(false);
                 }}
                 className="relative p-1.5 sm:p-2 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] text-[#d6cebf] transition-colors"
-                title="Уведомления"
+                title={t('hdrNotifications')}
               >
                 <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
                 {unreadNotifs.length > 0 && (
@@ -161,13 +162,13 @@ export const Header: React.FC = () => {
               {showNotifDropdown && (
                 <div className="absolute right-0 mt-2 w-72 sm:w-96 bg-[#25211f] border border-[#3f3834] rounded-xl shadow-2xl p-3 z-50">
                   <div className="flex items-center justify-between pb-2 border-b border-[#38322e]">
-                    <span className="text-xs font-semibold text-[#f5f2eb]">Уведомления клуба</span>
+                    <span className="text-xs font-semibold text-[#f5f2eb]">{t('hdrClubNotifications')}</span>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => togglePushNotifications()}
                         className="text-[10px] text-[#dfcfb3] hover:underline"
                       >
-                        {currentUser.pushNotificationsEnabled ? 'Push вкл' : 'Включить Push'}
+                        {currentUser.pushNotificationsEnabled ? t('hdrPushOn') : t('hdrPushEnable')}
                       </button>
                       {unreadNotifs.length > 0 && (
                         <button
@@ -185,7 +186,7 @@ export const Header: React.FC = () => {
                   <div className="max-h-64 overflow-y-auto divide-y divide-[#322c29] mt-2">
                     {myNotifs.length === 0 ? (
                       <div className="py-6 text-center text-xs text-[#9e948c]">
-                        Нет новых уведомлений
+                        {t('hdrNoNotifications')}
                       </div>
                     ) : (
                       myNotifs.slice(0, 8).map(notif => (
@@ -256,7 +257,7 @@ export const Header: React.FC = () => {
                         {currentUser.name}
                       </span>
                       <span className="text-[10px] text-[#dfcfb3]">
-                        {currentUser.role.toUpperCase()} · {userTier.nameRu}
+                        {currentUser.role.toUpperCase()} · {ln(userTier)}
                       </span>
                       <span className="text-[10px] text-[#9e948c] font-mono">
                         {currentUser.xp} XP · {currentUser.coins} 🪙
@@ -317,7 +318,7 @@ export const Header: React.FC = () => {
                       }}
                       className="text-[10px] text-amber-400 hover:underline font-mono"
                     >
-                      Статус данных
+                      {t('hdrDataStatus')}
                     </button>
                   </div>
                   {signOut && (

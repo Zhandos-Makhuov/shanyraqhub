@@ -42,6 +42,8 @@ export const AdminView: React.FC = () => {
     dispatchBroadcast,
     auditLogs,
     t,
+    ln,
+    lf,
   } = useApp();
 
   // A role select is editable only if at least one other role may be assigned.
@@ -60,7 +62,7 @@ export const AdminView: React.FC = () => {
   // Coin adjustment state
   const [adjustTargetUserId, setAdjustTargetUserId] = useState(allUsers[0]?.id || '');
   const [adjustAmount, setAdjustAmount] = useState(50);
-  const [adjustReason, setAdjustReason] = useState('Особый вклад в развитие книжного клуба');
+  const [adjustReason, setAdjustReason] = useState('');
 
   // Real numbers only (see utils/communityStats.ts).
   const stats = computeCommunityStats(allUsers, events);
@@ -80,7 +82,7 @@ export const AdminView: React.FC = () => {
       broadcastTarget
     );
 
-    setBroadcastSentMsg(`Рассылка «${broadcastTitle}» успешно отправлена через ${broadcastChannel.join(', ')}!`);
+    setBroadcastSentMsg(t('admBroadcastSent').replace('{title}', broadcastTitle));
     setBroadcastTitle('');
     setBroadcastContent('');
     setTimeout(() => setBroadcastSentMsg(''), 5000);
@@ -109,7 +111,7 @@ export const AdminView: React.FC = () => {
     if (!selectedRevokeId) return;
     const ach = revokeUserAchievements.find(a => a.id === selectedRevokeId);
     const user = allUsers.find(u => u.id === revokeUserId);
-    if (!window.confirm(`Отозвать «${ach?.titleRu}» у ${user?.name}? Награда за него будет списана.`)) return;
+    if (!window.confirm(t('admRevokeConfirm').replace('{ach}', lf(ach, 'title')).replace('{name}', user?.name ?? ''))) return;
     if (!(await revokeAchievement(revokeUserId, selectedRevokeId, revokeReason))) return;
     setRevokeReason('');
   };
@@ -120,13 +122,13 @@ export const AdminView: React.FC = () => {
     const ach = manualAchievements.find(a => a.id === awardAchievementId);
     const user = allUsers.find(u => u.id === awardUserId);
     setAwardNote('');
-    alert(`Достижение «${ach?.titleRu}» выдано: ${user?.name}.`);
+    alert(t('admAwarded').replace('{ach}', lf(ach, 'title')).replace('{name}', user?.name ?? ''));
   };
 
   const handleCoinAdjust = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!(await adjustUserCoins(adjustTargetUserId, Number(adjustAmount), adjustReason.trim()))) return;
-    alert(`Баланс монет пользователя обновлен на ${adjustAmount > 0 ? '+' : ''}${adjustAmount} коинов.`);
+    alert(t('admCoinsAdjusted').replace('{n}', `${adjustAmount > 0 ? '+' : ''}${adjustAmount}`));
   };
 
   return (
@@ -136,18 +138,18 @@ export const AdminView: React.FC = () => {
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-semibold text-[#dfcfb3]">
             <ShieldCheck className="w-4 h-4" />
-            <span>Административный пульт Shanyraq Hub</span>
+            <span>{t('admKicker')}</span>
           </div>
           <h1 className="font-display text-2xl font-bold text-[#f5f2eb]">
-            Управление сообществом и аналитика
+            {t('admTitle')}
           </h1>
           <p className="text-xs text-[#a39b94]">
-            Модерация ролей, мгновенные рассылки Telegram / WhatsApp и статистика посещаемости
+            {t('admSubtitle')}
           </p>
         </div>
 
         <span className="text-xs px-3 py-1.5 rounded-lg bg-[#191615] border border-[#3d3632] text-[#dfcfb3] font-mono">
-          Права: {currentUser.role.toUpperCase()}
+          {t('admRights')}: {currentUser.role.toUpperCase()}
         </span>
       </div>
 
@@ -211,40 +213,40 @@ export const AdminView: React.FC = () => {
           {/* Key Metrics */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-              <span className="text-xs text-[#8c8279] block">Всего участников</span>
+              <span className="text-xs text-[#8c8279] block">{t('admTotalMembers')}</span>
               <span className="text-2xl font-bold font-mono-numbers text-[#f5f2eb] mt-1 block">
                 {stats.members}
               </span>
               <span className={`text-[11px] mt-1 block ${stats.newMembersLast30Days > 0 ? 'text-emerald-400' : 'text-[#8c8279]'}`}>
-                {stats.newMembersLast30Days > 0 ? `+${stats.newMembersLast30Days} за 30 дней` : 'новых за 30 дней нет'}
+                {stats.newMembersLast30Days > 0 ? t('admNew30').replace('{n}', String(stats.newMembersLast30Days)) : t('admNoNew30')}
               </span>
             </div>
 
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-              <span className="text-xs text-[#8c8279] block">Проведено встреч</span>
+              <span className="text-xs text-[#8c8279] block">{t('admMeetupsHeld')}</span>
               <span className="text-2xl font-bold font-mono-numbers text-[#dfcfb3] mt-1 block">
                 {stats.eventsHeld}
               </span>
-              <span className="text-[11px] text-[#8c8279] mt-1 block">всего в календаре: {events.length}</span>
+              <span className="text-[11px] text-[#8c8279] mt-1 block">{t('admInCalendar')}: {events.length}</span>
             </div>
 
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-              <span className="text-xs text-[#8c8279] block">Всего посещений</span>
+              <span className="text-xs text-[#8c8279] block">{t('admTotalVisits')}</span>
               <span className="text-2xl font-bold font-mono-numbers text-[#f5d77f] mt-1 block">
                 {stats.verifiedVisits}
               </span>
               <span className="text-[11px] text-[#8c8279] mt-1 block">
-                {stats.attendanceRate !== null ? `явка: ${stats.attendanceRate}% от записей` : 'записей пока нет'}
+                {stats.attendanceRate !== null ? t('admTurnout').replace('{n}', String(stats.attendanceRate)) : t('attNoEntries')}
               </span>
             </div>
 
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-              <span className="text-xs text-[#8c8279] block">Книг отрецензировано</span>
+              <span className="text-xs text-[#8c8279] block">{t('admBooksReviewed')}</span>
               <span className="text-2xl font-bold font-mono-numbers text-cyan-300 mt-1 block">
                 {stats.reviewedBooks}
               </span>
               <span className="text-[11px] text-[#8c8279] mt-1 block">
-                {avgBookRating !== null ? `средняя оценка: ${avgBookRating.toFixed(1)}★` : 'оценок пока нет'}
+                {avgBookRating !== null ? `${t('admAvgRating')}: ${avgBookRating.toFixed(1)}★` : t('admNoRatings')}
               </span>
             </div>
           </div>
@@ -252,7 +254,7 @@ export const AdminView: React.FC = () => {
           {/* Popularity by Direction Bar Graph */}
           <div className="p-6 rounded-2xl bg-[#23201e] border border-[#352f2c] space-y-4">
             <h3 className="font-display text-sm font-bold text-[#f5f2eb]">
-              Активность участников по направлениям сообщества
+              {t('admDirectionActivity')}
             </h3>
 
             <div className="space-y-3">
@@ -261,8 +263,8 @@ export const AdminView: React.FC = () => {
                 return (
                   <div key={dir.id} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-[#d6cebf]">{dir.nameRu}</span>
-                      <span className="font-mono text-[#dfcfb3]" title="Доля участников, посетивших хотя бы одну встречу направления">{pct}% участников</span>
+                      <span className="font-medium text-[#d6cebf]">{ln(dir)}</span>
+                      <span className="font-mono text-[#dfcfb3]" title={t('admDirectionPctTitle')}>{pct}% {t('frmMembers')}</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-[#181514] overflow-hidden">
                       <div
@@ -285,10 +287,10 @@ export const AdminView: React.FC = () => {
           <div className="rounded-2xl bg-[#23201e] border border-[#352f2c] overflow-hidden">
             <div className="p-4 border-b border-[#302a28] flex items-center justify-between">
               <h3 className="font-display text-sm font-bold text-[#f5f2eb]">
-                Управление ролями и правами участников
+                {t('admRolesTitle')}
               </h3>
               <span className="text-xs text-[#8c8279]">
-                Всего участников в базе: {allUsers.length}
+                {t('admTotalMembers')}: {allUsers.length}
               </span>
             </div>
 
@@ -320,7 +322,7 @@ export const AdminView: React.FC = () => {
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] text-[#8c8279]">Назначить роль:</span>
+                    <span className="text-[11px] text-[#8c8279]">{t('admAssignRole')}:</span>
                     <select
                       value={user.role}
                       disabled={!canManageRolesOf(user)}
@@ -347,11 +349,11 @@ export const AdminView: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#1a1716] text-[#8c8279] uppercase text-[10px] tracking-wider border-b border-[#302a28]">
                   <tr>
-                    <th className="px-4 py-3">Пользователь</th>
-                    <th className="px-4 py-3">Ранг</th>
-                    <th className="px-4 py-3">Коины</th>
-                    <th className="px-4 py-3">Текущая роль</th>
-                    <th className="px-4 py-3 text-right">Назначить роль</th>
+                    <th className="px-4 py-3">{t('attMember')}</th>
+                    <th className="px-4 py-3">{t('admTier')}</th>
+                    <th className="px-4 py-3">{t('prfCoins')}</th>
+                    <th className="px-4 py-3">{t('admCurrentRole')}</th>
+                    <th className="px-4 py-3 text-right">{t('admAssignRole')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#2d2725]">
@@ -410,12 +412,12 @@ export const AdminView: React.FC = () => {
           <div className="p-6 rounded-2xl bg-[#23201e] border border-[#352f2c] space-y-4">
             <h3 className="font-display text-sm font-bold text-[#f5f2eb] flex items-center gap-2">
               <Coins className="w-4 h-4 text-amber-400" />
-              <span>Ручная корректировка баланса Shanyraq Coins</span>
+              <span>{t('admCoinAdjustTitle')}</span>
             </h3>
 
             <form onSubmit={handleCoinAdjust} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <label className="text-[#8c8279] block mb-1">Пользователь</label>
+                <label className="text-[#8c8279] block mb-1">{t('attMember')}</label>
                 <select
                   value={adjustTargetUserId}
                   onChange={e => setAdjustTargetUserId(e.target.value)}
@@ -428,7 +430,7 @@ export const AdminView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-[#8c8279] block mb-1">Сумма коинов (+ или -)</label>
+                <label className="text-[#8c8279] block mb-1">{t('admCoinAmount')}</label>
                 <input
                   type="number"
                   required
@@ -439,7 +441,7 @@ export const AdminView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-[#8c8279] block mb-1">Основание / Причина</label>
+                <label className="text-[#8c8279] block mb-1">{t('admReason')}</label>
                 <input
                   type="text"
                   required
@@ -454,7 +456,7 @@ export const AdminView: React.FC = () => {
                   type="submit"
                   className="w-full p-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-xs font-semibold text-[#1e1b1a] transition-colors"
                 >
-                  Применить начисление
+                  {t('admApply')}
                 </button>
               </div>
             </form>
@@ -465,16 +467,15 @@ export const AdminView: React.FC = () => {
             <div className="p-6 rounded-2xl bg-[#23201e] border border-[#352f2c] space-y-4">
               <h3 className="font-display text-sm font-bold text-[#f5f2eb] flex items-center gap-2">
                 <Award className="w-4 h-4 text-amber-500" />
-                <span>Отозвать достижение</span>
+                <span>{t('admRevokeTitle')}</span>
               </h3>
               <p className="text-[11px] text-[#8c8279]">
-                Только при обмане или ошибочной выдаче. XP и коины за достижение списываются (баланс не уходит в минус),
-                участник получает уведомление, отзыв записывается в журнал аудита. Само достижение больше не откроется автоматически.
+                {t('admRevokeText')}
               </p>
 
               <form onSubmit={handleRevokeAchievement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <label className="text-[#8c8279] block mb-1">Участник</label>
+                  <label className="text-[#8c8279] block mb-1">{t('attMember')}</label>
                   <select
                     value={revokeUserId}
                     onChange={e => setRevokeUserId(e.target.value)}
@@ -487,7 +488,7 @@ export const AdminView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-[#8c8279] block mb-1">Достижение</label>
+                  <label className="text-[#8c8279] block mb-1">{t('admAchievement')}</label>
                   <select
                     value={selectedRevokeId}
                     onChange={e => setRevokeAchievementId(e.target.value)}
@@ -495,22 +496,22 @@ export const AdminView: React.FC = () => {
                     className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb] disabled:opacity-50"
                   >
                     {revokeUserAchievements.length === 0 ? (
-                      <option value="">Нет достижений</option>
+                      <option value="">{t('admNoAchievements')}</option>
                     ) : (
                       revokeUserAchievements.map(a => (
-                        <option key={a.id} value={a.id}>{a.titleRu}</option>
+                        <option key={a.id} value={a.id}>{lf(a, 'title')}</option>
                       ))
                     )}
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-[#8c8279] block mb-1">Причина (обязательно)</label>
+                  <label className="text-[#8c8279] block mb-1">{t('admReasonRequired')}</label>
                   <input
                     type="text"
                     required
                     value={revokeReason}
-                    placeholder="Напр.: рецензии скопированы из интернета"
+                    placeholder={t('admRevokePlaceholder')}
                     onChange={e => setRevokeReason(e.target.value)}
                     className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
                   />
@@ -522,7 +523,7 @@ export const AdminView: React.FC = () => {
                     disabled={!selectedRevokeId}
                     className="w-full p-2 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] border border-amber-800/70 text-xs font-semibold text-amber-300 transition-colors disabled:opacity-50"
                   >
-                    Отозвать достижение
+                    {t('admRevokeTitle')}
                   </button>
                 </div>
               </form>
@@ -534,16 +535,15 @@ export const AdminView: React.FC = () => {
             <div className="p-6 rounded-2xl bg-[#23201e] border border-[#352f2c] space-y-4">
               <h3 className="font-display text-sm font-bold text-[#f5f2eb] flex items-center gap-2">
                 <Award className="w-4 h-4 text-[#dfcfb3]" />
-                <span>Выдать достижение за подтверждённое событие</span>
+                <span>{t('admAwardTitle')}</span>
               </h3>
               <p className="text-[11px] text-[#8c8279]">
-                Для наград, которые нельзя посчитать автоматически: выступление, забег, призовое место, марафон чтения.
-                Каждая выдача записывается в журнал аудита.
+                {t('admAwardText')}
               </p>
 
               <form onSubmit={handleAwardAchievement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <label className="text-[#8c8279] block mb-1">Участник</label>
+                  <label className="text-[#8c8279] block mb-1">{t('attMember')}</label>
                   <select
                     value={awardUserId}
                     onChange={e => setAwardUserId(e.target.value)}
@@ -556,7 +556,7 @@ export const AdminView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-[#8c8279] block mb-1">Достижение</label>
+                  <label className="text-[#8c8279] block mb-1">{t('admAchievement')}</label>
                   <select
                     value={awardAchievementId}
                     onChange={e => setAwardAchievementId(e.target.value)}
@@ -566,7 +566,7 @@ export const AdminView: React.FC = () => {
                       const owned = allUsers.find(u => u.id === awardUserId)?.achievements.some(x => x.id === a.id);
                       return (
                         <option key={a.id} value={a.id} disabled={owned}>
-                          {a.titleRu}{owned ? ' — уже есть' : ''}
+                          {lf(a, 'title')}{owned ? ` — ${t('admAlreadyHas')}` : ''}
                         </option>
                       );
                     })}
@@ -574,11 +574,11 @@ export const AdminView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-[#8c8279] block mb-1">Подтверждение (необязательно)</label>
+                  <label className="text-[#8c8279] block mb-1">{t('admProof')}</label>
                   <input
                     type="text"
                     value={awardNote}
-                    placeholder="Напр.: забег 16.11, 10 км"
+                    placeholder={t('admProofPlaceholder')}
                     onChange={e => setAwardNote(e.target.value)}
                     className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
                   />
@@ -589,7 +589,7 @@ export const AdminView: React.FC = () => {
                     type="submit"
                     className="w-full p-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-xs font-semibold text-[#1e1b1a] transition-colors"
                   >
-                    Выдать достижение
+                    {t('admAwardButton')}
                   </button>
                 </div>
               </form>
@@ -604,55 +604,55 @@ export const AdminView: React.FC = () => {
           {/* Form */}
           <div className="lg:col-span-7 p-6 rounded-2xl bg-[#23201e] border border-[#352f2c] space-y-4">
             <h3 className="font-display text-sm font-bold text-[#f5f2eb]">
-              Создать мгновенное оповещение участников
+              {t('admBroadcastTitle')}
             </h3>
 
             <form onSubmit={handleBroadcastSubmit} className="space-y-4 text-xs">
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
-                  Заголовок рассылки *
+                  {t('admBroadcastHeading')} *
                 </label>
                 <input
                   type="text"
                   required
                   value={broadcastTitle}
                   onChange={e => setBroadcastTitle(e.target.value)}
-                  placeholder="Например: Срочный перенос времени Speaking Club"
+                  placeholder={t('admBroadcastHeadingPlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
                 />
               </div>
 
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
-                  Текст сообщения *
+                  {t('admBroadcastText')} *
                 </label>
                 <textarea
                   rows={4}
                   required
                   value={broadcastContent}
                   onChange={e => setBroadcastContent(e.target.value)}
-                  placeholder="Текст уведомления для push-сообщения и Telegram-бота..."
+                  placeholder={t('admBroadcastTextPlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">Аудитория</label>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('admAudience')}</label>
                   <select
                     value={broadcastTarget}
                     onChange={e => setBroadcastTarget(e.target.value)}
                     className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
                   >
-                    <option value="all">Все участники ({allUsers.length})</option>
+                    <option value="all">{t('admAllMembers')} ({allUsers.length})</option>
                     {COMMUNITY_DIRECTIONS.map(d => (
-                      <option key={d.id} value={d.id}>{d.nameRu}</option>
+                      <option key={d.id} value={d.id}>{ln(d)}</option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">Каналы доставки</label>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('admChannels')}</label>
                   <div className="flex items-center gap-2 pt-1 text-xs">
                     <label className="flex items-center gap-1.5 cursor-pointer text-[#d6cebf]">
                       <input
@@ -685,7 +685,7 @@ export const AdminView: React.FC = () => {
                 className="w-full py-2.5 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-xs font-semibold text-[#1e1b1a] transition-all flex items-center justify-center gap-2"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>Разослать участникам ({broadcastChannel.join(', ')})</span>
+                <span>{t('admSendBroadcast')} ({broadcastChannel.join(', ')})</span>
               </button>
             </form>
 
@@ -700,7 +700,7 @@ export const AdminView: React.FC = () => {
           {/* Live Preview for Telegram / WhatsApp */}
           <div className="lg:col-span-5 p-6 rounded-2xl bg-[#1a1716] border border-[#352f2c] space-y-4">
             <span className="text-[10px] uppercase font-bold text-[#8c8279] tracking-wider block">
-              Превью в Telegram Bot @ShanyraqHubBot
+              {t('admTgPreview')}
             </span>
 
             <div className="p-4 rounded-xl bg-[#242b33] border border-[#3a4450] text-xs text-white space-y-2 font-sans shadow-lg">
@@ -708,13 +708,13 @@ export const AdminView: React.FC = () => {
                 <span>🏛 SHANYRAQ HUB COMMUNITY</span>
               </div>
               <h4 className="font-bold text-sm">
-                {broadcastTitle || 'Заголовок оповещения...'}
+                {broadcastTitle || t('admPreviewHeading')}
               </h4>
               <p className="text-stone-300 leading-relaxed text-xs">
-                {broadcastContent || 'Текст уведомления будет отображен здесь...'}
+                {broadcastContent || t('admPreviewText')}
               </p>
               <div className="pt-2 border-t border-stone-600/40 text-[10px] text-stone-400 italic">
-                Отправлено через официальный бот Shanyraq Hub
+                {t('admPreviewFooter')}
               </div>
             </div>
           </div>
@@ -726,7 +726,7 @@ export const AdminView: React.FC = () => {
         <div className="rounded-2xl bg-[#23201e] border border-[#352f2c] overflow-hidden">
           <div className="p-4 border-b border-[#302a28]">
             <h3 className="font-display text-sm font-bold text-[#f5f2eb]">
-              Журнал административных действий и аудита безопасности
+              {t('admAuditTitle')}
             </h3>
           </div>
 

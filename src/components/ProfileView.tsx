@@ -1,3 +1,4 @@
+import { genreLabel } from '../data/bookGenres';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { TIERS, SHOP_ITEMS } from '../data/gamification';
@@ -22,7 +23,7 @@ import { isDemoData } from '../config/runtime';
 import { MembershipApplications } from './MembershipApplications';
 
 export const ProfileView: React.FC = () => {
-  const { currentUser, updateProfile, uploadAvatar, setActiveTab, language, t } = useApp();
+  const { currentUser, updateProfile, uploadAvatar, setActiveTab, language, t, ln, lf } = useApp();
   const [avatarBusy, setAvatarBusy] = useState(false);
 
   const [activeSubTab, setActiveSubTab] = useState<'books' | 'events' | 'achievements' | 'reviews'>('books');
@@ -102,7 +103,7 @@ export const ProfileView: React.FC = () => {
                   {currentUser.name}
                 </h1>
                 <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#1c1918] border border-[#3b3430] ${userTier.textColor}`}>
-                  {userTier.nameRu}
+                  {ln(userTier)}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded uppercase bg-[#2e2825] text-[#b0a79d] font-mono">
                   {currentUser.role}
@@ -139,7 +140,7 @@ export const ProfileView: React.FC = () => {
                       key={dirId}
                       className="text-[11px] px-2.5 py-0.5 rounded-md bg-[#2a2422] text-[#d6cebf] border border-[#38312d]"
                     >
-                      {dir?.shortNameRu || dirId}
+                      {lf(dir, 'shortName') || dirId}
                     </span>
                   );
                 })}
@@ -148,7 +149,7 @@ export const ProfileView: React.FC = () => {
                     key={`pending-${dirId}`}
                     className="text-[11px] px-2.5 py-0.5 rounded-md bg-[#1a1716] text-[#8c8279] border border-dashed border-[#4a413b]"
                   >
-                    {COMMUNITY_DIRECTIONS.find(d => d.id === dirId)?.shortNameRu || dirId} · {t('liveMembershipPending')}
+                    {lf(COMMUNITY_DIRECTIONS.find(d => d.id === dirId), 'shortName') || dirId} · {t('liveMembershipPending')}
                   </span>
                 ))}
               </div>
@@ -167,14 +168,14 @@ export const ProfileView: React.FC = () => {
 
             <div className="flex items-center gap-2 bg-[#191615] px-4 py-2.5 rounded-xl border border-[#38312d]">
               <div className="text-right">
-                <span className="text-[10px] text-[#8c8279] block">Казна коинов</span>
+                <span className="text-[10px] text-[#8c8279] block">{t('prfCoins')}</span>
                 <span className="font-mono-numbers font-bold text-amber-400 text-sm">
                   {currentUser.coins} 🪙
                 </span>
               </div>
               <div className="w-px h-6 bg-[#302a28]" />
               <div className="text-right">
-                <span className="text-[10px] text-[#8c8279] block">Опыт клуба</span>
+                <span className="text-[10px] text-[#8c8279] block">{t('prfXp')}</span>
                 <span className="font-mono-numbers font-bold text-[#dfcfb3] text-sm">
                   {currentUser.xp} XP
                 </span>
@@ -231,7 +232,7 @@ export const ProfileView: React.FC = () => {
           }`}
         >
           <Star className="w-3.5 h-3.5" />
-          <span>Отзывы обо мне ({currentUser.peerReviews.length})</span>
+          <span>{t('prfReviewsAboutMe')} ({currentUser.peerReviews.length})</span>
         </button>
       </div>
 
@@ -240,13 +241,13 @@ export const ProfileView: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-[#f5f2eb]">
-              Список прочитанных книг резидента
+              {t('prfBooksList')}
             </h3>
             <button
               onClick={() => setActiveTab('library')}
               className="text-xs text-[#dfcfb3] hover:underline"
             >
-              + Добавить новую книгу
+              + {t('prfAddBook')}
             </button>
           </div>
 
@@ -269,7 +270,7 @@ export const ProfileView: React.FC = () => {
                   </p>
                 )}
                 <div className="pt-2 border-t border-[#302a28] flex items-center justify-between text-[10px] text-[#736a62]">
-                  <span>{book.genre}</span>
+                  <span>{genreLabel(book.genre, t)}</span>
                   <span>{book.dateFinished}</span>
                 </div>
               </div>
@@ -282,7 +283,7 @@ export const ProfileView: React.FC = () => {
       {activeSubTab === 'events' && (
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-[#f5f2eb]">
-            История участия в активностях
+            {t('prfActivityHistory')}
           </h3>
 
           <div className="divide-y divide-[#2d2725] rounded-xl bg-[#23201e] border border-[#352f2c] overflow-hidden">
@@ -295,11 +296,11 @@ export const ProfileView: React.FC = () => {
                 <div>
                   {rec.status === 'attended' ? (
                     <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-950/70 text-emerald-400 border border-emerald-800">
-                      Посетил (+60 XP)
+                      {t('prfAttended')}
                     </span>
                   ) : (
                     <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#2a2422] text-[#dfcfb3] border border-[#443b36]">
-                      Записан
+                      {t('prfSignedUp')}
                     </span>
                   )}
                 </div>
@@ -322,11 +323,11 @@ export const ProfileView: React.FC = () => {
                   ✓
                 </div>
                 <div>
-                  <h4 className="font-bold text-[#f5f2eb]">{ach.titleRu}</h4>
-                  <span className="text-[10px] text-[#dfcfb3]">Награда получена</span>
+                  <h4 className="font-bold text-[#f5f2eb]">{lf(ach, 'title')}</h4>
+                  <span className="text-[10px] text-[#dfcfb3]">{t('prfRewardReceived')}</span>
                 </div>
               </div>
-              <p className="text-[11px] text-[#a39b94]">{ach.descriptionRu}</p>
+              <p className="text-[11px] text-[#a39b94]">{lf(ach, 'description')}</p>
             </div>
           ))}
         </div>
@@ -336,13 +337,13 @@ export const ProfileView: React.FC = () => {
       {activeSubTab === 'reviews' && (
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-[#f5f2eb]">
-            Отзывы от членов сообщества Shanyraq Hub
+            {t('prfReviewsFromCommunity')}
           </h3>
 
           <div className="space-y-3">
             {currentUser.peerReviews.length === 0 ? (
               <div className="p-8 text-center text-xs text-[#8c8279] rounded-xl bg-[#23201e]">
-                Пока нет отзывов от других участников. Участвуйте во встречах, знакомьтесь и обменивайтесь инсайтами!
+                {t('prfNoReviews')}
               </div>
             ) : (
               currentUser.peerReviews.map(rev => (
@@ -371,7 +372,7 @@ export const ProfileView: React.FC = () => {
                     «{rev.comment}»
                   </p>
                   <span className="text-[10px] text-[#736a62] font-mono block">
-                    {rev.createdAt} · Аспект: {rev.aspect}
+                    {rev.createdAt} · {t('prfAspect')}: {t(`aspect_${rev.aspect}`)}
                   </span>
                 </div>
               ))
@@ -397,7 +398,7 @@ export const ProfileView: React.FC = () => {
 
             <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
               <div>
-                <label className="font-medium text-[#d6cebf] block mb-1">Имя и фамилия</label>
+                <label className="font-medium text-[#d6cebf] block mb-1">{t('prfFormName')}</label>
                 <input
                   type="text"
                   required
@@ -408,7 +409,7 @@ export const ProfileView: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-medium text-[#d6cebf] block mb-1">О себе (Bio)</label>
+                <label className="font-medium text-[#d6cebf] block mb-1">{t('prfFormBio')}</label>
                 <textarea
                   rows={3}
                   value={editBio}
@@ -419,7 +420,7 @@ export const ProfileView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">Город</label>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('prfFormCity')}</label>
                   <input
                     type="text"
                     value={editCity}
@@ -466,7 +467,7 @@ export const ProfileView: React.FC = () => {
 
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1.5">
-                  Интересующие направления:
+                  {t('prfFormDirections')}:
                 </label>
                 {!isDemoData && <p className="text-[11px] text-[#8c8279] mb-2">{t('liveMembershipHint')}</p>}
                 <div className="flex flex-wrap gap-2">
@@ -481,7 +482,7 @@ export const ProfileView: React.FC = () => {
                           : 'bg-[#1a1716] text-[#8c8279] border-[#3b3430]'
                       }`}
                     >
-                      {dir.nameRu}
+                      {ln(dir)}
                       {currentUser.pendingDirections?.includes(dir.id) && ` · ${t('liveMembershipPending')}`}
                     </button>
                   ))}

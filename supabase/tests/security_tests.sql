@@ -311,7 +311,7 @@ select t.expect_fail($$select public.review_membership('$$ || :'m1_books' || $$'
 select t.ok(public.set_direction_lead('00000000-0000-0000-0000-000000000001', 'books', true), 'moderator+ appoints a direction lead');
 reset role;
 select t.ok((select directions from public.profiles where id = '00000000-0000-0000-0000-000000000001') = '{books}', 'approved membership synced to profile.directions');
-select t.ok(exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-000000000001' and title like 'Заявка%одобрена'), 'applicant notified');
+select t.ok(exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-000000000001' and title = 'Бағытқа өтінішіңіз мақұлданды'), 'applicant notified (in Kazakh, the default language)');
 select t.ok(exists (select 1 from public.audit_logs where action = 'MEMBERSHIP_APPROVE'), 'approval audited');
 set role authenticated;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
@@ -522,5 +522,23 @@ select t.expect_fail($$select public.unlink_telegram()$$, '%telegram_only_sign_i
 reset role;
 select t.ok(exists (select 1 from public.telegram_accounts where user_id = '00000000-0000-0000-0000-0000000000c1'),
             'Telegram-only member keeps the link');
+
+-- Notifications in the member's language (texts are written in Russian, stored translated).
+select t.ok((select column_default from information_schema.columns where table_schema = 'public' and table_name = 'profiles'
+             and column_name = 'preferred_language') like '''kz''%', 'new members start in Kazakh');
+update public.profiles set preferred_language = 'ru' where id = '00000000-0000-0000-0000-000000000002';
+update public.profiles set preferred_language = 'en' where id = '00000000-0000-0000-0000-00000000000b';
+select private.notify(u, 'registration', 'Успешная регистрация на мероприятие', 'Вы записаны на «Абай — 2».', 'events', '{}', 'lang-test:' || u)
+  from unnest(array['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000000b']::uuid[]) u;
+select t.ok((select title || ' | ' || body from public.notifications where dedupe_key = 'lang-test:00000000-0000-0000-0000-000000000001')
+            = 'Іс-шараға сәтті жазылдыңыз | «Абай — 2» кездесуіне жазылдыңыз.', 'Kazakh member: title and body in Kazakh, event title kept');
+select t.ok((select title || ' | ' || body from public.notifications where dedupe_key = 'lang-test:00000000-0000-0000-0000-000000000002')
+            = 'Успешная регистрация на мероприятие | Вы записаны на «Абай — 2».', 'Russian member: Russian text');
+select t.ok((select title || ' | ' || body from public.notifications where dedupe_key = 'lang-test:00000000-0000-0000-0000-00000000000b')
+            = 'You are signed up | You are signed up for “Абай — 2”.', 'English member: English text');
+select private.notify('00000000-0000-0000-0000-000000000001', 'forum_reply', 'Новый ответ в вашей теме', 'Свободный текст ответа', 'forum', '{}', 'lang-free');
+select t.ok((select body from public.notifications where dedupe_key = 'lang-free') = 'Свободный текст ответа', 'free text is not altered');
+select private.notify('00000000-0000-0000-0000-000000000001', 'level_up', 'Повышение клубного ранга!', 'Поздравляем! Ваш статус повышен: gold', 'profile', '{"tier":"gold"}', 'lang-tier');
+select t.ok((select body from public.notifications where dedupe_key = 'lang-tier') = 'Құттықтаймыз! Жаңа деңгейіңіз: ' || (select name_kz from public.tiers where tier = 'gold'), 'tier name from the catalog');
 
 \echo ALL_TESTS_PASSED

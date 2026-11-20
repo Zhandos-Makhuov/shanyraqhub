@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 export const LeaderboardView: React.FC = () => {
-  const { allUsers, currentUser, setSelectedUserModal, language, t } = useApp();
+  const { allUsers, currentUser, setSelectedUserModal, language, t, ln } = useApp();
 
   const [sortKey, setSortKey] = useState<'xp' | 'books' | 'events' | 'coins'>('xp');
   const [searchMember, setSearchMember] = useState('');
@@ -63,13 +63,13 @@ export const LeaderboardView: React.FC = () => {
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <span className="text-xs font-bold text-[#f5f2eb]">Ваша текущая позиция</span>
+              <span className="text-xs font-bold text-[#f5f2eb]">{t('lbYourPosition')}</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#dfcfb3]/20 text-[#dfcfb3] font-semibold">
-                {TIERS[currentUser.tier]?.nameRu}
+                {ln(TIERS[currentUser.tier])}
               </span>
             </div>
             <p className="text-[11px] sm:text-xs text-[#a39b94] truncate">
-              {currentUser.xp} XP · {currentUser.coins} коинов · {currentUser.readBooks.length} книг
+              {currentUser.xp} XP · {currentUser.coins} {t('lbCoins')} · {currentUser.readBooks.length} {t('lbBooks')}
             </p>
           </div>
         </div>
@@ -78,7 +78,7 @@ export const LeaderboardView: React.FC = () => {
           <div className="text-xs text-[#dfcfb3] flex items-center gap-1.5 bg-[#191615] px-3 py-1.5 rounded-lg border border-[#3b3430] shrink-0 self-start sm:self-auto">
             <ArrowUp className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <span className="text-[11px] sm:text-xs">
-              До #{myRank - 1} ({nextUserAhead.name}): <strong className="font-mono-numbers">{nextUserAhead.xp - currentUser.xp} XP</strong>
+              {t('lbTo')} #{myRank - 1} ({nextUserAhead.name}): <strong className="font-mono-numbers">{nextUserAhead.xp - currentUser.xp} XP</strong>
             </span>
           </div>
         )}
@@ -108,12 +108,12 @@ export const LeaderboardView: React.FC = () => {
               {sortedUsers[1].name}
             </span>
             <span className="text-[10px] text-stone-300 font-medium mt-0.5">
-              {TIERS[sortedUsers[1].tier]?.nameRu}
+              {ln(TIERS[sortedUsers[1].tier])}
             </span>
             <div className="flex items-center gap-2 sm:gap-3 mt-2.5 pt-2.5 border-t border-[#302a28] text-xs">
               <span className="font-mono-numbers font-bold text-[#dfcfb3]">{sortedUsers[1].xp} XP</span>
               <span className="text-[#8c8279]">·</span>
-              <span className="text-[#a39b94]">{sortedUsers[1].readBooks.length} книг</span>
+              <span className="text-[#a39b94]">{sortedUsers[1].readBooks.length} {t('lbBooks')}</span>
             </div>
           </div>
         )}
@@ -141,12 +141,12 @@ export const LeaderboardView: React.FC = () => {
               {sortedUsers[0].name}
             </span>
             <span className="text-xs text-[#dfcfb3] font-semibold mt-0.5">
-              {TIERS[sortedUsers[0].tier]?.nameRu} 👑
+              {ln(TIERS[sortedUsers[0].tier])} 👑
             </span>
             <div className="flex items-center gap-2 sm:gap-3 mt-2.5 pt-2.5 border-t border-[#3a332f] text-xs">
               <span className="font-mono-numbers font-bold text-[#f5d77f] text-sm">{sortedUsers[0].xp} XP</span>
               <span className="text-[#8c8279]">·</span>
-              <span className="text-[#a39b94]">{sortedUsers[0].readBooks.length} книг</span>
+              <span className="text-[#a39b94]">{sortedUsers[0].readBooks.length} {t('lbBooks')}</span>
               <span className="text-[#8c8279]">·</span>
               <span className="text-[#f5d77f]">{sortedUsers[0].coins} 🪙</span>
             </div>
@@ -175,12 +175,12 @@ export const LeaderboardView: React.FC = () => {
               {sortedUsers[2].name}
             </span>
             <span className="text-[10px] text-amber-500 font-medium mt-0.5">
-              {TIERS[sortedUsers[2].tier]?.nameRu}
+              {ln(TIERS[sortedUsers[2].tier])}
             </span>
             <div className="flex items-center gap-2 sm:gap-3 mt-2.5 pt-2.5 border-t border-[#302a28] text-xs">
               <span className="font-mono-numbers font-bold text-[#dfcfb3]">{sortedUsers[2].xp} XP</span>
               <span className="text-[#8c8279]">·</span>
-              <span className="text-[#a39b94]">{sortedUsers[2].readBooks.length} книг</span>
+              <span className="text-[#a39b94]">{sortedUsers[2].readBooks.length} {t('lbBooks')}</span>
             </div>
           </div>
         )}
@@ -197,7 +197,7 @@ export const LeaderboardView: React.FC = () => {
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'
             }`}
           >
-            По опыту (XP)
+            {t('lbByXp')}
           </button>
           <button
             onClick={() => setSortKey('books')}
@@ -207,7 +207,7 @@ export const LeaderboardView: React.FC = () => {
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'
             }`}
           >
-            По книгам
+            {t('lbByBooks')}
           </button>
           <button
             onClick={() => setSortKey('events')}
@@ -217,7 +217,7 @@ export const LeaderboardView: React.FC = () => {
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'
             }`}
           >
-            По визитам
+            {t('lbByVisits')}
           </button>
           <button
             onClick={() => setSortKey('coins')}
@@ -227,7 +227,7 @@ export const LeaderboardView: React.FC = () => {
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'
             }`}
           >
-            По коинам 🪙
+            {t('lbByCoins')} 🪙
           </button>
         </div>
 
@@ -235,7 +235,7 @@ export const LeaderboardView: React.FC = () => {
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8c8279]" />
           <input
             type="text"
-            placeholder="Найти участника..."
+            placeholder={t('lbSearch')}
             value={searchMember}
             onChange={e => setSearchMember(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
@@ -273,10 +273,10 @@ export const LeaderboardView: React.FC = () => {
                   />
                   <div className="min-w-0">
                     <span className="font-bold text-xs text-[#f5f2eb] truncate block">
-                      {user.name} {isMe && <span className="text-[10px] text-[#dfcfb3] font-normal">(Вы)</span>}
+                      {user.name} {isMe && <span className="text-[10px] text-[#dfcfb3] font-normal">({t('lbYou')})</span>}
                     </span>
                     <span className={`text-[10px] font-semibold ${tierInfo.textColor}`}>
-                      {tierInfo.nameRu}
+                      {ln(tierInfo)}
                     </span>
                   </div>
                 </div>
@@ -292,8 +292,8 @@ export const LeaderboardView: React.FC = () => {
               </div>
 
               <div className="mt-2.5 pt-2 border-t border-[#302a28] flex items-center justify-between text-[11px] text-[#8c8279]">
-                <span>{user.readBooks.length} книг прочитано</span>
-                <span>{attendedCount} событий посещено</span>
+                <span>{t('lbBooksRead').replace('{n}', String(user.readBooks.length))}</span>
+                <span>{t('lbEventsAttended').replace('{n}', String(attendedCount))}</span>
               </div>
             </div>
           );
@@ -308,11 +308,11 @@ export const LeaderboardView: React.FC = () => {
               <tr>
                 <th className="px-4 py-3">{t('rank')}</th>
                 <th className="px-4 py-3">{t('member')}</th>
-                <th className="px-4 py-3">Ранг & Уровень</th>
+                <th className="px-4 py-3">{t('lbRankTier')}</th>
                 <th className="px-4 py-3">{t('booksCount')}</th>
                 <th className="px-4 py-3">{t('eventsCount')}</th>
                 <th className="px-4 py-3">{t('shanyraqCoins')}</th>
-                <th className="px-4 py-3 text-right">Очки Опыта (XP)</th>
+                <th className="px-4 py-3 text-right">{t('lbXpPoints')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2d2725]">
@@ -346,7 +346,7 @@ export const LeaderboardView: React.FC = () => {
                           <span className="font-bold text-[#f5f2eb] flex items-center gap-1.5 truncate">
                             {user.name}
                             {isMe && (
-                              <span className="text-[10px] text-[#dfcfb3] font-normal">(Вы)</span>
+                              <span className="text-[10px] text-[#dfcfb3] font-normal">({t('lbYou')})</span>
                             )}
                           </span>
                           <span className="text-[10px] text-[#8c8279] block truncate">

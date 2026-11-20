@@ -14,6 +14,7 @@ import {
   Library,
 } from 'lucide-react';
 import { ReadBook } from '../types';
+import { BOOK_GENRES, genreLabel } from '../data/bookGenres';
 
 export const ReadingLibraryView: React.FC = () => {
   const { allReadBooks, allUsers, currentUser, addReadBook, setSelectedUserModal, t } = useApp();
@@ -34,29 +35,23 @@ export const ReadingLibraryView: React.FC = () => {
   const reviewChars = reviewLength(bookReview);
   const creditHint = (() => {
     if (bookStatus !== 'completed') {
-      return { ok: false, text: 'В награды и достижения засчитываются только прочитанные книги с рецензией.' };
+      return { ok: false, text: t('libHintOnlyCompleted') };
     }
     if (reviewChars < MIN_REVIEW_CHARS) {
       return {
         ok: false,
-        text: `Ещё ${MIN_REVIEW_CHARS - reviewChars} симв. своими словами — и книга засчитается (+50 XP, +30 коинов, прогресс достижений).`,
+        text: t('libHintMoreChars').replace('{n}', String(MIN_REVIEW_CHARS - reviewChars)),
       };
     }
     if (!isWeekFreeForCredit(currentUser.readBooks, toLocalDay())) {
-      return { ok: false, text: 'На этой неделе книга уже засчитана (одна в неделю). Эта сохранится в библиотеке без награды.' };
+      return { ok: false, text: t('libHintWeekUsed') };
     }
-    return { ok: true, text: '✓ Книга засчитается: +50 XP, +30 коинов и прогресс книжных достижений.' };
+    return { ok: true, text: t('libHintOk') };
   })();
 
-  const genres = [
-    'Классика / Философия',
-    'Исторический эпос',
-    'Когнитивная психология',
-    'Саморазвитие и привычки',
-    'Бизнес и лидерство',
-    'Художественная проза',
-    'Научпоп и космология',
-  ];
+  const genres = BOOK_GENRES;
+  const ratedBooks = allReadBooks.filter(b => b.status === 'completed' && b.userRating > 0);
+  const averageRating = ratedBooks.length ? (ratedBooks.reduce((s, b) => s + b.userRating, 0) / ratedBooks.length).toFixed(1) : null;
 
   const filteredBooks = allReadBooks.filter(item => {
     if (statusFilter !== 'all' && item.status !== statusFilter) return false;
@@ -143,7 +138,7 @@ export const ReadingLibraryView: React.FC = () => {
           <div>
             <span className="text-xs text-[#8c8279] block">{t('averageRating')}</span>
             <span className="text-2xl font-bold font-mono-numbers text-[#f5d77f]">
-              4.9 <span className="text-xs text-[#8c8279] font-normal">/ 5.0 ★</span>
+              {averageRating ?? '—'} <span className="text-xs text-[#8c8279] font-normal">/ 5.0 ★</span>
             </span>
           </div>
           <Star className="w-8 h-8 text-amber-400/40" />
@@ -161,7 +156,7 @@ export const ReadingLibraryView: React.FC = () => {
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'
             }`}
           >
-            Все записи ({allReadBooks.length})
+            {t('libAllEntries')} ({allReadBooks.length})
           </button>
           <button
             onClick={() => setStatusFilter('completed')}
@@ -189,7 +184,7 @@ export const ReadingLibraryView: React.FC = () => {
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8c8279]" />
           <input
             type="text"
-            placeholder="Поиск по названию, автору или читателю..."
+            placeholder={t('libSearch')}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="pl-8 pr-3 py-1.5 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3] w-full sm:w-72"
@@ -223,7 +218,7 @@ export const ReadingLibraryView: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] text-[#dfcfb3] font-medium truncate">
-                        {item.genre}
+                        {genreLabel(item.genre, t)}
                       </span>
                       <span className="text-[10px] text-amber-400 font-mono flex items-center gap-0.5">
                         <Star className="w-3 h-3 fill-current" />
@@ -264,13 +259,13 @@ export const ReadingLibraryView: React.FC = () => {
                       {item.readerName}
                     </span>
                     <span className="text-[9px] text-[#8c8279]">
-                      {item.status === 'reading' ? 'Читает сейчас' : `Прочитано ${item.dateFinished}`}
+                      {item.status === 'reading' ? t('libReadingNow') : `${t('libFinishedOn')} ${item.dateFinished}`}
                     </span>
                   </div>
                 </div>
 
                 <span className="px-2 py-0.5 rounded text-[10px] bg-[#272321] text-[#9e948c] border border-[#38312d]">
-                  {item.status === 'reading' ? 'В процессе' : 'Завершено'}
+                  {item.status === 'reading' ? t('libInProgress') : t('libDone')}
                 </span>
               </div>
             </div>
@@ -293,67 +288,67 @@ export const ReadingLibraryView: React.FC = () => {
               {t('actionAddBook')}
             </h3>
             <p className="text-xs text-[#a39b94]">
-              Поделитесь прочитанной книгой с сообществом Shanyraq. За прочитанную книгу с рецензией от 100 символов — +50 XP и +30 коинов (одна книга в неделю).
+              {t('libAddIntro')}
             </p>
 
             <form onSubmit={handleAddBook} className="space-y-3 text-xs">
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
-                  Название книги *
+                  {t('libFormTitle')} *
                 </label>
                 <input
                   type="text"
                   required
                   value={bookTitle}
                   onChange={e => setBookTitle(e.target.value)}
-                  placeholder="Например: Абай жолы"
+                  placeholder={t('libFormTitlePlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
                 />
               </div>
 
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
-                  Автор книги *
+                  {t('libFormAuthor')} *
                 </label>
                 <input
                   type="text"
                   required
                   value={bookAuthor}
                   onChange={e => setBookAuthor(e.target.value)}
-                  placeholder="Например: Мухтар Ауэзов"
+                  placeholder={t('libFormAuthorPlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">Жанр</label>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('libFormGenre')}</label>
                   <select
                     value={bookGenre}
                     onChange={e => setBookGenre(e.target.value)}
                     className="w-full p-2 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
                   >
-                    {genres.map(g => (
-                      <option key={g} value={g}>{g}</option>
+                    {genres.map(([g, k]) => (
+                      <option key={g} value={g}>{t(k)}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">Статус</label>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('libFormStatus')}</label>
                   <select
                     value={bookStatus}
                     onChange={e => setBookStatus(e.target.value as 'completed' | 'reading')}
                     className="w-full p-2 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
                   >
-                    <option value="completed">Прочитано</option>
-                    <option value="reading">Читаю сейчас</option>
+                    <option value="completed">{t('libStatusDone')}</option>
+                    <option value="reading">{t('libStatusReading')}</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
-                  Оценка ({bookRating} из 5):
+                  {t('libFormRating')} ({bookRating}/5):
                 </label>
                 <div className="flex gap-2">
                   {[1, 2, 3, 4, 5].map(star => (
@@ -373,13 +368,13 @@ export const ReadingLibraryView: React.FC = () => {
 
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
-                  Ваша рецензия и главные мысли:
+                  {t('libFormReview')}:
                 </label>
                 <textarea
                   rows={3}
                   value={bookReview}
                   onChange={e => setBookReview(e.target.value)}
-                  placeholder="О чем заставила задуматься книга? Какие инсайты вынесли?"
+                  placeholder={t('libFormReviewPlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
                 />
                 {/* Book credit rule: finished + review of 100+ chars, one book per week */}

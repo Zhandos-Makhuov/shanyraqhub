@@ -32,6 +32,7 @@ export const AvatarShopView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'shop' | 'tiers' | 'history'>('shop');
 
   const userTier = TIERS[currentUser.tier];
+  const itemName = (i: { nameRu: string; nameKz: string; nameEn: string }) => (language === 'kz' ? i.nameKz : language === 'en' ? i.nameEn : i.nameRu);
   const myTransactions = coinTransactions.filter(tx => tx.userId === currentUser.id);
 
   // Equipped item lookups
@@ -67,10 +68,10 @@ export const AvatarShopView: React.FC = () => {
             {t('avatarStudio')} & {t('virtualShop')}
           </span>
           <h1 className="font-display text-2xl font-bold text-[#f5f2eb]">
-            Кастомизация профиля и артефакты Shanyraq
+            {t('shopHeaderKicker')}
           </h1>
           <p className="text-xs text-[#a39b94]">
-            Приобретайте редкие образы кочевников, золотые рамки шаңырақ и ауры за заработанные монеты
+            {t('shopHeaderText')}
           </p>
         </div>
 
@@ -80,7 +81,7 @@ export const AvatarShopView: React.FC = () => {
             <Coins className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <span className="text-[11px] text-[#8c8279] block">Баланс монет</span>
+            <span className="text-[11px] text-[#8c8279] block">{t('shopBalance')}</span>
             <span className="text-2xl font-bold font-mono-numbers text-amber-400">
               {currentUser.coins} 🪙
             </span>
@@ -117,9 +118,9 @@ export const AvatarShopView: React.FC = () => {
             {equippedArtifact && (
               <div
                 className="absolute -bottom-2 -right-1 px-2 py-0.5 rounded-full bg-[#1e1b1a] border border-[#dfcfb3] text-[9px] font-bold text-[#f5d77f] shadow"
-                title={equippedArtifact.nameRu}
+                title={itemName(equippedArtifact)}
               >
-                {equippedArtifact.badgeTitle || 'Артефакт'}
+                {equippedArtifact.badgeTitle || t('shopArtifact')}
               </div>
             )}
           </div>
@@ -131,11 +132,11 @@ export const AvatarShopView: React.FC = () => {
                 {currentUser.name}
               </span>
               <span className={`text-xs font-semibold px-2 py-0.5 rounded bg-[#1c1918] ${userTier.textColor}`}>
-                {userTier.nameRu}
+                {language === 'kz' ? userTier.nameKz : language === 'en' ? userTier.nameEn : userTier.nameRu}
               </span>
             </div>
             <p className="text-xs text-[#a39b94]">
-              {equippedSkin?.nameRu || 'Стандартный образ'} · {equippedFrame?.nameRu || 'Обычная рамка'}
+              {equippedSkin ? itemName(equippedSkin) : t('shopDefaultSkin')} · {equippedFrame ? itemName(equippedFrame) : t('shopDefaultFrame')}
             </p>
             <div className="flex flex-wrap gap-1.5 pt-1">
               {currentUser.inventory.equippedAvatarSkin && (
@@ -143,7 +144,7 @@ export const AvatarShopView: React.FC = () => {
                   onClick={() => unequipShopItem('avatar')}
                   className="px-2 py-0.5 rounded text-[10px] bg-[#2d2825] hover:bg-[#38312d] text-[#b0a79d]"
                 >
-                  Снять образ
+                  {t('shopUnequipSkin')}
                 </button>
               )}
               {currentUser.inventory.equippedFrame && (
@@ -151,7 +152,7 @@ export const AvatarShopView: React.FC = () => {
                   onClick={() => unequipShopItem('frame')}
                   className="px-2 py-0.5 rounded text-[10px] bg-[#2d2825] hover:bg-[#38312d] text-[#b0a79d]"
                 >
-                  Снять рамку
+                  {t('shopUnequipFrame')}
                 </button>
               )}
               {currentUser.inventory.equippedAura && (
@@ -159,7 +160,7 @@ export const AvatarShopView: React.FC = () => {
                   onClick={() => unequipShopItem('aura')}
                   className="px-2 py-0.5 rounded text-[10px] bg-[#2d2825] hover:bg-[#38312d] text-[#b0a79d]"
                 >
-                  Снять ауру
+                  {t('shopUnequipAura')}
                 </button>
               )}
               {currentUser.inventory.equippedArtifact && (
@@ -167,7 +168,7 @@ export const AvatarShopView: React.FC = () => {
                   onClick={() => unequipShopItem('artifact')}
                   className="px-2 py-0.5 rounded text-[10px] bg-[#2d2825] hover:bg-[#38312d] text-[#b0a79d]"
                 >
-                  Снять талисман
+                  {t('shopUnequipArtifact')}
                 </button>
               )}
             </div>
@@ -176,10 +177,10 @@ export const AvatarShopView: React.FC = () => {
 
         {/* How to earn coins brief */}
         <div className="text-xs text-[#9e948c] space-y-1 bg-[#1a1716] p-3 rounded-xl border border-[#302a28] max-w-sm">
-          <span className="font-semibold text-[#dfcfb3] block">Как заработать монеты:</span>
-          <div>• Посещение мероприятия: <strong className="text-amber-400 font-mono">+40-60 🪙</strong></div>
-          <div>• Рецензия на книгу: <strong className="text-amber-400 font-mono">+30 🪙</strong></div>
-          <div>• Полезный ответ на форуме: <strong className="text-amber-400 font-mono">+15 🪙</strong></div>
+          <span className="font-semibold text-[#dfcfb3] block">{t('shopHowToEarn')}:</span>
+          <div>• {t('shopEarnEvent')}: <strong className="text-amber-400 font-mono">+40-60 🪙</strong></div>
+          <div>• {t('shopEarnBook')}: <strong className="text-amber-400 font-mono">+30 🪙</strong></div>
+          <div>• {t('shopEarnForum')}: <strong className="text-amber-400 font-mono">+15 🪙</strong></div>
         </div>
       </div>
 
@@ -194,7 +195,7 @@ export const AvatarShopView: React.FC = () => {
           }`}
         >
           <ShoppingBag className="w-3.5 h-3.5" />
-          <span>Каталог артефактов</span>
+          <span>{t('shopTabCatalog')}</span>
         </button>
 
         <button
@@ -206,7 +207,7 @@ export const AvatarShopView: React.FC = () => {
           }`}
         >
           <Crown className="w-3.5 h-3.5 text-amber-400" />
-          <span>Иерархия клубных уровней</span>
+          <span>{t('shopTabTiers')}</span>
         </button>
 
         <button
@@ -218,7 +219,7 @@ export const AvatarShopView: React.FC = () => {
           }`}
         >
           <History className="w-3.5 h-3.5" />
-          <span>История транзакций</span>
+          <span>{t('shopTabHistory')}</span>
         </button>
       </div>
 
@@ -228,11 +229,11 @@ export const AvatarShopView: React.FC = () => {
           {/* Category Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
             {[
-              { id: 'all', label: 'Все предметы' },
-              { id: 'avatar', label: 'Образы аватаров' },
-              { id: 'frame', label: 'Рамки профиля' },
-              { id: 'artifact', label: 'Талисманы и артефакты' },
-              { id: 'aura', label: 'Специальные ауры' },
+              { id: 'all', label: t('shopCatAll') },
+              { id: 'avatar', label: t('shopCatAvatar') },
+              { id: 'frame', label: t('shopCatFrame') },
+              { id: 'artifact', label: t('shopCatArtifact') },
+              { id: 'aura', label: t('shopCatAura') },
             ].map(cat => (
               <button
                 key={cat.id}
@@ -271,10 +272,10 @@ export const AvatarShopView: React.FC = () => {
                     {/* Item Top: Rarity badge & category */}
                     <div className="flex items-center justify-between text-[10px]">
                       <span className={`px-2 py-0.5 rounded-full border uppercase ${getRarityBadge(item.rarity)}`}>
-                        {item.rarity}
+                        {t(`shopRarity_${item.rarity}`)}
                       </span>
                       <span className="text-[#8c8279] uppercase">
-                        {item.category}
+                        {t(`shopCategory_${item.category}`)}
                       </span>
                     </div>
 
@@ -283,7 +284,7 @@ export const AvatarShopView: React.FC = () => {
                       {item.previewUrl ? (
                         <img
                           src={item.previewUrl}
-                          alt={item.nameRu}
+                          alt={itemName(item)}
                           className="w-16 h-16 rounded-full object-cover ring-2 ring-[#dfcfb3]/40"
                         />
                       ) : (
@@ -296,7 +297,7 @@ export const AvatarShopView: React.FC = () => {
                     {/* Titles */}
                     <div>
                       <h4 className="font-display text-sm font-bold text-[#f5f2eb]">
-                        {language === 'kz' ? item.nameKz : language === 'en' ? item.nameEn : item.nameRu}
+                        {itemName(item)}
                       </h4>
                       <p className="text-xs text-[#a39b94] mt-1 leading-relaxed line-clamp-2">
                         {language === 'kz' ? item.descriptionKz : language === 'en' ? item.descriptionEn : item.descriptionRu}
@@ -348,7 +349,7 @@ export const AvatarShopView: React.FC = () => {
       {activeTab === 'tiers' && (
         <div className="space-y-4">
           <p className="text-xs text-[#a39b94]">
-            Система рангов сообщества Shanyraq Hub. Каждый уровень открывает особые права, клубный вес и статус.
+            {t('shopTiersIntro')}
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -367,7 +368,7 @@ export const AvatarShopView: React.FC = () => {
                 >
                   {isCurrent && (
                     <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded bg-[#dfcfb3] text-[#1e1b1a]">
-                      Ваш текущий ранг
+                      {t('shopYourTier')}
                     </span>
                   )}
 
@@ -384,21 +385,21 @@ export const AvatarShopView: React.FC = () => {
                           {language === 'kz' ? tier.nameKz : language === 'en' ? tier.nameEn : tier.nameRu}
                         </h4>
                         <span className="text-[11px] text-[#8c8279] font-mono">
-                          Требуется: {tier.minXp}+ XP
+                          {t('shopRequires')}: {tier.minXp}+ XP
                         </span>
                       </div>
                     </div>
 
                     <div className="p-3 rounded-xl bg-[#1c1918] border border-[#302a28] text-xs text-[#d6cebf] leading-relaxed">
                       <span className="text-[#8c8279] text-[10px] uppercase block mb-1 font-semibold">
-                        Привилегия ранга:
+                        {t('shopTierPerk')}:
                       </span>
                       {language === 'kz' ? tier.privilegeKz : language === 'en' ? tier.privilegeEn : tier.privilegeRu}
                     </div>
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-[#302a28] flex items-center justify-between text-xs">
-                    <span className="text-[#8c8279]">Опыт участника:</span>
+                    <span className="text-[#8c8279]">{t('shopMemberXp')}:</span>
                     <span className="font-mono-numbers font-bold text-[#f5f2eb]">
                       {tier.minXp} XP
                     </span>
@@ -415,17 +416,17 @@ export const AvatarShopView: React.FC = () => {
         <div className="rounded-2xl bg-[#23201e] border border-[#352f2c] overflow-hidden">
           <div className="p-4 border-b border-[#302a28] flex items-center justify-between">
             <h3 className="font-display text-sm font-bold text-[#f5f2eb]">
-              История начислений и трат Shanyraq Coins
+              {t('shopHistoryTitle')}
             </h3>
             <span className="text-xs text-amber-400 font-mono font-bold">
-              Текущий баланс: {currentUser.coins} 🪙
+              {t('shopCurrentBalance')}: {currentUser.coins} 🪙
             </span>
           </div>
 
           <div className="divide-y divide-[#2d2725]">
             {myTransactions.length === 0 ? (
               <div className="p-8 text-center text-xs text-[#8c8279]">
-                История транзакций пока пуста. Записывайтесь на события и читайте книги!
+                {t('shopHistoryEmpty')}
               </div>
             ) : (
               myTransactions.map(tx => (
@@ -446,7 +447,7 @@ export const AvatarShopView: React.FC = () => {
                     </div>
                     <div>
                       <span className="font-semibold text-[#f5f2eb] block">
-                        {tx.reasonRu}
+                        {language === 'kz' ? tx.reasonKz : language === 'en' ? tx.reasonEn : tx.reasonRu}
                       </span>
                       <span className="text-[10px] text-[#8c8279] font-mono">
                         {tx.createdAt}

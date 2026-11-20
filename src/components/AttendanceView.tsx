@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export const AttendanceView: React.FC = () => {
-  const { allUsers, events, currentUser, checkInAttendance, checkInWithCode, setSelectedUserModal, getActivityStreak, getWeekStreak, t } = useApp();
+  const { allUsers, events, currentUser, checkInAttendance, checkInWithCode, setSelectedUserModal, getActivityStreak, getWeekStreak, t, language } = useApp();
   const myStreak = getActivityStreak(currentUser.id);
   const myWeekStreak = getWeekStreak(currentUser.id);
 
@@ -64,7 +64,7 @@ export const AttendanceView: React.FC = () => {
 
       if (isAlreadyCheckedIn) {
         setQrScanning(false);
-        setScanSuccessMsg(`Участник ${user?.name} уже был отмечен на «${ev?.title}». Повторное начисление не требуется.`);
+        setScanSuccessMsg(t('attAlreadyChecked').replace('{name}', user?.name ?? '').replace('{event}', ev?.title ?? ''));
         setTimeout(() => setScanSuccessMsg(''), 5000);
         return;
       }
@@ -72,14 +72,14 @@ export const AttendanceView: React.FC = () => {
       const result = await checkInAttendance(selectedEventId, selectedUserId);
       setQrScanning(false);
       if (!result.ok) {
-        setScanSuccessMsg(result.error ? t(result.error) : 'Отметка недоступна: подтверждать посещения может только персонал клуба.');
+        setScanSuccessMsg(result.error ? t(result.error) : t('attStaffOnly'));
         setTimeout(() => setScanSuccessMsg(''), 5000);
         return;
       }
       const coins = attendanceCoinsForTier(user?.tier ?? 'bronze');
       const bonus = TIERS[user?.tier ?? 'bronze']?.attendanceCoinBonusPercent ?? 0;
       setScanSuccessMsg(
-        `Визит для ${user?.name} успешно подтвержден! Начислено +${ATTENDANCE_XP} XP и +${coins} коинов${bonus ? ` (бонус уровня +${bonus}%)` : ''}.`
+        t('attConfirmed').replace('{name}', user?.name ?? '').replace('{xp}', String(ATTENDANCE_XP)).replace('{coins}', String(coins)) + (bonus ? ` (${t('attTierBonus')} +${bonus}%)` : '')
       );
       setTimeout(() => setScanSuccessMsg(''), 5000);
     }, 800);
@@ -104,7 +104,7 @@ export const AttendanceView: React.FC = () => {
           <span className="text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
             {attendedVisits.length}
           </span>
-          <span className="text-[11px] text-emerald-400 block mt-1">✓ Подтверждено на месте</span>
+          <span className="text-[11px] text-emerald-400 block mt-1">✓ {t('attConfirmedOnSite')}</span>
         </div>
 
         <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
@@ -113,16 +113,16 @@ export const AttendanceView: React.FC = () => {
             {attendanceRate !== null ? `${attendanceRate}%` : '—'}
           </span>
           <span className="text-[11px] text-[#8c8279] block mt-1">
-            {attendanceRate !== null ? 'доля записей с подтверждённым визитом' : 'записей пока нет'}
+            {attendanceRate !== null ? t('attRateSub') : t('attNoEntries')}
           </span>
         </div>
 
         <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-          <span className="text-xs text-[#8c8279] block mb-1">Моих визитов</span>
+          <span className="text-xs text-[#8c8279] block mb-1">{t('attMyVisits')}</span>
           <span className="text-2xl font-bold font-mono-numbers text-[#f5d77f]">
             {currentUser.attendedEvents.filter(e => e.status === 'attended').length}
           </span>
-          <span className="text-[11px] text-[#8c8279] block mt-1">подтверждено персоналом</span>
+          <span className="text-[11px] text-[#8c8279] block mt-1">{t('attByStaff')}</span>
         </div>
 
         <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
@@ -130,9 +130,9 @@ export const AttendanceView: React.FC = () => {
           <span className="text-2xl font-bold font-mono-numbers text-amber-500 flex items-center gap-1">
             <Flame className="w-5 h-5 fill-current" />
             {myWeekStreak}
-            <span className="font-display text-xs font-medium text-[#8c8279] ml-0.5">{pluralWeeksRu(myWeekStreak)} подряд</span>
+            <span className="font-display text-xs font-medium text-[#8c8279] ml-0.5">{language === 'ru' ? `${pluralWeeksRu(myWeekStreak)} подряд` : t('attWeeksInRow')}</span>
           </span>
-          <span className="text-[11px] text-[#8c8279] block mt-1">и {myStreak} {pluralDaysRu(myStreak)} подряд</span>
+          <span className="text-[11px] text-[#8c8279] block mt-1">{language === 'ru' ? `и ${myStreak} ${pluralDaysRu(myStreak)} подряд` : t('attDaysInRow').replace('{n}', String(myStreak))}</span>
         </div>
       </div>
 
@@ -145,21 +145,21 @@ export const AttendanceView: React.FC = () => {
               <QrCode className="w-4 h-4" />
               <span>{isDemoData ? t('qrCheckInSimulator') : t('qrScanTitle')}</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-950/60 text-amber-300 border border-amber-800">
-                {isDemoData ? 'Демо-сканер' : 'Ручная отметка'}
+                {isDemoData ? t('attDemoScanner') : t('attManual')}
               </span>
             </div>
             <h3 className="font-display text-base font-bold text-[#f5f2eb]">
-              Экспресс-верификация присутствия на встрече клуба
+              {t('attExpressTitle')}
             </h3>
             <p className="text-xs text-[#a39b94] leading-relaxed">
-              На входе в пространство Shanyraq Hub сканируйте клубный QR-код или выберите встречу ниже для моментального начисления XP и Shanyraq Coins.
+              {t('attExpressText')}
             </p>
           </div>
 
           {/* Interactive controls */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-[#191615] p-3 rounded-xl border border-[#352f2c]">
             <div className="w-full sm:w-auto">
-              <label className="text-[10px] text-[#8c8279] uppercase block mb-1">Событие</label>
+              <label className="text-[10px] text-[#8c8279] uppercase block mb-1">{t('attEvent')}</label>
               <select
                 value={selectedEventId}
                 onChange={e => setSelectedEventId(e.target.value)}
@@ -174,7 +174,7 @@ export const AttendanceView: React.FC = () => {
             </div>
 
             <div className="w-full sm:w-auto">
-              <label className="text-[10px] text-[#8c8279] uppercase block mb-1">Участник</label>
+              <label className="text-[10px] text-[#8c8279] uppercase block mb-1">{t('attMember')}</label>
               <select
                 value={selectedUserId}
                 onChange={e => setSelectedUserId(e.target.value)}
@@ -203,11 +203,11 @@ export const AttendanceView: React.FC = () => {
               <button
                 onClick={handleSimulateQrCheckIn}
                 disabled={qrScanning || !selectedEventId || !selectedUserId}
-                title={!selectedEventId ? 'В календаре пока нет мероприятий' : undefined}
+                title={!selectedEventId ? t('attNoEvents') : undefined}
                 className="w-full px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] disabled:opacity-50 text-xs font-semibold text-[#1e1b1a] transition-all flex items-center justify-center gap-1.5"
               >
                 <QrCode className="w-3.5 h-3.5" />
-                <span>{qrScanning ? 'Сканирование...' : t('actionCheckIn')}</span>
+                <span>{qrScanning ? t('attScanning') : t('actionCheckIn')}</span>
               </button>
             </div>
           </div>
@@ -228,10 +228,10 @@ export const AttendanceView: React.FC = () => {
       <div className="rounded-2xl bg-[#23201e] border border-[#352f2c] overflow-hidden">
         <div className="p-4 border-b border-[#302a28] flex items-center justify-between">
           <h3 className="font-display text-sm font-bold text-[#f5f2eb]">
-            История посещений участников клуба
+            {t('attHistoryTitle')}
           </h3>
           <span className="text-xs text-[#8c8279]">
-            Показано {allVisits.length} записей
+            {t('attShown').replace('{n}', String(allVisits.length))}
           </span>
         </div>
 
@@ -266,16 +266,16 @@ export const AttendanceView: React.FC = () => {
                   {item.status === 'attended' ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-950/70 text-emerald-400 border border-emerald-800">
                       <CheckCircle className="w-3 h-3" />
-                      Посетил
+                      {t('prfAttended')}
                     </span>
                   ) : item.status === 'registered' ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#2a2522] text-[#dfcfb3] border border-[#443b36]">
                       <Clock className="w-3 h-3" />
-                      Записан
+                      {t('prfSignedUp')}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-[#736a62]">
-                      Отменено
+                      {t('attCancelled')}
                     </span>
                   )}
                 </div>
@@ -286,8 +286,8 @@ export const AttendanceView: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-[#8c8279] font-mono pt-1">
-                <span>Дата: {item.date}</span>
-                <span>Отметка: {item.checkInTime || '—'}</span>
+                <span>{t('evFormDate')}: {item.date}</span>
+                <span>{t('attCheckIn')}: {item.checkInTime || '—'}</span>
               </div>
             </div>
           ))}
@@ -298,11 +298,11 @@ export const AttendanceView: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-[#1a1716] text-[#8c8279] uppercase text-[10px] tracking-wider border-b border-[#302a28]">
               <tr>
-                <th className="px-4 py-3">Участник</th>
-                <th className="px-4 py-3">Мероприятие</th>
-                <th className="px-4 py-3">Дата встречи</th>
-                <th className="px-4 py-3">Время отметки</th>
-                <th className="px-4 py-3 text-right">Статус верификации</th>
+                <th className="px-4 py-3">{t('attMember')}</th>
+                <th className="px-4 py-3">{t('attEvent')}</th>
+                <th className="px-4 py-3">{t('attMeetupDate')}</th>
+                <th className="px-4 py-3">{t('attCheckInTime')}</th>
+                <th className="px-4 py-3 text-right">{t('attStatus')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2d2725]">
@@ -344,16 +344,16 @@ export const AttendanceView: React.FC = () => {
                     {item.status === 'attended' ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-950/70 text-emerald-400 border border-emerald-800">
                         <CheckCircle className="w-3 h-3" />
-                        Посетил (+60 XP)
+                        {t('prfAttended')}
                       </span>
                     ) : item.status === 'registered' ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#2a2522] text-[#dfcfb3] border border-[#443b36]">
                         <Clock className="w-3 h-3" />
-                        Зарегистрирован
+                        {t('prfSignedUp')}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-[#736a62]">
-                        Отменено
+                        {t('attCancelled')}
                       </span>
                     )}
                   </td>

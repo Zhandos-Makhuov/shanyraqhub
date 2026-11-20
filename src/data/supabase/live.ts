@@ -16,6 +16,9 @@ import type {
 import type { AppNotification, AuditLog, ChatMessage, CoinTransaction, CommunityEvent, DirectionId, ItemCategory, PeerReview, EncryptedChatRoom, ForumTopic, ReadBook, UserProfile, UserRole } from '../../types';
 import { hasRole } from '../../utils/permissions';
 import { roleFromDb, roleToDb } from './adapters';
+import { TRANSLATIONS } from '../translations';
+import { ALL_ACHIEVEMENTS } from '../achievements';
+import { SHOP_ITEMS } from '../gamification';
 
 export interface LiveSnapshot {
   users: UserProfile[];
@@ -37,7 +40,7 @@ export interface MembershipApplication {
   message: string;
   createdAt: string;
 }
-interface LedgerRow { id: number; user_id: string; coin_delta: number; reason: string; created_at: string }
+interface LedgerRow { id: number; user_id: string; coin_delta: number; reason: string; created_at: string; source: string; source_id: string | null }
 interface AuditRow { id: number; actor_id: string | null; action: string; target_type: string | null; target_id: string | null; details: Record<string, unknown>; created_at: string }
 
 interface ForumCategoryRow { id: string; name_ru: string; name_kz: string; name_en: string; sort_order: number }
@@ -134,7 +137,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       // RLS: own applications, active members of every direction, and pending ones the member may decide on.
       rows<MembershipRow & { message: string | null }>(c.from('memberships').select('id, user_id, direction, status, role, created_at, message')),
       rows<ProfileContactRow>(c.from('profile_contacts').select('user_id, phone')),            // own (admins: all)
-      rows<LedgerRow>(c.from('reward_ledger').select('id, user_id, coin_delta, reason, created_at')    // own (admins: all)
+      rows<LedgerRow>(c.from('reward_ledger').select('id, user_id, coin_delta, reason, created_at, source, source_id')    // own (admins: all)
         .neq('coin_delta', 0).order('created_at', { ascending: false }).limit(300)),
       rows<AuditRow>(c.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200)), // admins only
     ]);
@@ -206,9 +209,26 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       }),
     };
   });
+  // The server writes the reason in Russian; Kazakh/English are built from the entry's source type.
+  // An admin's manual adjustment keeps the admin's own words.
+  const ledgerReason = (l: LedgerRow, lang: 'kz' | 'en'): string => {
+    const tr = TRANSLATIONS[lang];
+    const nameKey = lang === 'kz' ? 'Kz' : 'En';
+    const ach = ALL_ACHIEVEMENTS.find(x => x.id === l.source_id);
+    if (l.source === 'admin_adjustment') {
+      // Revoking an achievement is recorded as an adjustment with the achievement's id.
+      return ach ? `${tr.ledger_achievement_revoked}: «${ach[`title${nameKey}`]}»` : `${tr.ledger_admin_adjustment}: ${l.reason}`;
+    }
+    const label = tr[`ledger_${l.source}`];
+    if (!label) return l.reason;
+    const item = l.source === 'shop_purchase' ? SHOP_ITEMS.find(i => i.id === l.source_id) : undefined;
+    const ev = l.source === 'event_attendance' || l.source === 'event_feedback' ? events.find(e => e.id === l.source_id) : undefined;
+    const detail = l.source === 'achievement' && ach ? ach[`title${nameKey}`] : item ? item[`name${nameKey}`] : ev?.title;
+    return detail ? (detail.startsWith('«') ? `${label}: ${detail}` : `${label}: «${detail}»`) : label;
+  };
   const coinTransactions: CoinTransaction[] = ledger.map(l => ({
     id: String(l.id), userId: l.user_id, amount: Math.abs(l.coin_delta), type: l.coin_delta > 0 ? 'earn' : 'spend',
-    reasonRu: l.reason, reasonKz: l.reason, reasonEn: l.reason, createdAt: formatDateTime(l.created_at),
+    reasonRu: l.reason, reasonKz: ledgerReason(l, 'kz'), reasonEn: ledgerReason(l, 'en'), createdAt: formatDateTime(l.created_at),
   }));
   const auditLogs: AuditLog[] = audits.map(a => ({
     id: String(a.id), adminId: a.actor_id ?? '', adminName: a.actor_id ? nameOf(a.actor_id).name : 'Система',

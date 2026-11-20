@@ -63,7 +63,8 @@ const T: Record<string, Record<Lang, string>> = {
     en: 'Shanyraq Hub: “Open the club” — events, books, forum, achievements. Notifications arrive here automatically.',
   },
 };
-const lang = (code?: string): Lang => (code === 'kk' ? 'kz' : code?.startsWith('ru') ? 'ru' : code ? 'en' : 'ru');
+// Owner decision: Kazakh is the club's main language; English only for English-language Telegram.
+const lang = (code?: string): Lang => (code?.startsWith('en') ? 'en' : 'kz');
 const t = (key: string, l: Lang, vars: Record<string, string> = {}) =>
   Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, escapeHtml(v)), T[key][l]);
 const openButton = (l: Lang) => ({ inline_keyboard: [[{ text: t('open', l), web_app: { url: env('SHQ_SITE_URL') } }]] });
@@ -114,7 +115,7 @@ const dispatch = async () => {
   let sent = 0, failed = 0;
   const blocked: number[] = [];
   for (const r of rows) { // sequential: stays far below Telegram's 30 messages/second
-    const res = await say(r.chat_id, `<b>${escapeHtml(r.title)}</b>\n${escapeHtml(r.body)}`, 'ru');
+    const res = await say(r.chat_id, `<b>${escapeHtml(r.title)}</b>\n${escapeHtml(r.body)}`, 'kz');
     if (res.json.ok) sent++;
     else if (res.status === 403) blocked.push(r.chat_id);
     else failed++;
@@ -130,7 +131,7 @@ const setup = async (functionUrl: string) => {
   const hook = await api('setWebhook', {
     url: functionUrl, secret_token: await webhookSecret(), allowed_updates: ['message', 'my_chat_member'], drop_pending_updates: true,
   });
-  const commands = await api('setMyCommands', { commands: [{ command: 'start', description: 'Открыть клуб' }, { command: 'help', description: 'Помощь' }] });
+  const commands = await api('setMyCommands', { commands: [{ command: 'start', description: 'Клубты ашу' }, { command: 'help', description: 'Көмек' }] });
   const menu = await api('setChatMenuButton', { menu_button: { type: 'web_app', text: 'Клуб', web_app: { url: env('SHQ_SITE_URL') } } });
   const saved = await db().rpc('set_app_setting', { p_key: 'telegram_bot_username', p_value: username });
   return { username, webhook: hook.json.ok, commands: commands.json.ok, menu: menu.json.ok, saved: !saved.error };

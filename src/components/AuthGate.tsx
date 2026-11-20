@@ -30,10 +30,10 @@ export interface LiveAccount {
 
 type Mode = 'signin' | 'signup' | 'forgot' | 'check-email' | 'reset-sent';
 
-const LANGS: Language[] = ['ru', 'kz', 'en'];
+const LANGS: Language[] = ['kz', 'ru', 'en'];
 
 const useAuthT = () => {
-  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('shanyraq_lang') as Language) || 'ru');
+  const [language, setLanguage] = useState<Language>(() => (localStorage.getItem('shanyraq_lang') as Language) || 'kz');
   const t = (key: string) => TRANSLATIONS[language]?.[key] || TRANSLATIONS.ru[key] || key;
   const change = (lang: Language) => {
     localStorage.setItem('shanyraq_lang', lang);

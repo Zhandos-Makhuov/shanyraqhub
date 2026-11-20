@@ -17,7 +17,7 @@ const RENEW_BEFORE_MS = 20_000;
 const Overlay: React.FC<{ onClose: () => void; title: string; children: React.ReactNode }> = ({ onClose, title, children }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
     <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl p-5 space-y-4">
-      <button onClick={onClose} aria-label="Закрыть" className="absolute right-3 top-3 p-1.5 rounded-lg text-[#8c8279] hover:text-[#f5f2eb] hover:bg-[#2d2825]">
+      <button onClick={onClose} aria-label="×" className="absolute right-3 top-3 p-1.5 rounded-lg text-[#8c8279] hover:text-[#f5f2eb] hover:bg-[#2d2825]">
         <X className="w-4 h-4" />
       </button>
       <h2 className="font-display text-base font-bold text-[#f5f2eb] pr-8 flex items-center gap-2">

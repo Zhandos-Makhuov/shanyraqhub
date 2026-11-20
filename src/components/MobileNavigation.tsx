@@ -26,6 +26,7 @@ export const MobileNavigation: React.FC = () => {
     language,
     setLanguage,
     t,
+    ln,
   } = useApp();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -140,7 +141,7 @@ export const MobileNavigation: React.FC = () => {
           >
             <Menu className="w-4 h-4" />
             <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
-              {language === 'kz' ? 'Мәзір' : language === 'en' ? 'Menu' : 'Меню'}
+              {t('navMenu')}
             </span>
           </button>
         </div>
@@ -170,7 +171,7 @@ export const MobileNavigation: React.FC = () => {
                     {currentUser.name}
                   </span>
                   <span className={`text-[10px] font-semibold ${userTier.textColor}`}>
-                    {userTier.nameRu} · {currentUser.xp} XP
+                    {ln(userTier)} · {currentUser.xp} XP
                   </span>
                 </div>
               </div>
@@ -187,7 +188,7 @@ export const MobileNavigation: React.FC = () => {
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#191615] border border-[#302a28] text-xs">
               <span className="text-[#8c8279] flex items-center gap-1.5">
                 <Globe className="w-3.5 h-3.5 text-[#dfcfb3]" />
-                <span>Язык интерфейса:</span>
+                <span>{t('navLanguage')}:</span>
               </span>
               <div className="flex items-center gap-1">
                 {(['ru', 'kz', 'en'] as const).map(l => (
@@ -209,7 +210,7 @@ export const MobileNavigation: React.FC = () => {
             {/* All Sections List */}
             <div className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#736a62] px-2 block mb-1">
-                Все разделы сообщества
+                {t('navAllSections')}
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -244,13 +245,13 @@ export const MobileNavigation: React.FC = () => {
             {/* Quick Profile & Shop footer in drawer */}
             <div className="pt-2 border-t border-[#302a28] flex items-center justify-between text-xs text-[#8c8279]">
               <span className="font-mono text-amber-400 font-semibold">
-                Баланс: {currentUser.coins} 🪙
+                {t('navBalance')}: {currentUser.coins} 🪙
               </span>
               <button
                 onClick={() => handleSelectTab('profile')}
                 className="text-[#dfcfb3] hover:underline font-medium"
               >
-                Открыть профиль →
+                {t('navOpenProfile')} →
               </button>
             </div>
           </div>

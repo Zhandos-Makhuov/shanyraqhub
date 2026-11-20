@@ -29,6 +29,7 @@ export const ForumAndChatsView: React.FC = () => {
     allUsers,
     language,
     t,
+    lf,
   } = useApp();
 
   const [activeSection, setActiveSection] = useState<'forum' | 'encrypted_rooms'>('forum');
@@ -122,7 +123,7 @@ export const ForumAndChatsView: React.FC = () => {
           <div className={`lg:col-span-5 space-y-3 ${mobileForumView === 'thread' ? 'hidden lg:block' : 'block'}`}>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#8c8279] uppercase tracking-wider">
-                Обсуждения ({forumTopics.length})
+                {t('frmDiscussions')} ({forumTopics.length})
               </span>
               <button
                 onClick={() => setShowCreateTopicModal(true)}
@@ -151,11 +152,11 @@ export const ForumAndChatsView: React.FC = () => {
                   >
                     <div className="flex items-center justify-between text-[11px] mb-1">
                       <span className="font-semibold text-[#dfcfb3]">
-                        {topic.categoryNameRu}
+                        {lf(topic, 'categoryName')}
                       </span>
                       {topic.isPinned && (
                         <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-950/70 text-amber-300 border border-amber-800">
-                          Закреплено
+                          {t('frmPinned')}
                         </span>
                       )}
                     </div>
@@ -188,7 +189,7 @@ export const ForumAndChatsView: React.FC = () => {
                     className="flex items-center gap-1.5 text-xs text-[#dfcfb3] hover:text-white font-medium"
                   >
                     <ArrowLeft className="w-4 h-4" />
-                    <span>Назад ко всем темам</span>
+                    <span>{t('frmBack')}</span>
                   </button>
                 </div>
 
@@ -196,7 +197,7 @@ export const ForumAndChatsView: React.FC = () => {
                 <div className="space-y-3 pb-4 border-b border-[#302a28]">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-[#dfcfb3]">
-                      {activeTopic.categoryNameRu}
+                      {lf(activeTopic, 'categoryName')}
                     </span>
                     <button
                       onClick={() => upvoteTopic(activeTopic.id)}
@@ -236,12 +237,12 @@ export const ForumAndChatsView: React.FC = () => {
                 {/* Replies Thread */}
                 <div className="space-y-4">
                   <h4 className="text-xs font-bold text-[#8c8279] uppercase tracking-wider">
-                    Ответы ({activeTopic.replies.length})
+                    {t('frmReplies')} ({activeTopic.replies.length})
                   </h4>
 
                   {activeTopic.replies.length === 0 ? (
                     <div className="py-8 text-center text-xs text-[#8c8279]">
-                      Пока нет ответов. Будьте первым, кто поделится мыслями!
+                      {t('frmNoReplies')}
                     </div>
                   ) : (
                     activeTopic.replies.map(reply => (
@@ -271,7 +272,7 @@ export const ForumAndChatsView: React.FC = () => {
                                 ? 'bg-[#dfcfb3] text-[#1e1b1a] font-bold'
                                 : 'text-[#8c8279] hover:text-[#f5f2eb] bg-[#272321]'
                             }`}
-                            title="Отметить как полезный ответ (+15 XP автору)"
+                            title={t('frmUpvoteTitle')}
                           >
                             <ThumbsUp className="w-3 h-3" />
                             <span>{reply.upvotes.length}</span>
@@ -292,7 +293,7 @@ export const ForumAndChatsView: React.FC = () => {
             <form onSubmit={handleReplySubmit} className="p-4 bg-[#1e1b1a] border-t border-[#302a28] flex gap-2">
               <input
                 type="text"
-                placeholder="Напишите аргументированный ответ (+20 XP)..."
+                placeholder={t('frmReplyPlaceholder')}
                 value={replyText}
                 onChange={e => setReplyText(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
@@ -314,15 +315,15 @@ export const ForumAndChatsView: React.FC = () => {
         visibleRooms.length === 0 ? (
           <div className="rounded-2xl bg-[#23201e] border border-[#352f2c] p-8 text-center space-y-2">
             <Lock className="w-6 h-6 text-[#8c8279] mx-auto" />
-            <p className="text-sm font-semibold text-[#f5f2eb]">Закрытых комнат пока нет</p>
-            <p className="text-xs text-[#8c8279]">Комнаты направлений создаёт администрация клуба. Они появятся здесь.</p>
+            <p className="text-sm font-semibold text-[#f5f2eb]">{t('frmNoRooms')}</p>
+            <p className="text-xs text-[#8c8279]">{t('frmNoRoomsText')}</p>
           </div>
         ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Room Selector (4 cols) */}
           <div className={`lg:col-span-4 space-y-3 ${mobileChatView === 'chat' ? 'hidden lg:block' : 'block'}`}>
             <span className="text-xs font-semibold text-[#8c8279] uppercase tracking-wider block">
-              Закрытые каналы направлений
+              {t('frmRooms')}
             </span>
 
             <div className="space-y-2">
@@ -344,19 +345,19 @@ export const ForumAndChatsView: React.FC = () => {
                     <div className="flex items-center justify-between text-xs mb-1">
                       <span className="font-bold text-[#f5f2eb] flex items-center gap-1.5">
                         <Lock className="w-3.5 h-3.5 text-amber-500" />
-                        {room.titleRu}
+                        {lf(room, 'title')}
                       </span>
                     </div>
 
                     <p className="text-[11px] text-[#9e948c] line-clamp-2 mt-1">
-                      {room.descriptionRu}
+                      {lf(room, 'description')}
                     </p>
 
                     <div className="mt-3 pt-2 border-t border-[#302a28] flex items-center justify-between text-[10px] text-[#8c8279]">
                       <span className="font-mono text-[#dfcfb3]">
-                        {room.accessLevel === 'moderators' ? 'Совет модераторов' : 'Резиденты клуба'}
+                        {room.accessLevel === 'moderators' ? t('frmModCouncil') : t('frmResidents')}
                       </span>
-                      <span>{room.memberCount} участников</span>
+                      <span>{room.memberCount} {t('frmMembers')}</span>
                     </div>
                   </div>
                 );
@@ -376,21 +377,21 @@ export const ForumAndChatsView: React.FC = () => {
                     className="flex items-center gap-1.5 text-xs text-[#dfcfb3] hover:text-white font-medium"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>К списку каналов</span>
+                    <span>{t('frmBackToRooms')}</span>
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
                   <h3 className="font-display text-sm font-bold text-[#f5f2eb]">
-                    {activeRoom.titleRu}
+                    {lf(activeRoom, 'title')}
                   </h3>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800">
-                    Закрытый чат
+                    {t('frmPrivateChat')}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#8c8279] mt-0.5">
                   <Key className="w-3 h-3 text-[#dfcfb3]" />
-                  <span>Доступ: {activeRoom.accessLevel === 'moderators' ? 'Совет модераторов' : 'Резиденты клуба'}</span>
+                  <span>{t('frmAccess')}: {activeRoom.accessLevel === 'moderators' ? t('frmModCouncil') : t('frmResidents')}</span>
                 </div>
               </div>
 
@@ -438,7 +439,7 @@ export const ForumAndChatsView: React.FC = () => {
             <form onSubmit={handleSendChat} className="p-4 bg-[#1a1716] border-t border-[#302a28] flex gap-2">
               <input
                 type="text"
-                placeholder="Сообщение для участников комнаты..."
+                placeholder={t('frmMessagePlaceholder')}
                 value={chatMessageText}
                 onChange={e => setChatMessageText(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
@@ -474,47 +475,47 @@ export const ForumAndChatsView: React.FC = () => {
             <form onSubmit={handleCreateTopicSubmit} className="space-y-3 text-xs">
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
-                  Тема обсуждения *
+                  {t('frmTopicTitle')} *
                 </label>
                 <input
                   type="text"
                   required
                   value={newTopicTitle}
                   onChange={e => setNewTopicTitle(e.target.value)}
-                  placeholder="О чем хотите поговорить с резидентами?"
+                  placeholder={t('frmTopicPlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
                 />
               </div>
 
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
-                  Раздел / Направление
+                  {t('frmSection')}
                 </label>
                 <select
                   value={newTopicCategory}
                   onChange={e => setNewTopicCategory(e.target.value as DirectionId)}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
                 >
-                  <option value="books">Книжная полка & Рецензии</option>
+                  <option value="books">{t('frmCatBooks')}</option>
                   <option value="english">Speaking English Club</option>
-                  <option value="arabic">Арабский язык & Каллиграфия</option>
-                  <option value="sport">Спорт и бег Tarlan</option>
-                  <option value="art">Арт-терапия и керамика</option>
-                  <option value="intellect">Интеллектуальные игры Zerde</option>
-                  <option value="general">Общие анонсы и идеи</option>
+                  <option value="arabic">{t('frmCatArabic')}</option>
+                  <option value="sport">{t('frmCatSport')}</option>
+                  <option value="art">{t('frmCatArt')}</option>
+                  <option value="intellect">{t('frmCatIntellect')}</option>
+                  <option value="general">{t('frmCatGeneral')}</option>
                 </select>
               </div>
 
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
-                  Текст публикации *
+                  {t('frmPostText')} *
                 </label>
                 <textarea
                   rows={4}
                   required
                   value={newTopicContent}
                   onChange={e => setNewTopicContent(e.target.value)}
-                  placeholder="Опишите подробности, задайте наводящие вопросы..."
+                  placeholder={t('frmPostPlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
                 />
               </div>
@@ -531,7 +532,7 @@ export const ForumAndChatsView: React.FC = () => {
                   type="submit"
                   className="px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-xs font-semibold text-[#1e1b1a]"
                 >
-                  Опубликовать (+30 XP, +15 🪙)
+                  {t('frmPublish')} (+30 XP, +15 🪙)
                 </button>
               </div>
             </form>

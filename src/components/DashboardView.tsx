@@ -100,7 +100,7 @@ export const DashboardView: React.FC = () => {
                     {t('nextLevelAt')}: <span className="text-[#f5f2eb] font-mono-numbers">{nextTier.minXp} XP</span> ({language === 'kz' ? nextTier.nameKz : language === 'en' ? nextTier.nameEn : nextTier.nameRu})
                   </>
                 ) : (
-                  'Максимальный ранг достигнут 👑'
+                  t('dashMaxTier')
                 )}
               </span>
             </div>
@@ -143,40 +143,40 @@ export const DashboardView: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <div className="p-3 sm:p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
           <div className="flex items-center justify-between text-[#8c8279] mb-1">
-            <span className="text-[11px] sm:text-xs font-medium">Резидентов</span>
+            <span className="text-[11px] sm:text-xs font-medium">{t('dashMembers')}</span>
             <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
           </div>
           <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
             {stats.members}
           </div>
-          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">участников в клубе</span>
+          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">{t('dashMembersSub')}</span>
         </div>
 
         <div className="p-3 sm:p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
           <div className="flex items-center justify-between text-[#8c8279] mb-1">
-            <span className="text-[11px] sm:text-xs font-medium">Книг в базе</span>
+            <span className="text-[11px] sm:text-xs font-medium">{t('dashBooks')}</span>
             <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
           </div>
           <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
             {stats.reviewedBooks}
           </div>
-          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">с рецензиями</span>
+          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">{t('dashBooksSub')}</span>
         </div>
 
         <div className="p-3 sm:p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
           <div className="flex items-center justify-between text-[#8c8279] mb-1">
-            <span className="text-[11px] sm:text-xs font-medium">Визитов на встречи</span>
+            <span className="text-[11px] sm:text-xs font-medium">{t('dashVisits')}</span>
             <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
           </div>
           <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
             {stats.verifiedVisits}
           </div>
-          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">подтвержденная явка</span>
+          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">{t('dashVisitsSub')}</span>
         </div>
 
         <div className="p-3 sm:p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
           <div className="flex items-center justify-between text-[#8c8279] mb-1">
-            <span className="text-[11px] sm:text-xs font-medium">Удовлетворенность</span>
+            <span className="text-[11px] sm:text-xs font-medium">{t('dashSatisfaction')}</span>
             <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
           </div>
           <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
@@ -184,7 +184,7 @@ export const DashboardView: React.FC = () => {
             <span className="text-[10px] sm:text-xs text-[#8c8279] font-normal">/ 5.0</span>
           </div>
           <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">
-            {stats.feedbackCount > 0 ? `по ${stats.feedbackCount} отзывам о встречах` : 'отзывов о встречах пока нет'}
+            {stats.feedbackCount > 0 ? t('dashFeedbackCount').replace('{n}', String(stats.feedbackCount)) : t('dashNoFeedback')}
           </span>
         </div>
       </div>
@@ -197,14 +197,14 @@ export const DashboardView: React.FC = () => {
               {language === 'kz' ? 'Клубтық бағыттар' : language === 'en' ? 'Club Chapters & Focus Areas' : 'Направления Shanyraq Hub'}
             </h2>
             <p className="text-xs text-[#9e948c]">
-              Выберите активность для участия в событиях
+              {t('dashDirectionsSub')}
             </p>
           </div>
           <button
             onClick={() => setActiveTab('events')}
             className="text-xs text-[#dfcfb3] hover:underline flex items-center gap-1 font-medium shrink-0"
           >
-            <span>Встречи</span>
+            <span>{t('dashMeetups')}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -225,7 +225,7 @@ export const DashboardView: React.FC = () => {
                 </p>
               </div>
               <div className="mt-3 pt-2 border-t border-[#302a28] flex items-center justify-between text-[11px] text-[#8c8279]">
-                <span>Расписание встреч</span>
+                <span>{t('dashSchedule')}</span>
                 <ArrowRight className="w-3 h-3 text-[#dfcfb3] transition-transform group-hover:translate-x-1" />
               </div>
             </div>
@@ -241,7 +241,7 @@ export const DashboardView: React.FC = () => {
               {t('eventsUpcoming')}
             </h2>
             <p className="text-xs text-[#9e948c]">
-              Ближайшие встречи и мастер-классы клуба
+              {t('dashUpcoming')}
             </p>
           </div>
           <button
@@ -266,10 +266,10 @@ export const DashboardView: React.FC = () => {
                 <div className="p-4 sm:p-5 space-y-2.5 sm:space-y-3">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="font-medium text-[#dfcfb3]">
-                      {event.format === 'offline' ? '🏛 Офлайн' : '🌐 Онлайн эфир'}
+                      {event.format === 'offline' ? `🏛 ${t('evOffline')}` : `🌐 ${t('evOnlineLive')}`}
                     </span>
                     <span className="font-mono text-[#9e948c]">
-                      {seatsLeft > 0 ? `Осталось ${seatsLeft} мест` : 'Все места заняты'}
+                      {seatsLeft > 0 ? t('dashSeatsLeft').replace('{n}', String(seatsLeft)) : t('dashAllTaken')}
                     </span>
                   </div>
 
@@ -284,7 +284,7 @@ export const DashboardView: React.FC = () => {
                   <div className="pt-2 space-y-1.5 text-xs text-[#8c8279] border-t border-[#302a28]">
                     <div className="flex items-center gap-2">
                       <Clock className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
-                      <span className="truncate">{event.date} в {event.time} ({event.durationMinutes} мин)</span>
+                      <span className="truncate">{event.date} {t('evAt')} {event.time} ({event.durationMinutes} {t('evMin')})</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
@@ -310,7 +310,7 @@ export const DashboardView: React.FC = () => {
                       onClick={() => cancelEventRegistration(event.id)}
                       className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3a3330] text-xs font-medium text-[#dfcfb3] transition-colors shrink-0"
                     >
-                      {t('actionRegistered')} (отмена)
+                      {t('actionRegistered')} ({t('evCancelShort')})
                     </button>
                   ) : (
                     <button

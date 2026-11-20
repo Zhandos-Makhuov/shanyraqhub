@@ -30,6 +30,7 @@ export const EventsView: React.FC = () => {
     issueCheckInCode,
     language,
     t,
+    ln,
   } = useApp();
 
   const [selectedDirection, setSelectedDirection] = useState<string>('all');
@@ -106,8 +107,8 @@ export const EventsView: React.FC = () => {
       durationMinutes: Number(newDuration),
       format: newFormat,
       locationAddress: newAddress.trim(),
-      description: newDescription.trim() || 'Клубная встреча резидентов Shanyraq Hub',
-      requiredMaterials: materialsArray.length > 0 ? materialsArray : ['Хорошее настроение и открытость новому'],
+      description: newDescription.trim() || t('evDefaultDescription'),
+      requiredMaterials: materialsArray.length > 0 ? materialsArray : [t('evDefaultMaterial')],
       maxCapacity: Number(newCapacity),
     });
 
@@ -132,7 +133,7 @@ export const EventsView: React.FC = () => {
             {t('tabEvents')}
           </h1>
           <p className="text-xs text-[#9e948c]">
-            Календарь встреч, запись в один клик и экспорт в Apple/Google Calendar
+            {t('evSubtitle')}
           </p>
         </div>
 
@@ -185,7 +186,7 @@ export const EventsView: React.FC = () => {
                 selectedFormat === 'all' ? 'bg-[#352f2c] text-[#f5f2eb]' : 'text-[#8c8279]'
               }`}
             >
-              Все
+              {t('evFormatAll')}
             </button>
             <button
               onClick={() => setSelectedFormat('offline')}
@@ -193,7 +194,7 @@ export const EventsView: React.FC = () => {
                 selectedFormat === 'offline' ? 'bg-[#352f2c] text-[#f5f2eb]' : 'text-[#8c8279]'
               }`}
             >
-              Офлайн
+              {t('evOffline')}
             </button>
             <button
               onClick={() => setSelectedFormat('online')}
@@ -201,7 +202,7 @@ export const EventsView: React.FC = () => {
                 selectedFormat === 'online' ? 'bg-[#352f2c] text-[#f5f2eb]' : 'text-[#8c8279]'
               }`}
             >
-              Онлайн
+              {t('evOnline')}
             </button>
           </div>
 
@@ -223,16 +224,16 @@ export const EventsView: React.FC = () => {
         <div className="p-8 sm:p-12 text-center rounded-2xl bg-[#23201e] border border-[#352f2c] space-y-3">
           <FilterX className="w-10 h-10 text-[#8c8279] mx-auto opacity-40" />
           <h3 className="font-display text-base font-bold text-[#f5f2eb]">
-            Мероприятий не найдено
+            {t('evEmptyTitle')}
           </h3>
           <p className="text-xs text-[#9e948c] max-w-sm mx-auto">
-            По выбранному фильтру или запросу события отсутствуют. Попробуйте сбросить фильтры.
+            {t('evEmptyText')}
           </p>
           <button
             onClick={resetFilters}
             className="px-4 py-2 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] text-xs font-semibold text-[#dfcfb3] border border-[#483f3a] transition-colors"
           >
-            Сбросить фильтры
+            {t('evResetFilters')}
           </button>
         </div>
       ) : (
@@ -259,7 +260,7 @@ export const EventsView: React.FC = () => {
                         : event.direction}
                     </span>
                     <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#2d2825] text-[#b0a79d] border border-[#3f3834]">
-                      {event.format === 'offline' ? 'Офлайн' : 'Онлайн эфир'}
+                      {event.format === 'offline' ? t('evOffline') : t('evOnlineLive')}
                     </span>
                   </div>
 
@@ -280,7 +281,7 @@ export const EventsView: React.FC = () => {
                   <div className="pt-2 space-y-1.5 text-xs text-[#9e948c] border-t border-[#302a28]">
                     <div className="flex items-center gap-2">
                       <Clock className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
-                      <span className="truncate">{event.date} в {event.time} ({event.durationMinutes} мин)</span>
+                      <span className="truncate">{event.date} {t('evAt')} {event.time} ({event.durationMinutes} {t('evMin')})</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
@@ -289,7 +290,7 @@ export const EventsView: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Users className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
                       <span className="truncate">
-                        Записано {event.registeredUserIds.length} из {event.maxCapacity} ({seatsLeft > 0 ? `осталось ${seatsLeft}` : 'мест нет'})
+                        {t('evRegistered')} {event.registeredUserIds.length} / {event.maxCapacity} ({seatsLeft > 0 ? `${t('evSeatsLeft')} ${seatsLeft}` : t('evNoSeats')})
                       </span>
                     </div>
                   </div>
@@ -306,7 +307,7 @@ export const EventsView: React.FC = () => {
                         ))}
                         {event.requiredMaterials.length > 2 && (
                           <li className="text-[10px] text-[#736a62]">
-                            и еще {event.requiredMaterials.length - 2} пункта...
+                            {t('evMoreItems')} {event.requiredMaterials.length - 2}…
                           </li>
                         )}
                       </ul>
@@ -329,7 +330,7 @@ export const EventsView: React.FC = () => {
                       onClick={() => setActiveModalEvent(event)}
                       className="text-xs text-[#a39b94] hover:text-[#f5f2eb] underline underline-offset-4"
                     >
-                      Подробнее
+                      {t('evDetails')}
                     </button>
                   </div>
 
@@ -348,7 +349,7 @@ export const EventsView: React.FC = () => {
                         onClick={() => setShowFeedbackModal(event)}
                         className="px-2.5 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] text-[11px] font-medium text-[#dfcfb3] border border-[#483f3a]"
                       >
-                        Отзыв
+                        {t('evFeedbackShort')}
                       </button>
                     )}
 
@@ -358,7 +359,7 @@ export const EventsView: React.FC = () => {
                         disabled={isStarted}
                         className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] disabled:hover:bg-[#2e2927] disabled:cursor-default text-xs font-medium text-[#dfcfb3] border border-[#483f3a] transition-colors"
                       >
-                        {isStarted ? t('actionRegistered') : `${t('actionRegistered')} (отмена)`}
+                        {isStarted ? t('actionRegistered') : `${t('actionRegistered')} (${t('evCancelShort')})`}
                       </button>
                     ) : (
                       <button
@@ -392,7 +393,7 @@ export const EventsView: React.FC = () => {
 
             <div>
               <span className="text-[11px] uppercase tracking-wider text-[#dfcfb3] font-semibold">
-                {activeModalEvent.direction.toUpperCase()} · {activeModalEvent.format === 'offline' ? 'Офлайн' : 'Онлайн'}
+                {activeModalEvent.direction.toUpperCase()} · {activeModalEvent.format === 'offline' ? t('evOffline') : t('evOnline')}
               </span>
               <h2 className="font-display text-lg sm:text-xl font-bold text-[#f5f2eb] mt-1 pr-6">
                 {activeModalEvent.title}
@@ -406,13 +407,13 @@ export const EventsView: React.FC = () => {
             {/* Date & Location */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 p-3 rounded-xl bg-[#1c1918] border border-[#302a28] text-xs">
               <div className="space-y-1">
-                <span className="text-[#8c8279] block">Дата и время:</span>
+                <span className="text-[#8c8279] block">{t('evDateTime')}:</span>
                 <span className="text-[#f5f2eb] font-medium font-mono-numbers">
-                  {activeModalEvent.date} в {activeModalEvent.time} ({activeModalEvent.durationMinutes} мин)
+                  {activeModalEvent.date} {t('evAt')} {activeModalEvent.time} ({activeModalEvent.durationMinutes} {t('evMin')})
                 </span>
               </div>
               <div className="space-y-1">
-                <span className="text-[#8c8279] block">Место проведения:</span>
+                <span className="text-[#8c8279] block">{t('evPlace')}:</span>
                 <span className="text-[#f5f2eb] font-medium">
                   {activeModalEvent.locationAddress}
                 </span>
@@ -534,7 +535,7 @@ export const EventsView: React.FC = () => {
               {t('actionLeaveFeedback')}
             </h3>
             <p className="text-xs text-[#a39b94]">
-              Оцените встречу «{showFeedbackModal.title}». За честную обратную связь вы получите +30 XP и +20 коинов!
+              {t('evRateIntro')} «{showFeedbackModal.title}». {t('evRateReward')}
             </p>
 
             <form onSubmit={handleFeedbackSubmit} className="space-y-4">
@@ -584,13 +585,13 @@ export const EventsView: React.FC = () => {
 
               <div>
                 <label className="text-xs font-medium text-[#d6cebf] block mb-1">
-                  Ваш отзыв и инсайты:
+                  {t('evYourFeedback')}:
                 </label>
                 <textarea
                   rows={3}
                   value={feedbackComment}
                   onChange={e => setFeedbackComment(e.target.value)}
-                  placeholder="Что запомнилось больше всего? Что можно улучшить?"
+                  placeholder={t('evFeedbackPlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
                 />
               </div>
@@ -633,21 +634,21 @@ export const EventsView: React.FC = () => {
             <form onSubmit={handleCreateSubmit} className="space-y-3 text-xs">
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
-                  Название события *
+                  {t('evFormTitle')} *
                 </label>
                 <input
                   type="text"
                   required
                   value={newTitle}
                   onChange={e => setNewTitle(e.target.value)}
-                  placeholder="Например: Книжный вечер: Стефано Манкузо"
+                  placeholder={t('evFormTitlePlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">Направление</label>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('evFormDirection')}</label>
                   <select
                     value={newDirection}
                     onChange={e => setNewDirection(e.target.value as DirectionId)}
@@ -655,27 +656,27 @@ export const EventsView: React.FC = () => {
                   >
                     {COMMUNITY_DIRECTIONS.map(d => (
                       <option key={d.id} value={d.id}>
-                        {d.nameRu}
+                        {ln(d)}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">Формат</label>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('evFormFormat')}</label>
                   <select
                     value={newFormat}
                     onChange={e => setNewFormat(e.target.value as 'offline' | 'online')}
                     className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none"
                   >
-                    <option value="offline">Офлайн</option>
-                    <option value="online">Онлайн</option>
+                    <option value="offline">{t('evOffline')}</option>
+                    <option value="online">{t('evOnline')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">Дата</label>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('evFormDate')}</label>
                   <input
                     type="date"
                     required
@@ -685,7 +686,7 @@ export const EventsView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">Время</label>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('evFormTime')}</label>
                   <input
                     type="time"
                     required
@@ -695,7 +696,7 @@ export const EventsView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">Лимит мест</label>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('evFormCapacity')}</label>
                   <input
                     type="number"
                     min={5}
@@ -708,7 +709,7 @@ export const EventsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-medium text-[#d6cebf] block mb-1">Адрес / Ссылка</label>
+                <label className="font-medium text-[#d6cebf] block mb-1">{t('evFormAddress')}</label>
                 <input
                   type="text"
                   value={newAddress}
@@ -718,25 +719,25 @@ export const EventsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-medium text-[#d6cebf] block mb-1">Описание</label>
+                <label className="font-medium text-[#d6cebf] block mb-1">{t('evFormDescription')}</label>
                 <textarea
                   rows={2}
                   value={newDescription}
                   onChange={e => setNewDescription(e.target.value)}
-                  placeholder="Что будет на встрече, о чем поговорим..."
+                  placeholder={t('evFormDescriptionPlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
                 />
               </div>
 
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
-                  Необходимые материалы (каждый пункт с новой строки)
+                  {t('evFormMaterials')}
                 </label>
                 <textarea
                   rows={2}
                   value={newMaterials}
                   onChange={e => setNewMaterials(e.target.value)}
-                  placeholder="Книга первого тома&#10;Блокнот для записей&#10;Удобная форма"
+                  placeholder={t('evFormMaterialsPlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
                 />
               </div>
@@ -753,7 +754,7 @@ export const EventsView: React.FC = () => {
                   type="submit"
                   className="px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-xs font-semibold text-[#1e1b1a]"
                 >
-                  Опубликовать и оповестить
+                  {t('evPublish')}
                 </button>
               </div>
             </form>
