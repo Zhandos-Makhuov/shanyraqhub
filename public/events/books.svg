@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a1d14"/><stop offset="1" stop-color="#4a3320"/></linearGradient>
+<radialGradient id="l" cx="70%" cy="40%" r="60%"><stop offset="0" stop-color="#f5d77f" stop-opacity=".25"/><stop offset="1" stop-color="#f5d77f" stop-opacity="0"/></radialGradient></defs>
+<rect width="800" height="400" fill="url(#g)"/><rect width="800" height="400" fill="url(#l)"/>
+<g fill="none" stroke="#f5d77f" stroke-opacity=".14" stroke-width="3">
+<circle cx="140" cy="200" r="150"/><circle cx="140" cy="200" r="93.0"/>
+<path d="M-10 200 H290 M140 50 V350 M35.0 95.0 L245.0 305.0 M245.0 95.0 L35.0 305.0"/></g>
+
+<g transform="translate(470 120)">
+<path d="M0 40 Q80 0 160 40 V230 Q80 190 0 230 Z" fill="#f6efdc"/>
+<path d="M160 40 Q240 0 320 40 V230 Q240 190 160 230 Z" fill="#eadfc4"/>
+<path d="M160 40 V230" stroke="#b08d57" stroke-width="4"/>
+<g stroke="#b9a785" stroke-width="5" stroke-linecap="round"><path d="M30 80 H130 M30 105 H130 M30 130 H115 M190 80 H290 M190 105 H290 M190 130 H275 M30 155 H125 M190 155 H285"/></g>
+<path d="M240 30 v70 l14 -12 14 12 v-70z" fill="#c0392b"/></g>
+</svg>

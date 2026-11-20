@@ -146,6 +146,24 @@ export const DirectionsManager: React.FC = () => {
                 {t('dirRequiresApproval')}
               </label>
             </div>
+            {!isNew && (
+              <div>
+                <span className="text-[10px] text-[#8c8279] block mb-1">{t('dirCover')}</span>
+                <div className="flex items-center gap-3">
+                  <img src={COMMUNITY_DIRECTIONS.find(d => d.id === form.id)?.coverUrl || '/events/default.svg'} alt=""
+                       className="w-28 h-14 rounded-lg object-cover border border-[#3b3430]" />
+                  <label className={`px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3a3330] border border-[#483f3a] text-[#dfcfb3] text-xs font-semibold cursor-pointer ${busy ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {t('dirCoverUpload')}
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                           onChange={e => { const f = e.target.files?.[0]; if (f) void reloadAfter(liveApi.setDirectionCover(form.id, f)); }} />
+                  </label>
+                  <button type="button" disabled={busy} onClick={() => void reloadAfter(liveApi.setDirectionCover(form.id, null))}
+                          className="text-[11px] text-[#9e948c] hover:text-[#f5f2eb]">
+                    {t('dirCoverDefault')}
+                  </button>
+                </div>
+              </div>
+            )}
             {isNew && (
               <label className="block">
                 <span className="text-[10px] text-[#8c8279] block mb-0.5">{t('dirId')}</span>

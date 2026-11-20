@@ -4,6 +4,7 @@ import { Direction } from '../types';
 export const COMMUNITY_DIRECTIONS: Direction[] = [
   {
     id: 'books',
+    coverUrl: '/events/books.svg',
     nameRu: 'Книжный клуб «Шаңырақ Кітап»',
     nameKz: '«Шаңырақ Кітап» оқырмандар клубы',
     nameEn: 'Shanyraq Book Club',
@@ -18,6 +19,7 @@ export const COMMUNITY_DIRECTIONS: Direction[] = [
   },
   {
     id: 'english',
+    coverUrl: '/events/english.svg',
     nameRu: 'Speaking English Club «Til-Talk»',
     nameKz: '«Til-Talk» ағылшын сөйлесу клубы',
     nameEn: 'Speaking English Club Til-Talk',
@@ -32,6 +34,7 @@ export const COMMUNITY_DIRECTIONS: Direction[] = [
   },
   {
     id: 'arabic',
+    coverUrl: '/events/arabic.svg',
     nameRu: 'Арабский язык и каллиграфия',
     nameKz: 'Араб тілі және каллиграфия',
     nameEn: 'Arabic Language & Calligraphy',
@@ -46,6 +49,7 @@ export const COMMUNITY_DIRECTIONS: Direction[] = [
   },
   {
     id: 'sport',
+    coverUrl: '/events/sport.svg',
     nameRu: 'Спорт и беговой клуб «Tarlan»',
     nameKz: '«Tarlan» спорт және жүгіру клубы',
     nameEn: 'Tarlan Sports & Running Club',
@@ -60,6 +64,7 @@ export const COMMUNITY_DIRECTIONS: Direction[] = [
   },
   {
     id: 'art',
+    coverUrl: '/events/art.svg',
     nameRu: 'Арт-терапия и керамика',
     nameKz: 'Арт-терапия және қыш өнері',
     nameEn: 'Art Therapy & Pottery',
@@ -74,6 +79,7 @@ export const COMMUNITY_DIRECTIONS: Direction[] = [
   },
   {
     id: 'intellect',
+    coverUrl: '/events/intellect.svg',
     nameRu: 'Интеллектуальные игры & Zerde Quiz',
     nameKz: '«Зерде» зияткерлік ойындары',
     nameEn: 'Zerde Intellectual Games & Quiz',
@@ -88,6 +94,7 @@ export const COMMUNITY_DIRECTIONS: Direction[] = [
   },
   {
     id: 'networking',
+    coverUrl: '/events/networking.svg',
     nameRu: 'Нетворкинг и Чайная Церемония',
     nameKz: 'Нетворкинг және шай рәсімі',
     nameEn: 'Networking & Tea Gatherings',
@@ -104,3 +111,7 @@ export const COMMUNITY_DIRECTIONS: Direction[] = [
 
 /** Directions members can choose now (archived ones are left out; lookups by id still use the full list). */
 export const activeDirections = (): Direction[] => COMMUNITY_DIRECTIONS.filter(d => d.isActive !== false);
+
+/** Picture for an event: its own photo, else its direction's banner, else the club banner. */
+export const eventImage = (ev: { coverUrl?: string; direction: string }): string =>
+  ev.coverUrl || COMMUNITY_DIRECTIONS.find(d => d.id === ev.direction)?.coverUrl || '/events/default.svg';

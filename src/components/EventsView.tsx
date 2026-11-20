@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { COMMUNITY_DIRECTIONS, activeDirections } from '../data/directions';
+import { COMMUNITY_DIRECTIONS, activeDirections, eventImage } from '../data/directions';
+import { hasRole } from '../utils/permissions';
+import { isDemoData } from '../config/runtime';
 import { exportEventToIcs } from '../utils/calendar';
 import { hasEventStarted, isCheckInWindowOpen } from '../utils/eventTime';
 import { MyQrModal } from './CheckInQr';
@@ -28,6 +30,8 @@ export const EventsView: React.FC = () => {
     submitEventFeedback,
     createEvent,
     issueCheckInCode,
+    liveApi,
+    runLiveAction,
     language,
     t,
     ln,
@@ -57,6 +61,22 @@ export const EventsView: React.FC = () => {
   const [newDescription, setNewDescription] = useState('');
   const [newMaterials, setNewMaterials] = useState('');
   const [newCapacity, setNewCapacity] = useState(25);
+  const [newCoverFile, setNewCoverFile] = useState<File | null>(null);
+  const newCoverPreview = React.useMemo(() => (newCoverFile ? URL.createObjectURL(newCoverFile) : null), [newCoverFile]);
+  const [coverBusy, setCoverBusy] = useState(false);
+  // The default "what to bring" filler adds noise: it is not shown (old events may still have it saved).
+  const DEFAULT_MATERIALS = ['Хорошее настроение и открытость новому', 'Жақсы көңіл-күй және жаңаға ашықтық', 'A good mood and an open mind'];
+  const realMaterials = (ev: CommunityEvent) => (ev.requiredMaterials ?? []).filter(m => !DEFAULT_MATERIALS.includes(m.trim()));
+  // Who may change an event's picture: its organizer or a moderator+ (the database checks the same).
+  const canEditCover = (ev: CommunityEvent) => !isDemoData && !!liveApi && (hasRole(currentUser.role, 'moderator') || ev.hostId === currentUser.id);
+  const changeCover = async (ev: CommunityEvent, file: File | null) => {
+    if (!liveApi) return;
+    setCoverBusy(true);
+    try {
+      const r = await runLiveAction(file ? liveApi.uploadEventCover(ev.id, file) : liveApi.clearEventCover(ev.id));
+      if (r.ok) setActiveModalEvent(null);
+    } finally { setCoverBusy(false); }
+  };
 
   const isStaff =
     currentUser.role === 'super_admin' ||
@@ -108,9 +128,10 @@ export const EventsView: React.FC = () => {
       format: newFormat,
       locationAddress: newAddress.trim(),
       description: newDescription.trim() || t('evDefaultDescription'),
-      requiredMaterials: materialsArray.length > 0 ? materialsArray : [t('evDefaultMaterial')],
+      requiredMaterials: materialsArray,
       maxCapacity: Number(newCapacity),
-    });
+    }, newCoverFile ?? undefined);
+    setNewCoverFile(null);
 
     setShowCreateModal(false);
     setNewTitle('');
@@ -251,6 +272,13 @@ export const EventsView: React.FC = () => {
                 key={event.id}
                 className="rounded-2xl bg-[#23201e] border border-[#352f2c] hover:border-[#4d443f] overflow-hidden flex flex-col justify-between transition-all shadow-md group"
               >
+                <img
+                  src={eventImage(event)}
+                  alt=""
+                  loading="lazy"
+                  onClick={() => setActiveModalEvent(event)}
+                  className="w-full h-36 sm:h-40 object-cover cursor-pointer"
+                />
                 <div className="p-4 sm:p-5 space-y-3">
                   {/* Meta Header */}
                   <div className="flex items-center justify-between text-xs">
@@ -296,18 +324,18 @@ export const EventsView: React.FC = () => {
                   </div>
 
                   {/* Required Materials Preview */}
-                  {event.requiredMaterials && event.requiredMaterials.length > 0 && (
+                  {realMaterials(event).length > 0 && (
                     <div className="p-2.5 rounded-lg bg-[#1c1918] border border-[#302a28] text-[11px] space-y-1">
                       <span className="font-semibold text-[#dfcfb3] block">
                         {t('eventMaterials')}:
                       </span>
                       <ul className="list-disc list-inside text-[#9e948c] space-y-0.5">
-                        {event.requiredMaterials.slice(0, 2).map((mat, i) => (
+                        {realMaterials(event).slice(0, 2).map((mat, i) => (
                           <li key={i} className="truncate">{mat}</li>
                         ))}
-                        {event.requiredMaterials.length > 2 && (
+                        {realMaterials(event).length > 2 && (
                           <li className="text-[10px] text-[#736a62]">
-                            {t('evMoreItems')} {event.requiredMaterials.length - 2}…
+                            {t('evMoreItems')} {realMaterials(event).length - 2}…
                           </li>
                         )}
                       </ul>
@@ -391,9 +419,27 @@ export const EventsView: React.FC = () => {
               <X className="w-4 h-4" />
             </button>
 
+            <div className="-mx-5 sm:-mx-6 -mt-5 sm:-mt-6 relative">
+              <img src={eventImage(activeModalEvent)} alt="" className="w-full h-44 sm:h-52 object-cover rounded-t-2xl" />
+              {canEditCover(activeModalEvent) && (
+                <div className="absolute bottom-2 left-3 flex gap-1.5">
+                  <label className={`px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur text-[11px] font-semibold text-[#f5f2eb] cursor-pointer ${coverBusy ? 'opacity-50 pointer-events-none' : ''}`}>
+                    {coverBusy ? t('liveAvatarUploading') : t('evCoverChange')}
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                           onChange={e => { const f = e.target.files?.[0]; if (f) void changeCover(activeModalEvent, f); }} />
+                  </label>
+                  {activeModalEvent.coverUrl && !coverBusy && (
+                    <button onClick={() => void changeCover(activeModalEvent, null)}
+                            className="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur text-[11px] text-[#d6cebf]">
+                      {t('evCoverReset')}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <div>
               <span className="text-[11px] uppercase tracking-wider text-[#dfcfb3] font-semibold">
-                {activeModalEvent.direction.toUpperCase()} · {activeModalEvent.format === 'offline' ? t('evOffline') : t('evOnline')}
+                {ln(COMMUNITY_DIRECTIONS.find(d => d.id === activeModalEvent.direction)) || activeModalEvent.direction} · {activeModalEvent.format === 'offline' ? t('evOffline') : t('evOnline')}
               </span>
               <h2 className="font-display text-lg sm:text-xl font-bold text-[#f5f2eb] mt-1 pr-6">
                 {activeModalEvent.title}
@@ -426,12 +472,13 @@ export const EventsView: React.FC = () => {
             </div>
 
             {/* Required Materials Checklist */}
+            {realMaterials(activeModalEvent).length > 0 && (
             <div className="space-y-2">
               <h4 className="text-xs font-semibold text-[#dfcfb3]">
                 {t('eventMaterials')}:
               </h4>
               <div className="space-y-1.5">
-                {activeModalEvent.requiredMaterials.map((mat, i) => (
+                {realMaterials(activeModalEvent).map((mat, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs text-[#d6cebf]">
                     <Check className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0 mt-0.5" />
                     <span>{mat}</span>
@@ -439,6 +486,7 @@ export const EventsView: React.FC = () => {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Speaker Information */}
             <div className="flex items-center gap-3 p-3 rounded-xl bg-[#1c1918] border border-[#302a28]">
@@ -452,7 +500,7 @@ export const EventsView: React.FC = () => {
                   {activeModalEvent.speaker.name}
                 </span>
                 <span className="text-[11px] text-[#dfcfb3] block truncate">
-                  {activeModalEvent.speaker.role}
+                  {['Ведущий Shanyraq Hub', 'Shanyraq Hub жүргізушісі', 'Shanyraq Hub host'].includes(activeModalEvent.speaker.role) ? t('evHostRole') : activeModalEvent.speaker.role}
                 </span>
               </div>
             </div>
@@ -728,6 +776,23 @@ export const EventsView: React.FC = () => {
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
                 />
               </div>
+
+              {!isDemoData && (
+                <div>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('evFormCover')}</label>
+                  <div className="flex items-center gap-3">
+                    <img src={newCoverPreview ?? eventImage({ direction: newDirection })} alt="" className="w-24 h-14 rounded-lg object-cover border border-[#3b3430]" />
+                    <div className="flex flex-col gap-1">
+                      <label className="px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3a3330] border border-[#483f3a] text-[#dfcfb3] font-semibold cursor-pointer w-fit">
+                        {newCoverFile ? t('libCoverChange') : t('evCoverAdd')}
+                        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                               onChange={e => setNewCoverFile(e.target.files?.[0] ?? null)} />
+                      </label>
+                      <span className="text-[10px] text-[#8c8279]">{t('evCoverHint')}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">

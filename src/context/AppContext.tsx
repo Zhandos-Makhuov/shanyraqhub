@@ -78,7 +78,7 @@ interface AppContextType {
   /** Live only: reload server data (e.g. while a member shows their QR code). */
   refreshData?: () => Promise<void>;
   submitEventFeedback: (eventId: string, satisfaction: number, usefulness: number, comment: string) => void;
-  createEvent: (newEventData: Partial<CommunityEvent>) => void;
+  createEvent: (newEventData: Partial<CommunityEvent>, coverFile?: File) => void;
 
   allReadBooks: (ReadBook & { readerName: string; readerAvatar: string; readerId: string })[];
   /** True if the book was credited (reward + book achievements). Live: decided by the server (async). */
@@ -746,14 +746,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     recordActivity(currentUser.id);
   };
 
-  const createEvent = (newEventData: Partial<CommunityEvent>) => {
+  const createEvent = (newEventData: Partial<CommunityEvent>, coverFile?: File) => {
     if (live) {
       void runLive(live.createEvent({
         ...newEventData,
         date: newEventData.date || new Date().toISOString().split('T')[0],
         time: newEventData.time || '19:00',
-        speaker: newEventData.speaker || { name: currentUser.name, role: 'Ведущий Shanyraq Hub', avatar: currentUser.avatar },
-      }));
+        speaker: newEventData.speaker || { name: currentUser.name, role: t('evHostRole'), avatar: currentUser.avatar },
+      }, coverFile));
       return;
     }
     const newEvent: CommunityEvent = {

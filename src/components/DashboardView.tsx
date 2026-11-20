@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
-import { COMMUNITY_DIRECTIONS, activeDirections } from '../data/directions';
+import { COMMUNITY_DIRECTIONS, activeDirections, eventImage } from '../data/directions';
 import { getEventStart, hasEventStarted } from '../utils/eventTime';
 import { computeCommunityStats } from '../utils/communityStats';
 import {
@@ -263,6 +263,7 @@ export const DashboardView: React.FC = () => {
                 key={event.id}
                 className="rounded-xl bg-[#23201e] border border-[#352f2c] overflow-hidden flex flex-col justify-between hover:border-[#4d443f] transition-all"
               >
+                <img src={eventImage(event)} alt="" loading="lazy" className="w-full h-32 object-cover" />
                 <div className="p-4 sm:p-5 space-y-2.5 sm:space-y-3">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="font-medium text-[#dfcfb3]">

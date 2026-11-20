@@ -319,10 +319,10 @@ export const submitEventFeedback = (eventId: string, satisfaction: number, usefu
 /** Club-local date + time (Asia/Almaty, UTC+5 all year) -> timestamptz. */
 export const clubDateTimeToIso = (date: string, time: string) => new Date(`${date}T${time}:00+05:00`).toISOString();
 
-export const createEvent = async (ev: Partial<CommunityEvent> & { date: string; time: string }): Promise<ActionResult> => {
+export const createEvent = async (ev: Partial<CommunityEvent> & { date: string; time: string }, coverFile?: File): Promise<ActionResult> => {
   try {
     // created_by is set by the database (trigger) to the caller; RLS allows organizer+ only.
-    const { error } = await db().from('events').insert({
+    const { data: created, error } = await db().from('events').insert({
       title: ev.title,
       direction: ev.direction,
       starts_at: clubDateTimeToIso(ev.date, ev.time),
@@ -337,8 +337,14 @@ export const createEvent = async (ev: Partial<CommunityEvent> & { date: string; 
       status: 'published',
       speaker_name: ev.speaker?.name ?? null,
       speaker_role: ev.speaker?.role ?? null,
-    });
-    return error ? { ok: false, error: serverErrorKey(error.message) } : { ok: true };
+    }).select('id').single<{ id: string }>();
+    if (error) return { ok: false, error: serverErrorKey(error.message) };
+    // The picture is optional: the event is published even if the photo fails.
+    if (coverFile && created) {
+      const r = await uploadEventCover(created.id, coverFile);
+      if (!r.ok) return r;
+    }
+    return { ok: true };
   } catch (e) {
     return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
   }
@@ -542,6 +548,57 @@ export const uploadBookCover = async (file: File, userBookId: string): Promise<A
       return error ? { ok: false, error: serverErrorKey(error.message) } : { ok: false, error: 'liveErrCoverExists' };
     }
     return { ok: true };
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
+};
+
+const EVENT_COVER_MAX_SIDE = 1200;
+
+/** Puts an event's own picture (organizer of the event or moderator+; storage "event-photos/<event id>/"). */
+export const uploadEventCover = async (eventId: string, file: File): Promise<ActionResult> => {
+  try {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return { ok: false, error: 'liveErrImageType' };
+    const c = db();
+    const blob = await toJpeg(file, EVENT_COVER_MAX_SIDE);
+    const path = `${eventId}/cover-${Date.now()}.jpg`;
+    const up = await c.storage.from('event-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    if (up.error) return { ok: false, error: serverErrorKey(up.error.message) };
+    const url = c.storage.from('event-photos').getPublicUrl(path).data.publicUrl;
+    const r = await insertOrDelete(c.from('events').update({ cover_url: url }).eq('id', eventId));
+    if (!r.ok) return r;
+    const { data: old } = await c.storage.from('event-photos').list(eventId);
+    const stale = (old ?? []).map(o => `${eventId}/${o.name}`).filter(x => x !== path);
+    if (stale.length) await c.storage.from('event-photos').remove(stale);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
+};
+
+/** Removes an event's own picture: the direction's banner is shown again. */
+export const clearEventCover = async (eventId: string): Promise<ActionResult> => {
+  const c = db();
+  const r = await insertOrDelete(c.from('events').update({ cover_url: null }).eq('id', eventId));
+  if (r.ok) {
+    const { data: old } = await c.storage.from('event-photos').list(eventId);
+    if (old?.length) await c.storage.from('event-photos').remove(old.map(o => `${eventId}/${o.name}`));
+  }
+  return r;
+};
+
+/** Admins: a photo as the direction's default picture (file) or back to the club banner (null). */
+export const setDirectionCover = async (directionId: string, file: File | null): Promise<ActionResult> => {
+  try {
+    const c = db();
+    const builtIn = ['books', 'english', 'arabic', 'sport', 'art', 'intellect', 'networking'];
+    if (!file) return call('admin_set_direction_cover', { p_id: directionId, p_url: builtIn.includes(directionId) ? `/events/${directionId}.svg` : null });
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return { ok: false, error: 'liveErrImageType' };
+    const blob = await toJpeg(file, EVENT_COVER_MAX_SIDE);
+    const path = `directions/${directionId}-${Date.now()}.jpg`;
+    const up = await c.storage.from('event-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    if (up.error) return { ok: false, error: serverErrorKey(up.error.message) };
+    return call('admin_set_direction_cover', { p_id: directionId, p_url: c.storage.from('event-photos').getPublicUrl(path).data.publicUrl });
   } catch (e) {
     return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
   }

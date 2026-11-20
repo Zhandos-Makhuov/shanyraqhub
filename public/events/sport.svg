@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1d1a2e"/><stop offset="1" stop-color="#3b2a4a"/></linearGradient>
+<radialGradient id="l" cx="70%" cy="40%" r="60%"><stop offset="0" stop-color="#fb923c" stop-opacity=".25"/><stop offset="1" stop-color="#fb923c" stop-opacity="0"/></radialGradient></defs>
+<rect width="800" height="400" fill="url(#g)"/><rect width="800" height="400" fill="url(#l)"/>
+<g fill="none" stroke="#fb923c" stroke-opacity=".14" stroke-width="3">
+<circle cx="140" cy="200" r="150"/><circle cx="140" cy="200" r="93.0"/>
+<path d="M-10 200 H290 M140 50 V350 M35.0 95.0 L245.0 305.0 M245.0 95.0 L35.0 305.0"/></g>
+
+<path d="M380 400 L560 160 L640 240 L720 140 L800 220 V400z" fill="#2a2140"/>
+<path d="M330 400 C460 330 600 330 800 300" stroke="#fb923c" stroke-width="10" fill="none" stroke-dasharray="26 18"/>
+<g transform="translate(560 120)" fill="#fde68a">
+<circle cx="40" cy="0" r="22"/>
+<path d="M30 25 L10 95 L-30 130 M10 95 L40 140 L30 190 M28 40 L70 70 L100 55 M28 40 L-10 60 L-35 40" stroke="#fde68a" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" fill="none"/></g>
+</svg>

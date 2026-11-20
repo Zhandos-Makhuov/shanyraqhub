@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#13233a"/><stop offset="1" stop-color="#1f3d5c"/></linearGradient>
+<radialGradient id="l" cx="70%" cy="40%" r="60%"><stop offset="0" stop-color="#7dd3fc" stop-opacity=".25"/><stop offset="1" stop-color="#7dd3fc" stop-opacity="0"/></radialGradient></defs>
+<rect width="800" height="400" fill="url(#g)"/><rect width="800" height="400" fill="url(#l)"/>
+<g fill="none" stroke="#7dd3fc" stroke-opacity=".14" stroke-width="3">
+<circle cx="140" cy="200" r="150"/><circle cx="140" cy="200" r="93.0"/>
+<path d="M-10 200 H290 M140 50 V350 M35.0 95.0 L245.0 305.0 M245.0 95.0 L35.0 305.0"/></g>
+
+<g transform="translate(450 90)">
+<rect x="0" y="0" width="230" height="120" rx="26" fill="#e0f2fe"/><path d="M50 120 l-10 40 46 -40z" fill="#e0f2fe"/>
+<text x="115" y="78" font-family="Arial, sans-serif" font-size="46" font-weight="700" fill="#1e3a5f" text-anchor="middle">Hello!</text>
+<rect x="110" y="140" width="210" height="110" rx="26" fill="#f5d77f"/><path d="M270 250 l14 36 -44 -36z" fill="#f5d77f"/>
+<text x="215" y="210" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="#3a2a10" text-anchor="middle">Сәлем!</text></g>
+</svg>

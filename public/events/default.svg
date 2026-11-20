@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#231e1b"/><stop offset="1" stop-color="#3b2f25"/></linearGradient></defs>
+<rect width="800" height="400" fill="url(#g)"/>
+<g fill="none" stroke="#dfcfb3" stroke-opacity=".22" stroke-width="4">
+<circle cx="400" cy="200" r="150"/><circle cx="400" cy="200" r="93"/>
+<path d="M250 200 H550 M400 50 V350 M294 94 L506 306 M506 94 L294 306"/></g>
+<text x="400" y="214" font-family="Arial, sans-serif" font-size="40" font-weight="700" letter-spacing="6" fill="#dfcfb3" text-anchor="middle">SHANYRAQ HUB</text>
+</svg>

@@ -82,6 +82,7 @@ export const eventFromRow = (row: EventRow, rel: EventRelations = {}): Community
   return {
     id: row.id,
     title: row.title,
+    coverUrl: row.cover_url ?? undefined,
     direction: row.direction,
     date,
     time,

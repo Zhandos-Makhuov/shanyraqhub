@@ -66,6 +66,7 @@ export interface DirectionRow {
   requires_approval: boolean;
   is_active: boolean;
   sort_order: number;
+  cover_url?: string | null;
 }
 
 export interface CatalogRows {
@@ -85,6 +86,7 @@ export const directionFromRow = (r: DirectionRow): Direction => ({
   isActive: r.is_active,
   requiresApproval: r.requires_approval,
   sortOrder: r.sort_order,
+  coverUrl: r.cover_url || '/events/default.svg',
 });
 
 /** What the database had that the code cannot show yet (e.g. a new tier needs colours and a badge). */

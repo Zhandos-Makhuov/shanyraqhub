@@ -207,8 +207,8 @@ select t.ok(public.award_achievement('00000000-0000-0000-0000-000000000002', 'ac
 select t.ok(not public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'again'), 'awarding twice is a no-op');
 reset role;
 select t.ok((select count(*) from public.reward_ledger where idempotency_key like 'achievement:ach-knowledge-seeker:00000000-0000-0000-0000-000000000002%') = 1, 'manual achievement rewarded once');
-select t.ok((select count(*) from public.achievements) = 34 and (select count(*) from public.achievements where rule ->> 'metric' = 'manual') = 4,
-            'seed: 34 achievements, 4 manual');
+select t.ok((select count(*) from public.achievements where id not like 'ach-dir-%') = 34 and (select count(*) from public.achievements where rule ->> 'metric' = 'manual') = 4,
+            'seed: 34 achievements (besides those of directions added later), 4 manual');
 
 -- Tier bonus on attendance coins: gold = +15% -> 40 * 1.15 = 46
 select private.grant_reward('00000000-0000-0000-0000-000000000001', 1000, 0, 'admin_adjustment', null, 'test: reach gold', 'test:gold');
@@ -277,7 +277,7 @@ select t.ok(not exists (
 -- ===================== Phase 3: directions, memberships, preferences, reports, storage =====================
 reset role;
 select t.ok((select count(*) from public.user_preferences) = (select count(*) from public.profiles), 'every profile has a preferences row');
-select t.ok((select count(*) from public.community_directions) = 7, '7 club directions seeded');
+select t.ok((select count(*) from public.community_directions where id in ('books','english','arabic','sport','art','intellect','networking')) = 7, '7 club directions seeded');
 set role anon;
 select t.expect_fail('select * from public.community_directions', '%permission denied%');
 reset role;
@@ -582,5 +582,16 @@ select t.ok(public.admin_set_direction_active('pottery', true), 'admin restores 
 select t.ok((select is_active from public.community_directions where id = 'pottery') and (select is_active from public.achievements where id = 'ach-dir-pottery'), 'restore brings both back');
 reset role;
 select t.expect_fail($$insert into public.events (title, direction, starts_at, capacity, status) values ('Unknown direction', 'nope', now() + interval '1 day', 5, 'published')$$, '%events_direction_fkey%');
+
+-- Event pictures: default banner per direction; admins may replace it; members may not.
+select t.ok((select cover_url from public.community_directions where id = 'books') = '/events/books.svg', 'directions have a default banner');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.expect_fail($$select public.admin_set_direction_cover('books', '/events/sport.svg')$$, '%forbidden%');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+select t.expect_fail($$select public.admin_set_direction_cover('books', 'https://evil.example/x.jpg')$$, '%invalid_cover_url%');
+select t.ok(public.admin_set_direction_cover('books', 'https://abc.supabase.co/storage/v1/object/public/event-photos/directions/books-1.jpg'), 'admin sets a photo for a direction');
+select t.ok(public.admin_set_direction_cover('books', null), 'admin goes back to the default');
+reset role;
 
 \echo ALL_TESTS_PASSED

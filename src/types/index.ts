@@ -41,6 +41,8 @@ export interface Direction {
   /** false = archived by an admin: hidden from choices, history still shows its name. */
   isActive?: boolean;
   requiresApproval?: boolean;
+  /** Default picture for this direction's events. */
+  coverUrl?: string;
   sortOrder?: number;
 }
 
@@ -220,6 +222,8 @@ export interface EventSpeaker {
 export interface CommunityEvent {
   id: string;
   title: string;
+  /** The event's own picture (organizer/moderator); otherwise the direction's default banner is shown. */
+  coverUrl?: string;
   direction: DirectionId;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
