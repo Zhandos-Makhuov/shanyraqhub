@@ -620,7 +620,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
   // Only staff (organizer+) can confirm attendance, and never their own.
   const checkInAttendance = async (eventId: string, targetUserId: string): Promise<{ ok: boolean; error?: string }> => {
-    if (!isStaffRole(currentUser.role) || targetUserId === currentUser.id) return { ok: false };
+    // Owner decision: a super admin may also act on themselves (the server checks the same).
+    if (!isStaffRole(currentUser.role) || (targetUserId === currentUser.id && currentUser.role !== 'super_admin')) return { ok: false };
     if (live) {
       const r = await runLive(live.manualCheckIn(eventId, targetUserId, 'Отметка персоналом на входе (выбор участника из списка)'), true);
       if (r.ok) try { confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } }); } catch {}
@@ -1184,7 +1185,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       alert(t('ctxAdminsOnlyCoins'));
       return false;
     }
-    if (targetUserId === currentUser.id) {
+    if (targetUserId === currentUser.id && currentUser.role !== 'super_admin') {
       alert(t('ctxNotOwnBalance'));
       return false;
     }
@@ -1424,7 +1425,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       alert(t('ctxAdminsOnlyRevoke'));
       return false;
     }
-    if (userId === currentUser.id) {
+    if (userId === currentUser.id && currentUser.role !== 'super_admin') {
       alert(t('ctxNotOwnRevoke'));
       return false;
     }
@@ -1484,7 +1485,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       alert(t('ctxModsOnlyAward'));
       return false;
     }
-    if (userId === currentUser.id) {
+    if (userId === currentUser.id && currentUser.role !== 'super_admin') {
       alert(t('ctxNotOwnAward'));
       return false;
     }

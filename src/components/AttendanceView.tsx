@@ -26,7 +26,7 @@ export const AttendanceView: React.FC = () => {
   const [selectedEventId, setSelectedEventId] = useState<string>(events[0]?.id || '');
   // Staff confirm attendance of other members; nobody can check themselves in.
   const isStaff = isStaffRole(currentUser.role);
-  const checkInCandidates = allUsers.filter(u => u.id !== currentUser.id);
+  const checkInCandidates = allUsers.filter(u => u.id !== currentUser.id || currentUser.role === 'super_admin');
   const [selectedUserId, setSelectedUserId] = useState<string>(checkInCandidates[0]?.id || '');
   const [qrScanning, setQrScanning] = useState(false);
   const [scanSuccessMsg, setScanSuccessMsg] = useState('');

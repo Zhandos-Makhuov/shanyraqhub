@@ -92,7 +92,7 @@ export const AdminView: React.FC = () => {
   // Manual achievements (speech, race, quiz...) confirmed by a moderator.
   const manualAchievements = ALL_ACHIEVEMENTS.filter(isManualAchievement);
   const canAwardAchievements = hasRole(currentUser.role, 'moderator');
-  const awardCandidates = allUsers.filter(u => u.id !== currentUser.id);
+  const awardCandidates = allUsers.filter(u => u.id !== currentUser.id || currentUser.role === 'super_admin');
   const [awardUserId, setAwardUserId] = useState(awardCandidates[0]?.id || '');
   const [awardAchievementId, setAwardAchievementId] = useState(manualAchievements[0]?.id || '');
   const [awardNote, setAwardNote] = useState('');

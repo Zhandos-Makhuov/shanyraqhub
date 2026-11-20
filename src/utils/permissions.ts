@@ -26,7 +26,8 @@ export const canAssignRole = (
   targetRole: UserRole,
   newRole: UserRole
 ): boolean => {
-  if (actorId === targetId) return false;
+  // A super admin may change their own role too (the server never lets the last super admin go).
+  if (actorId === targetId && actorRole !== 'super_admin') return false;
   if (!hasRole(actorRole, 'admin')) return false;
   if (actorRole === 'super_admin') return true;
   return ROLE_RANK[targetRole] < ROLE_RANK[actorRole] && ROLE_RANK[newRole] < ROLE_RANK[actorRole];

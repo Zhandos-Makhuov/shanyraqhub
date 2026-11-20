@@ -56,7 +56,7 @@ select t.ok((select count(*) from public.profile_contacts) = 1, 'member sees onl
 -- Role management hierarchy
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
 select public.set_user_role('00000000-0000-0000-0000-00000000000b', 'admin');
-select t.expect_fail($$select public.set_user_role('00000000-0000-0000-0000-00000000000a', 'member')$$, '%own role%');
+select t.expect_fail($$select public.set_user_role('00000000-0000-0000-0000-00000000000a', 'member')$$, '%last superadmin%');  -- may change own role, but never leave the club without a superadmin
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b"}', false);
 select public.set_user_role('00000000-0000-0000-0000-00000000000c', 'organizer');
 select t.expect_fail($$select public.set_user_role('00000000-0000-0000-0000-000000000001', 'admin')$$, '%insufficient rank%');
@@ -202,7 +202,6 @@ set role authenticated;
 select t.expect_fail($$select public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'x')$$, '%forbidden%');
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
 select t.expect_fail($$select public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-first-book', 'x')$$, '%not manually awardable%');
-select t.expect_fail($$select public.award_achievement('00000000-0000-0000-0000-00000000000a', 'ach-knowledge-seeker', 'x')$$, '%yourself%');
 select t.ok(public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'Квиз Zerde, 2 место'), 'superadmin awards a manual achievement');
 select t.ok(not public.award_achievement('00000000-0000-0000-0000-000000000002', 'ach-knowledge-seeker', 'again'), 'awarding twice is a no-op');
 reset role;
@@ -594,6 +593,19 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 select t.expect_fail($$select public.admin_set_direction_cover('books', 'https://evil.example/x.jpg')$$, '%invalid_cover_url%');
 select t.ok(public.admin_set_direction_cover('books', 'https://abc.supabase.co/storage/v1/object/public/event-photos/directions/books-1.jpg'), 'admin sets a photo for a direction');
 select t.ok(public.admin_set_direction_cover('books', null), 'admin goes back to the default');
+reset role;
+
+-- Owner decision: a superadmin may act on themselves; an admin still may not.
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+select public.admin_adjust_coins('00000000-0000-0000-0000-00000000000a', 1000, 'self top-up by the owner');
+select t.ok((select coins from public.user_balances where user_id = '00000000-0000-0000-0000-00000000000a') >= 1000, 'superadmin adjusts own coins');
+select t.ok(public.award_achievement('00000000-0000-0000-0000-00000000000a', 'ach-tarlan-runner', 'own run'), 'superadmin awards themselves a manual achievement');
+select t.ok(public.revoke_achievement('00000000-0000-0000-0000-00000000000a', 'ach-tarlan-runner', 'undo'), 'superadmin revokes own achievement');
+select t.expect_fail($$select public.admin_adjust_coins('00000000-0000-0000-0000-00000000000a', -100000, 'x')$$, '%out of range%');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b"}', false);
+select t.expect_fail($$select public.admin_adjust_coins('00000000-0000-0000-0000-00000000000b', 100, 'me')$$, '%own balance%');
+select t.expect_fail($$select public.revoke_achievement('00000000-0000-0000-0000-00000000000b', 'ach-first-book', 'me')$$, '%own achievement%');
 reset role;
 
 \echo ALL_TESTS_PASSED
