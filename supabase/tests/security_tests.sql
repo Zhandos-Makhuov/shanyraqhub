@@ -56,7 +56,10 @@ select t.ok((select count(*) from public.profile_contacts) = 1, 'member sees onl
 -- Role management hierarchy
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
 select public.set_user_role('00000000-0000-0000-0000-00000000000b', 'admin');
-select t.expect_fail($$select public.set_user_role('00000000-0000-0000-0000-00000000000a', 'member')$$, '%last superadmin%');  -- may change own role, but never leave the club without a superadmin
+-- A superadmin may change their own role, but never leave the club without one (checked when they are the
+-- only superadmin; a live project may already have other superadmins).
+select case when (select count(*) from public.user_roles where role = 'superadmin') = 1
+            then t.expect_fail($$select public.set_user_role('00000000-0000-0000-0000-00000000000a', 'member')$$, '%last superadmin%') end;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b"}', false);
 select public.set_user_role('00000000-0000-0000-0000-00000000000c', 'organizer');
 select t.expect_fail($$select public.set_user_role('00000000-0000-0000-0000-000000000001', 'admin')$$, '%insufficient rank%');
