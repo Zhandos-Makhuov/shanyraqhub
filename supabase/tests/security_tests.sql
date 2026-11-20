@@ -454,4 +454,64 @@ select t.ok(not exists (select 1 from public.push_subscriptions where endpoint =
 select t.ok((select last_used_at is not null from public.push_subscriptions where endpoint = 'https://push.example/00000000-0000-0000-0000-000000000001'),
             'used subscription stamped (last_used_at)');
 
+-- Telegram: link codes, sign-in mapping, delivery queue (service-role RPCs called by Edge Functions)
+reset role;
+update public.notifications set telegram_sent_at = now() where telegram_sent_at is null;   -- empty queue
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select set_config('shq.tg_code', public.create_telegram_link_code(), false);
+select t.ok(length(current_setting('shq.tg_code')) = 32, 'member gets a one-time link code');
+select t.expect_fail($$select public.link_telegram_by_code('x', 1, 'u', 'f', 1)$$, '%permission denied%');
+select t.expect_fail($$select public.telegram_member(1)$$, '%permission denied%');
+select t.expect_fail($$select * from public.claim_telegram_batch(10)$$, '%permission denied%');
+select t.expect_fail($$insert into public.telegram_accounts (user_id, telegram_id) values (auth.uid(), 5)$$, '%permission denied%');
+reset role;
+select t.ok(public.link_telegram_by_code(current_setting('shq.tg_code'), 777001, 'm1_tg', 'M1', 777001) is not null,
+            'bot links the account with a valid code');
+select t.ok((select telegram_notifications_enabled from public.profiles where id = '00000000-0000-0000-0000-000000000001'),
+            'linking switches Telegram notifications on');
+select t.expect_fail($$select public.link_telegram_by_code('$$ || current_setting('shq.tg_code') || $$', 777001, 'm1_tg', 'M1', 777001)$$, '%link_code_used%');
+select t.expect_fail($$select public.link_telegram_by_code('deadbeef', 777001, 'm1_tg', 'M1', 777001)$$, '%link_code_invalid%');
+select t.ok(public.telegram_member(777001) = '00000000-0000-0000-0000-000000000001', 'Mini App sign-in finds the linked member');
+select t.ok(public.telegram_member(999999) is null, 'unknown Telegram user is not mapped to anyone');
+select t.expect_fail($$select public.attach_telegram('00000000-0000-0000-0000-000000000002', 777001, 'x', 'x', null)$$, '%telegram_linked_to_another_account%');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select set_config('shq.tg_code2', public.create_telegram_link_code(), false);
+select t.ok((select count(*) from public.telegram_accounts) = 0, 'member does not see other members'' Telegram links');
+reset role;
+select t.expect_fail($$select public.link_telegram_by_code('$$ || current_setting('shq.tg_code2') || $$', 777001, 'x', 'x', 777001)$$, '%telegram_linked_to_another_account%');
+select public.attach_telegram('00000000-0000-0000-0000-000000000002', 777002, 'm2_tg', 'M2', null);   -- signed in via Mini App, never wrote to the bot
+update public.profiles set telegram_notifications_enabled = true where id = '00000000-0000-0000-0000-000000000002';
+insert into public.notifications (user_id, type, title, body) values
+ ('00000000-0000-0000-0000-000000000001', 'broadcast', 'T1 send', 'x'),
+ ('00000000-0000-0000-0000-000000000002', 'broadcast', 'T2 no chat', 'x');
+create temp table t_tg as select * from public.claim_telegram_batch(100);
+select t.ok((select string_agg(title, ',') from t_tg) = 'T1 send' and (select chat_id from t_tg) = 777001,
+            'bot messages go only to linked members whose chat with the bot is open');
+select t.ok(public.telegram_chat_started(777002, 777002), 'chat recorded when the member starts the bot');
+select t.ok(public.telegram_mark_blocked(array[777001::bigint]) = 1, 'blocked chat marked (403 from Telegram)');
+insert into public.notifications (user_id, type, title, body) values
+ ('00000000-0000-0000-0000-000000000001', 'broadcast', 'T1 blocked', 'x'),
+ ('00000000-0000-0000-0000-000000000002', 'broadcast', 'T2 now open', 'x');
+select t.ok((select string_agg(title, ',') from public.claim_telegram_batch(100)) = 'T2 now open',
+            'no messages to a member who blocked the bot; open chat receives them');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select t.ok((select username from public.telegram_accounts) = 'm2_tg', 'member sees own Telegram link');
+select t.ok(public.unlink_telegram(), 'member unlinks Telegram');
+select t.ok((select count(*) from public.telegram_accounts) = 0 and not (select telegram_notifications_enabled from public.profiles where id = auth.uid()),
+            'after unlinking: no link, Telegram notifications off');
+reset role;
+update public.profiles set telegram_notifications_enabled = false where id = '00000000-0000-0000-0000-00000000000a';
+select public.attach_telegram('00000000-0000-0000-0000-00000000000a', 777003, 'sa_tg', 'SA', 777003);
+select t.ok((select telegram_notifications_enabled from public.profiles where id = '00000000-0000-0000-0000-00000000000a'),
+            'first Telegram sign-in with an open chat switches Telegram notifications on');
+select public.set_app_setting('telegram_bot_username', 'shq_test_bot');
+set role anon;
+select t.ok((select value from public.app_settings where key = 'telegram_bot_username') = 'shq_test_bot',
+            'bot @username is readable before sign-in');
+select t.expect_fail($$select public.set_app_setting('x', 'y')$$, '%permission denied%');
+reset role;
+
 \echo ALL_TESTS_PASSED
