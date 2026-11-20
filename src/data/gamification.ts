@@ -129,7 +129,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'avatar',
     rarity: 'legendary',
     priceCoins: 350,
-    previewUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=150&auto=format&fit=crop&q=80',
+    previewUrl: '/shop/avatar-altyn.svg',
     badgeTitle: 'Golden Warrior',
   },
   {
@@ -143,7 +143,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'avatar',
     rarity: 'epic',
     priceCoins: 200,
-    previewUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80',
+    previewUrl: '/shop/avatar-sage.svg',
     badgeTitle: 'Steppe Sage',
   },
   {
@@ -157,7 +157,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'avatar',
     rarity: 'epic',
     priceCoins: 220,
-    previewUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    previewUrl: '/shop/avatar-cyber.svg',
     badgeTitle: 'Cyber Nomad',
   },
   {
@@ -171,7 +171,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'avatar',
     rarity: 'common',
     priceCoins: 80,
-    previewUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    previewUrl: '/shop/avatar-artisan.svg',
     badgeTitle: 'Artisan',
   },
 
@@ -187,7 +187,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'frame',
     rarity: 'legendary',
     priceCoins: 300,
-    previewUrl: '/assets/aistudio/IMG_9313_86e71ea6.PNG',
+    previewUrl: '',
     borderStyle: 'ring-4 ring-[#dfcfb3] shadow-[0_0_20px_rgba(223,207,179,0.5)]',
   },
   {

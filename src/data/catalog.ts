@@ -66,7 +66,6 @@ export interface CatalogReport {
   unknownTiers: string[];
 }
 
-const FALLBACK_PREVIEW = '/icons/icon-192.png';
 
 /** The database has no display order: keep the code's order, new items from the database go last. */
 const inCodeOrder = <T extends { id: string }>(items: T[], codeIds: string[]): T[] => {
@@ -88,7 +87,7 @@ export const shopItemFromRow = (r: ShopItemRow): ShopItem => ({
   category: r.category,
   rarity: r.rarity,
   priceCoins: r.price_coins,
-  previewUrl: r.preview_url || FALLBACK_PREVIEW,
+  previewUrl: r.preview_url || '', // no picture: the shop shows the member's own photo with the item applied
   borderStyle: r.style?.borderStyle,
   glowStyle: r.style?.glowStyle,
   badgeTitle: r.style?.badgeTitle,

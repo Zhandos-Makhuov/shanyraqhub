@@ -590,6 +590,13 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     ledger_achievement_revoked: 'Отзыв достижения',
     ledger_shop_purchase: 'Покупка',
     ledger_admin_adjustment: 'Корректировка администратором',
+    shopPreviewOnYou: 'так это будет выглядеть на вас',
+    shopWhat_avatar: 'Образ: заменяет фото профиля на этот рисунок (своё фото можно вернуть кнопкой «Снять»).',
+    shopWhat_frame: 'Рамка: обводка вокруг вашего фото в профиле и в вашей карточке участника.',
+    shopWhat_aura: 'Аура: мягкое свечение вокруг вашего фото в профиле и карточке участника.',
+    shopWhat_artifact: 'Талисман: значок с надписью под вашим фото.',
+    shopWhat_headwear: 'Головной убор для вашего образа.',
+    shopNeedMore: 'Не хватает {n} коинов',
   },
   kz: {
     // Brand & Tagline
@@ -1180,6 +1187,13 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     ledger_achievement_revoked: 'Жетістік қайтарып алынды',
     ledger_shop_purchase: 'Сатып алу',
     ledger_admin_adjustment: 'Әкімші түзетуі',
+    shopPreviewOnYou: 'сізде осылай көрінеді',
+    shopWhat_avatar: 'Бейне: профиль суретін осы суретпен ауыстырады (өз фотоңызды «Шешу» арқылы қайтаруға болады).',
+    shopWhat_frame: 'Жиектеме: профиліңізде және қатысушы карточкаңызда фотоңыздың айналасындағы көмкерме.',
+    shopWhat_aura: 'Аура: профиль мен қатысушы карточкасында фотоңыздың айналасындағы жұмсақ жарқырау.',
+    shopWhat_artifact: 'Тұмар: фотоңыздың астындағы жазуы бар белгі.',
+    shopWhat_headwear: 'Бейнеңізге арналған бас киім.',
+    shopNeedMore: 'Тағы {n} коин керек',
   },
   en: {
     // Brand & Tagline
@@ -1770,5 +1784,12 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     ledger_achievement_revoked: 'Achievement revoked',
     ledger_shop_purchase: 'Purchase',
     ledger_admin_adjustment: 'Admin adjustment',
+    shopPreviewOnYou: 'how it looks on you',
+    shopWhat_avatar: 'Look: replaces your profile photo with this artwork (take it off to get your photo back).',
+    shopWhat_frame: 'Frame: a border around your photo in your profile and member card.',
+    shopWhat_aura: 'Aura: a soft glow around your photo in your profile and member card.',
+    shopWhat_artifact: 'Talisman: a badge with a title under your photo.',
+    shopWhat_headwear: 'Headwear for your look.',
+    shopNeedMore: '{n} more coins needed',
   },
 };

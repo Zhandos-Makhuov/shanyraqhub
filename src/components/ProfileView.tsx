@@ -45,6 +45,7 @@ export const ProfileView: React.FC = () => {
   const equippedFrame = SHOP_ITEMS.find(i => i.id === currentUser.inventory.equippedFrame);
   const equippedSkin = SHOP_ITEMS.find(i => i.id === currentUser.inventory.equippedAvatarSkin);
   const equippedArtifact = SHOP_ITEMS.find(i => i.id === currentUser.inventory.equippedArtifact);
+  const equippedAura = SHOP_ITEMS.find(i => i.id === currentUser.inventory.equippedAura);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,8 +78,11 @@ export const ProfileView: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
             {/* Avatar with equipped cosmetics */}
             <div className="relative">
+              {equippedAura && (
+                <div className={`absolute inset-0 rounded-full blur-xl pointer-events-none ${equippedAura.id === 'item-aura-tengri-glow' ? 'bg-amber-400/40' : 'bg-sky-400/30'}`} />
+              )}
               <div
-                className={`w-24 h-24 rounded-full overflow-hidden p-1 ${
+                className={`relative w-24 h-24 rounded-full overflow-hidden p-1 ${
                   equippedFrame?.borderStyle || 'ring-4 ring-[#dfcfb3]/50'
                 }`}
               >

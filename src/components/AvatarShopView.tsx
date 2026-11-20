@@ -279,33 +279,46 @@ export const AvatarShopView: React.FC = () => {
                       </span>
                     </div>
 
-                    {/* Preview Art */}
-                    <div className="h-28 rounded-xl bg-[#191615] border border-[#302a28] flex items-center justify-center p-3 relative overflow-hidden">
-                      {item.previewUrl ? (
-                        <img
-                          src={item.previewUrl}
-                          alt={itemName(item)}
-                          className="w-16 h-16 rounded-full object-cover ring-2 ring-[#dfcfb3]/40"
-                        />
-                      ) : (
-                        <div className="w-14 h-14 rounded-full bg-[#272321] border border-[#dfcfb3]/40 flex items-center justify-center text-[#dfcfb3]">
-                          <Sparkles className="w-6 h-6" />
+                    {/* Preview: how the item looks on the member (avatar looks: the drawn artwork) */}
+                    <div className="h-32 rounded-xl bg-[#191615] border border-[#302a28] flex flex-col items-center justify-center gap-1.5 p-3 relative overflow-hidden">
+                      <div className="relative">
+                        {item.category === 'aura' && (
+                          <div className={`absolute inset-0 rounded-full blur-xl pointer-events-none ${item.id === 'item-aura-tengri-glow' ? 'bg-amber-400/50' : 'bg-sky-400/40'}`} />
+                        )}
+                        <div className={`relative w-20 h-20 rounded-full overflow-hidden p-0.5 ${
+                          item.category === 'frame' ? item.borderStyle ?? '' : item.category === 'aura' ? `${item.glowStyle ?? ''} ring-2 ring-[#dfcfb3]/40` : 'ring-2 ring-[#dfcfb3]/40'
+                        }`}>
+                          <img
+                            src={item.category === 'avatar' && item.previewUrl ? item.previewUrl : currentUser.avatar}
+                            alt={itemName(item)}
+                            className="w-full h-full object-cover rounded-full"
+                          />
                         </div>
+                        {item.category === 'artifact' && (
+                          <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 rounded-full bg-[#1e1b1a] border border-[#dfcfb3] text-[9px] font-bold text-[#f5d77f] shadow">
+                            {item.badgeTitle || t('shopArtifact')}
+                          </span>
+                        )}
+                      </div>
+                      {item.category !== 'avatar' && (
+                        <span className="text-[10px] text-[#8c8279] mt-1">{t('shopPreviewOnYou')}</span>
                       )}
                     </div>
+                    <p className="text-[11px] text-[#dfcfb3]/80 leading-snug">{t(`shopWhat_${item.category}`)}</p>
 
                     {/* Titles */}
                     <div>
                       <h4 className="font-display text-sm font-bold text-[#f5f2eb]">
                         {itemName(item)}
                       </h4>
-                      <p className="text-xs text-[#a39b94] mt-1 leading-relaxed line-clamp-2">
+                      <p className="text-xs text-[#a39b94] mt-1 leading-relaxed ">
                         {language === 'kz' ? item.descriptionKz : language === 'en' ? item.descriptionEn : item.descriptionRu}
                       </p>
                     </div>
                   </div>
 
                   {/* Actions & Price */}
+                  <div>
                   <div className="mt-4 pt-3 border-t border-[#302a28] flex items-center justify-between">
                     <div className="flex items-center gap-1 font-mono-numbers font-bold text-amber-400 text-xs">
                       <Coins className="w-3.5 h-3.5" />
@@ -337,6 +350,12 @@ export const AvatarShopView: React.FC = () => {
                         {t('actionBuy')}
                       </button>
                     )}
+                  </div>
+                  {!isOwned && currentUser.coins < item.priceCoins && (
+                    <p className="mt-2 text-[10px] text-[#8c8279] text-right">
+                      {t('shopNeedMore').replace('{n}', String(item.priceCoins - currentUser.coins))}
+                    </p>
+                  )}
                   </div>
                 </div>
               );

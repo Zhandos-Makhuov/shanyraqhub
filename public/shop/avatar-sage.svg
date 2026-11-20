@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="35%" r="75%"><stop offset="0" stop-color="#2e3a52"/><stop offset="1" stop-color="#14161f"/></radialGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#bg)"/>
+  <g fill="#e8e1cf"><circle cx="36" cy="40" r="2"/><circle cx="220" cy="34" r="2.5"/><circle cx="196" cy="74" r="1.5"/><circle cx="58" cy="82" r="1.5"/><circle cx="160" cy="22" r="1.5"/></g>
+  <path d="M206 44 a16 16 0 1 1 -14 -20 a12 12 0 1 0 14 20z" fill="#f5d77f"/>
+  <!-- fur hat (börik) -->
+  <path d="M84 92 q44 -60 88 0 z" fill="#5b3b25"/>
+  <path d="M78 96 q50 -18 100 0 v10 q-50 -14 -100 0z" fill="#e9dcc2"/>
+  <!-- face -->
+  <ellipse cx="128" cy="124" rx="28" ry="30" fill="#c99a6e"/>
+  <path d="M113 118 h10 M133 118 h10" stroke="#3a2412" stroke-width="3" stroke-linecap="round"/>
+  <!-- long beard -->
+  <path d="M100 132 q28 70 56 0 q-8 18 -28 18 q-20 0 -28 -18z" fill="#ece6d8"/>
+  <path d="M118 140 q10 6 20 0" stroke="#b9ae98" stroke-width="2" fill="none"/>
+  <!-- robe -->
+  <path d="M56 256 C60 204 92 182 128 182 C164 182 196 204 200 256 Z" fill="#6b4a2c"/>
+  <path d="M128 182 v74" stroke="#d9b56b" stroke-width="4"/>
+  <!-- open book -->
+  <path d="M74 214 q27 -12 54 0 v34 q-27 -12 -54 0z" fill="#f6efdc"/>
+  <path d="M128 214 q27 -12 54 0 v34 q-27 -12 -54 0z" fill="#ebe1c6"/>
+  <g stroke="#a99b7c" stroke-width="2"><path d="M84 222 h34 M84 230 h34 M84 238 h28 M138 222 h34 M138 230 h34 M138 238 h28"/></g>
+</svg>

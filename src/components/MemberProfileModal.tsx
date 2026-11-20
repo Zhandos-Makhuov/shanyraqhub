@@ -28,6 +28,7 @@ export const MemberProfileModal: React.FC = () => {
   const equippedFrame = SHOP_ITEMS.find(i => i.id === selectedUserModal.inventory.equippedFrame);
   const equippedSkin = SHOP_ITEMS.find(i => i.id === selectedUserModal.inventory.equippedAvatarSkin);
   const equippedArtifact = SHOP_ITEMS.find(i => i.id === selectedUserModal.inventory.equippedArtifact);
+  const equippedAura = SHOP_ITEMS.find(i => i.id === selectedUserModal.inventory.equippedAura);
 
   const handleReviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,8 +52,11 @@ export const MemberProfileModal: React.FC = () => {
         {/* Member Header */}
         <div className="flex items-start gap-4">
           <div className="relative">
+            {equippedAura && (
+              <div className={`absolute inset-0 rounded-full blur-xl pointer-events-none ${equippedAura.id === 'item-aura-tengri-glow' ? 'bg-amber-400/40' : 'bg-sky-400/30'}`} />
+            )}
             <div
-              className={`w-16 h-16 rounded-full overflow-hidden p-0.5 ${
+              className={`relative w-16 h-16 rounded-full overflow-hidden p-0.5 ${
                 equippedFrame?.borderStyle || 'ring-2 ring-[#dfcfb3]/40'
               }`}
             >
