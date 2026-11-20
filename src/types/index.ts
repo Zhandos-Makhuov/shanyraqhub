@@ -48,6 +48,8 @@ export interface ReadBook {
   review?: string;
   dateFinished: string;
   coverColor?: string;
+  /** Photo of the cover (book-covers storage), if someone added one. */
+  coverUrl?: string;
   status: 'completed' | 'reading';
 }
 

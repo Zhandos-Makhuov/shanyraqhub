@@ -403,11 +403,11 @@ export const loadCatalog = async (): Promise<CatalogReport> => {
  * (finished + review of 100+ characters + one credited book per week; finish date set by the DB).
  * `credited` tells whether this save produced a new book reward.
  */
-export const saveUserBook = async (book: Omit<ReadBook, 'id'>): Promise<{ ok: true; credited: boolean } | { ok: false; error: string }> => {
+export const saveUserBook = async (book: Omit<ReadBook, 'id'>, coverFile?: File): Promise<{ ok: true; credited: boolean; coverError?: string } | { ok: false; error: string }> => {
   try {
     const c = db();
     const started = new Date(Date.now() - 5000).toISOString(); // small margin for clock differences
-    const { error } = await c.rpc('save_user_book', {
+    const { data: userBookId, error } = await c.rpc('save_user_book', {
       p_title: book.title,
       p_author: book.author,
       p_genre: book.genre ?? '',
@@ -420,7 +420,9 @@ export const saveUserBook = async (book: Omit<ReadBook, 'id'>): Promise<{ ok: tr
     const me = (await c.auth.getSession()).data.session?.user.id ?? '';
     const { data } = await c.from('reward_ledger').select('id')
       .eq('user_id', me).eq('source', 'book_added').gte('created_at', started).limit(1);
-    return { ok: true, credited: (data?.length ?? 0) > 0 };
+    // The cover is optional: the book is saved even if the photo fails.
+    const cover = coverFile && typeof userBookId === 'string' ? await uploadBookCover(coverFile, userBookId) : { ok: true as const };
+    return { ok: true, credited: (data?.length ?? 0) > 0, ...(cover.ok ? {} : { coverError: cover.error }) };
   } catch (e) {
     return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
   }
@@ -506,9 +508,9 @@ export const dispatchBroadcast = (title: string, body: string, channels: string[
 const AVATAR_MAX_SIDE = 512;
 
 /** Downscales a photo in the browser (phone photos are often larger than the 2 MB bucket limit). */
-const toAvatarJpeg = async (file: File): Promise<Blob> => {
+const toJpeg = async (file: File, maxSide: number): Promise<Blob> => {
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, AVATAR_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
@@ -518,12 +520,36 @@ const toAvatarJpeg = async (file: File): Promise<Blob> => {
     canvas.toBlob(b => (b ? resolve(b) : reject(new Error('image_encode_failed'))), 'image/jpeg', 0.85));
 };
 
+const COVER_MAX_SIDE = 600;
+
+/** Uploads a cover photo (reduced to 600 px JPEG) into the member's folder and sets it on the book (if it has none). */
+export const uploadBookCover = async (file: File, userBookId: string): Promise<ActionResult> => {
+  try {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return { ok: false, error: 'liveErrImageType' };
+    const c = db();
+    const me = await myId();
+    const blob = await toJpeg(file, COVER_MAX_SIDE);
+    const path = `${me}/cover-${Date.now()}.jpg`;
+    const up = await c.storage.from('book-covers').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    if (up.error) return { ok: false, error: serverErrorKey(up.error.message) };
+    const url = c.storage.from('book-covers').getPublicUrl(path).data.publicUrl;
+    const { data: set, error } = await c.rpc('set_book_cover', { p_user_book: userBookId, p_url: url });
+    if (error || set !== true) {
+      await c.storage.from('book-covers').remove([path]); // not used: the book already had a cover
+      return error ? { ok: false, error: serverErrorKey(error.message) } : { ok: false, error: 'liveErrCoverExists' };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
+};
+
 export const uploadAvatar = async (file: File): Promise<ActionResult> => {
   try {
     if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return { ok: false, error: 'liveErrImageType' };
     const c = db();
     const me = await myId();
-    const blob = await toAvatarJpeg(file);
+    const blob = await toJpeg(file, AVATAR_MAX_SIDE);
     const path = `${me}/avatar-${Date.now()}.jpg`;
     const up = await c.storage.from('avatars').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
     if (up.error) return { ok: false, error: serverErrorKey(up.error.message) };

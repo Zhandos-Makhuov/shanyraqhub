@@ -82,7 +82,7 @@ interface AppContextType {
 
   allReadBooks: (ReadBook & { readerName: string; readerAvatar: string; readerId: string })[];
   /** True if the book was credited (reward + book achievements). Live: decided by the server (async). */
-  addReadBook: (book: Omit<ReadBook, 'id'>) => boolean | Promise<boolean>;
+  addReadBook: (book: Omit<ReadBook, 'id'>, coverFile?: File) => boolean | Promise<boolean>;
 
   forumTopics: ForumTopic[];
   createForumTopic: (title: string, content: string, categoryId: string, direction?: DirectionId) => void;
@@ -825,13 +825,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     }))
   );
 
-  const addReadBook = (book: Omit<ReadBook, 'id'>): boolean | Promise<boolean> => {
+  const addReadBook = (book: Omit<ReadBook, 'id'>, coverFile?: File): boolean | Promise<boolean> => {
     if (live) {
-      return live.saveUserBook(book).then(async r => {
+      return live.saveUserBook(book, coverFile).then(async r => {
         if (!r.ok) {
           alert(t(r.error));
           return false;
         }
+        if (r.coverError) alert(t(r.coverError));
         await refreshLive();
         if (r.credited) try { confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } }); } catch {}
         return r.credited;

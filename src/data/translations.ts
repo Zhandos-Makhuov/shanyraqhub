@@ -597,6 +597,11 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     shopWhat_artifact: 'Талисман: значок с надписью под вашим фото.',
     shopWhat_headwear: 'Головной убор для вашего образа.',
     shopNeedMore: 'Не хватает {n} коинов',
+    libFormCover: 'Обложка (необязательно)',
+    libCoverAdd: 'Добавить фото обложки',
+    libCoverChange: 'Выбрать другое фото',
+    libCoverHint: 'Сфотографируйте обложку или выберите фото. Если у книги уже есть обложка, она останется.',
+    liveErrCoverExists: 'Книга сохранена. У неё уже есть обложка — заменить её может модератор.',
   },
   kz: {
     // Brand & Tagline
@@ -1194,6 +1199,11 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     shopWhat_artifact: 'Тұмар: фотоңыздың астындағы жазуы бар белгі.',
     shopWhat_headwear: 'Бейнеңізге арналған бас киім.',
     shopNeedMore: 'Тағы {n} коин керек',
+    libFormCover: 'Мұқаба (міндетті емес)',
+    libCoverAdd: 'Мұқаба фотосын қосу',
+    libCoverChange: 'Басқа фото таңдау',
+    libCoverHint: 'Мұқабаны суретке түсіріңіз немесе фото таңдаңыз. Кітаптың мұқабасы бұрыннан болса, сол қалады.',
+    liveErrCoverExists: 'Кітап сақталды. Оның мұқабасы бар — оны модератор ғана ауыстыра алады.',
   },
   en: {
     // Brand & Tagline
@@ -1791,5 +1801,10 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     shopWhat_artifact: 'Talisman: a badge with a title under your photo.',
     shopWhat_headwear: 'Headwear for your look.',
     shopNeedMore: '{n} more coins needed',
+    libFormCover: 'Cover (optional)',
+    libCoverAdd: 'Add a cover photo',
+    libCoverChange: 'Choose another photo',
+    libCoverHint: 'Take a photo of the cover or pick one. If the book already has a cover, it stays.',
+    liveErrCoverExists: 'The book is saved. It already has a cover — a moderator can replace it.',
   },
 };

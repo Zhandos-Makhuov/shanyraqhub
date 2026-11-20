@@ -116,6 +116,7 @@ export const readBookFromRow = (row: UserBookRow, book: BookRow | undefined): Re
   review: row.review ?? undefined,
   dateFinished: row.finished_at ?? '',
   coverColor: book?.cover_color ?? undefined,
+  coverUrl: book?.cover_url ?? undefined,
   status: row.status,
 });
 

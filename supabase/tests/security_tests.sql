@@ -541,4 +541,17 @@ select t.ok((select body from public.notifications where dedupe_key = 'lang-free
 select private.notify('00000000-0000-0000-0000-000000000001', 'level_up', 'Повышение клубного ранга!', 'Поздравляем! Ваш статус повышен: gold', 'profile', '{"tier":"gold"}', 'lang-tier');
 select t.ok((select body from public.notifications where dedupe_key = 'lang-tier') = 'Құттықтаймыз! Жаңа деңгейіңіз: ' || (select name_kz from public.tiers where tier = 'gold'), 'tier name from the catalog');
 
+-- Book covers: a member sets the cover of a book on their shelf once; only moderators replace it.
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select public.save_user_book('Cover test book', 'Cover Author', '', 'reading') as cover_ub \gset
+select t.expect_fail($$select public.set_book_cover('$$ || :'cover_ub' || $$', 'https://evil.example/x.jpg')$$, '%invalid_cover_url%');
+select t.expect_fail($$select public.set_book_cover('$$ || :'cover_ub' || $$', 'https://abc.supabase.co/storage/v1/object/public/book-covers/00000000-0000-0000-0000-000000000002/a.jpg')$$, '%invalid_cover_url%');
+select t.ok(public.set_book_cover(:'cover_ub', 'https://abc.supabase.co/storage/v1/object/public/book-covers/00000000-0000-0000-0000-000000000001/c1.jpg'), 'member sets the cover of a book without one');
+select t.ok(not public.set_book_cover(:'cover_ub', 'https://abc.supabase.co/storage/v1/object/public/book-covers/00000000-0000-0000-0000-000000000001/c2.jpg'), 'member cannot replace an existing cover');
+select t.ok((select cover_url from public.books where title = 'Cover test book') like '%/c1.jpg', 'first cover kept');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select t.expect_fail($$select public.set_book_cover('$$ || :'cover_ub' || $$', 'https://abc.supabase.co/storage/v1/object/public/book-covers/00000000-0000-0000-0000-000000000002/c3.jpg')$$, '%not_found%');
+reset role;
+
 \echo ALL_TESTS_PASSED

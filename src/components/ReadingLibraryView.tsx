@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { ReadBook } from '../types';
 import { BOOK_GENRES, genreLabel } from '../data/bookGenres';
+import { isDemoData } from '../config/runtime';
 
 export const ReadingLibraryView: React.FC = () => {
   const { allReadBooks, allUsers, currentUser, addReadBook, setSelectedUserModal, t } = useApp();
@@ -30,6 +31,9 @@ export const ReadingLibraryView: React.FC = () => {
   const [bookRating, setBookRating] = useState(5);
   const [bookReview, setBookReview] = useState('');
   const [bookStatus, setBookStatus] = useState<'completed' | 'reading'>('completed');
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const coverPreview = React.useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : null), [coverFile]);
+  React.useEffect(() => () => { if (coverPreview) URL.revokeObjectURL(coverPreview); }, [coverPreview]);
 
   // Live hint: will this book count for the reward and book achievements?
   const reviewChars = reviewLength(bookReview);
@@ -82,9 +86,10 @@ export const ReadingLibraryView: React.FC = () => {
       dateFinished: toLocalDay(),
       coverColor: randomCoverColor,
       status: bookStatus,
-    });
+    }, coverFile ?? undefined);
 
     setShowAddModal(false);
+    setCoverFile(null);
     setBookTitle('');
     setBookAuthor('');
     setBookReview('');
@@ -205,6 +210,10 @@ export const ReadingLibraryView: React.FC = () => {
               <div className="space-y-3">
                 {/* Book Header with faux spine visual */}
                 <div className="flex items-start gap-3">
+                  {item.coverUrl ? (
+                    <img src={item.coverUrl} alt={item.title} loading="lazy"
+                         className="w-12 h-16 rounded-md shrink-0 object-cover shadow-md border border-black/20" />
+                  ) : (
                   <div
                     className="w-12 h-16 rounded-md shrink-0 flex flex-col justify-between p-1.5 shadow-md border border-black/20"
                     style={{ backgroundColor: item.coverColor || '#967d58' }}
@@ -214,6 +223,7 @@ export const ReadingLibraryView: React.FC = () => {
                       {item.author.split(' ')[0]}
                     </span>
                   </div>
+                  )}
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
@@ -365,6 +375,25 @@ export const ReadingLibraryView: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              {!isDemoData && (
+                <div>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('libFormCover')}</label>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-16 rounded-md shrink-0 overflow-hidden bg-[#1a1716] border border-[#3b3430] flex items-center justify-center text-[#736a62]">
+                      {coverPreview ? <img src={coverPreview} alt="" className="w-full h-full object-cover" /> : '📖'}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3a3330] border border-[#483f3a] text-[#dfcfb3] font-semibold cursor-pointer w-fit">
+                        {coverFile ? t('libCoverChange') : t('libCoverAdd')}
+                        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                               onChange={e => setCoverFile(e.target.files?.[0] ?? null)} />
+                      </label>
+                      <span className="text-[10px] text-[#8c8279]">{t('libCoverHint')}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="font-medium text-[#d6cebf] block mb-1">
