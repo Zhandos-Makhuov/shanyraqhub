@@ -6,7 +6,7 @@
  * Loaded only in live mode (AuthGate is a dynamic import), so demo builds never include it.
  */
 import { supabase } from './client';
-import { applyCatalog, type AchievementRow, type CatalogReport, type ShopItemRow, type TierRow } from '../catalog';
+import { applyCatalog, type AchievementRow, type CatalogReport, type DirectionRow, type ShopItemRow, type TierRow } from '../catalog';
 import { buildPublicNames, eventFromRow, profileFromRows, CLUB_TIME_ZONE } from './adapters';
 import type {
   MembershipRow, ProfileContactRow, UserEquipmentRow, UserInventoryRow,
@@ -284,6 +284,8 @@ const SERVER_ERRORS: [RegExp, string][] = [
   [/membership_removed/, 'liveErrMembershipRemoved'],
   [/membership_not_pending/, 'liveErrDuplicate'],
   [/reason_required/, 'liveErrReasonRequired'],
+  [/direction_invalid_id/, 'dirErrInvalidId'],
+  [/direction_names_required/, 'dirErrNames'],
   [/cannot change your own role|cannot adjust your own balance|cannot award an achievement to yourself|cannot revoke your own achievement|cannot review own membership/, 'liveErrSelfAction'],
   [/cannot demote the last superadmin/, 'liveErrLastSuperadmin'],
   [/amount out of range/, 'liveErrInvalid'],
@@ -390,12 +392,13 @@ export const checkInWithToken = async (
  */
 export const loadCatalog = async (): Promise<CatalogReport> => {
   const c = db();
-  const [tiers, shopItems, achievements] = await Promise.all([
+  const [tiers, shopItems, achievements, directions] = await Promise.all([
     rows<TierRow>(c.from('tiers').select('*').order('sort_order')),
     rows<ShopItemRow>(c.from('shop_items').select('*')),
     rows<AchievementRow>(c.from('achievements').select('*')),
+    rows<DirectionRow>(c.from('community_directions').select('*')),
   ]);
-  return applyCatalog({ tiers, shopItems, achievements });
+  return applyCatalog({ tiers, shopItems, achievements, directions });
 };
 
 /**
@@ -680,3 +683,16 @@ export const createTelegramLink = async (botUsername: string): Promise<{ ok: tru
 };
 
 export const unlinkTelegram = () => call('unlink_telegram', {});
+
+// --- Directions (admins): add / edit (admin_save_direction), archive / restore (admin_set_direction_active) ---
+export interface DirectionInput {
+  id: string;
+  name_ru: string; name_kz: string; name_en: string;
+  short_name_ru: string; short_name_kz: string; short_name_en: string;
+  description_ru: string; description_kz: string; description_en: string;
+  icon: string; color: string; requires_approval: boolean;
+}
+export const saveDirection = (d: DirectionInput) => call('admin_save_direction', { p: d });
+export const setDirectionActive = (id: string, active: boolean) => call('admin_set_direction_active', { p_id: id, p_active: active });
+/** Re-reads the directions and achievements after an admin change (they live in the shared catalog lists). */
+export const reloadCatalog = () => loadCatalog();

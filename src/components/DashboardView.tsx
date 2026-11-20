@@ -1,7 +1,7 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
-import { COMMUNITY_DIRECTIONS } from '../data/directions';
+import { COMMUNITY_DIRECTIONS, activeDirections } from '../data/directions';
 import { getEventStart, hasEventStarted } from '../utils/eventTime';
 import { computeCommunityStats } from '../utils/communityStats';
 import {
@@ -210,7 +210,7 @@ export const DashboardView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {COMMUNITY_DIRECTIONS.slice(0, 4).map(dir => (
+          {activeDirections().slice(0, 4).map(dir => (
             <div
               key={dir.id}
               onClick={() => setActiveTab('events')}

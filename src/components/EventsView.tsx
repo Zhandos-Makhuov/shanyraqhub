@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { COMMUNITY_DIRECTIONS } from '../data/directions';
+import { COMMUNITY_DIRECTIONS, activeDirections } from '../data/directions';
 import { exportEventToIcs } from '../utils/calendar';
 import { hasEventStarted, isCheckInWindowOpen } from '../utils/eventTime';
 import { MyQrModal } from './CheckInQr';
@@ -162,7 +162,7 @@ export const EventsView: React.FC = () => {
           >
             {t('actionFilterAll')}
           </button>
-          {COMMUNITY_DIRECTIONS.map(dir => (
+          {activeDirections().map(dir => (
             <button
               key={dir.id}
               onClick={() => setSelectedDirection(dir.id)}
@@ -654,7 +654,7 @@ export const EventsView: React.FC = () => {
                     onChange={e => setNewDirection(e.target.value as DirectionId)}
                     className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none"
                   >
-                    {COMMUNITY_DIRECTIONS.map(d => (
+                    {activeDirections().map(d => (
                       <option key={d.id} value={d.id}>
                         {ln(d)}
                       </option>

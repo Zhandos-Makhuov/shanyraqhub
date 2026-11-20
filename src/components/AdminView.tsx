@@ -13,9 +13,10 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'admin', label: 'Admin' },
   { value: 'super_admin', label: 'Super Admin' },
 ];
-import { COMMUNITY_DIRECTIONS } from '../data/directions';
+import { COMMUNITY_DIRECTIONS, activeDirections } from '../data/directions';
 import { formatTelegramMarkdown, formatWhatsAppMessage } from '../utils/notifications';
 import { MembershipApplications } from './MembershipApplications';
+import { DirectionsManager } from './DirectionsManager';
 import {
   ShieldCheck,
   Award,
@@ -66,7 +67,7 @@ export const AdminView: React.FC = () => {
 
   // Real numbers only (see utils/communityStats.ts).
   const stats = computeCommunityStats(allUsers, events);
-  const directionReach = computeDirectionReach(allUsers, COMMUNITY_DIRECTIONS.map(d => d.id));
+  const directionReach = computeDirectionReach(allUsers, activeDirections().map(d => d.id));
   const ratedBooks = allReadBooks.filter(hasQualifyingReview);
   const avgBookRating = ratedBooks.length > 0 ? ratedBooks.reduce((s, b) => s + b.userRating, 0) / ratedBooks.length : null;
 
@@ -155,6 +156,7 @@ export const AdminView: React.FC = () => {
 
       {/* Live: direction applications (moderators see all, leads see their direction) */}
       <MembershipApplications showWhenEmpty />
+      {canRevokeAchievements && <DirectionsManager />}
 
       {/* Admin Tab Switcher */}
       <div className="flex items-center gap-2 border-b border-[#302a28] pb-2 overflow-x-auto scrollbar-none">
@@ -258,7 +260,7 @@ export const AdminView: React.FC = () => {
             </h3>
 
             <div className="space-y-3">
-              {COMMUNITY_DIRECTIONS.map(dir => {
+              {activeDirections().map(dir => {
                 const pct = directionReach[dir.id] ?? 0;
                 return (
                   <div key={dir.id} className="space-y-1">
@@ -645,7 +647,7 @@ export const AdminView: React.FC = () => {
                     className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
                   >
                     <option value="all">{t('admAllMembers')} ({allUsers.length})</option>
-                    {COMMUNITY_DIRECTIONS.map(d => (
+                    {activeDirections().map(d => (
                       <option key={d.id} value={d.id}>{ln(d)}</option>
                     ))}
                   </select>

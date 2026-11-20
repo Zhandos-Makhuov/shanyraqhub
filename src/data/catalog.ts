@@ -11,7 +11,8 @@
  */
 import { ALL_ACHIEVEMENTS } from './achievements';
 import { SHOP_ITEMS, TIERS } from './gamification';
-import type { Achievement, AchievementRule, ItemCategory, ItemRarity, ShopItem, TierLevel } from '../types';
+import { COMMUNITY_DIRECTIONS } from './directions';
+import type { Achievement, AchievementRule, Direction, ItemCategory, ItemRarity, ShopItem, TierLevel } from '../types';
 
 export interface TierRow {
   tier: string;
@@ -55,11 +56,36 @@ export interface AchievementRow {
   is_active: boolean;
 }
 
+export interface DirectionRow {
+  id: string;
+  name_ru: string; name_kz: string; name_en: string;
+  short_name_ru: string; short_name_kz: string; short_name_en: string;
+  description_ru: string; description_kz: string; description_en: string;
+  icon: string | null;
+  color: string | null;
+  requires_approval: boolean;
+  is_active: boolean;
+  sort_order: number;
+}
+
 export interface CatalogRows {
   tiers: TierRow[];
   shopItems: ShopItemRow[];
   achievements: AchievementRow[];
+  directions?: DirectionRow[];
 }
+
+export const directionFromRow = (r: DirectionRow): Direction => ({
+  id: r.id,
+  nameRu: r.name_ru, nameKz: r.name_kz, nameEn: r.name_en,
+  shortNameRu: r.short_name_ru || r.name_ru, shortNameKz: r.short_name_kz || r.name_kz, shortNameEn: r.short_name_en || r.name_en,
+  descriptionRu: r.description_ru, descriptionKz: r.description_kz, descriptionEn: r.description_en,
+  icon: r.icon || 'Compass',
+  color: r.color || '#dfcfb3',
+  isActive: r.is_active,
+  requiresApproval: r.requires_approval,
+  sortOrder: r.sort_order,
+});
 
 /** What the database had that the code cannot show yet (e.g. a new tier needs colours and a badge). */
 export interface CatalogReport {
@@ -135,6 +161,12 @@ export const applyCatalog = (rows: CatalogRows): CatalogReport => {
   // Achievements: only active ones (a deactivated achievement is hidden, already earned ones stay in history).
   const achievements = inCodeOrder(rows.achievements.filter(r => r.is_active).map(achievementFromRow), ALL_ACHIEVEMENTS.map(a => a.id));
   if (achievements.length > 0 || rows.achievements.length > 0) ALL_ACHIEVEMENTS.splice(0, ALL_ACHIEVEMENTS.length, ...achievements);
+
+  // Directions: all of them (archived ones too, so history still shows their names), in the admins' order.
+  if (rows.directions && rows.directions.length > 0) {
+    const dirs = [...rows.directions].sort((a, b) => a.sort_order - b.sort_order).map(directionFromRow);
+    COMMUNITY_DIRECTIONS.splice(0, COMMUNITY_DIRECTIONS.length, ...dirs);
+  }
 
   if (unknownTiers.length) console.warn('[catalog] tiers in the database without a look in the code:', unknownTiers);
   return { unknownTiers };

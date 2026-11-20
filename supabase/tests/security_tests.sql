@@ -554,4 +554,33 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 select t.expect_fail($$select public.set_book_cover('$$ || :'cover_ub' || $$', 'https://abc.supabase.co/storage/v1/object/public/book-covers/00000000-0000-0000-0000-000000000002/c3.jpg')$$, '%not_found%');
 reset role;
 
+-- Directions the admins manage: add (with its own achievement), edit, archive, restore.
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.expect_fail($$select public.admin_save_direction('{"id":"pottery","name_ru":"Гончарка","name_kz":"Қыш","name_en":"Pottery"}')$$, '%forbidden%');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+select t.expect_fail($$select public.admin_save_direction('{"id":"Bad Id!","name_ru":"x","name_kz":"x","name_en":"x"}')$$, '%direction_invalid_id%');
+select t.expect_fail($$select public.admin_save_direction('{"id":"general","name_ru":"x","name_kz":"x","name_en":"x"}')$$, '%direction_invalid_id%');
+select t.expect_fail($$select public.admin_save_direction('{"id":"pottery","name_ru":"Гончарка","name_kz":"","name_en":"Pottery"}')$$, '%direction_names_required%');
+select t.ok(public.admin_save_direction('{"id":"pottery","name_ru":"Гончарная мастерская","name_kz":"Қыш шеберханасы","name_en":"Pottery studio","short_name_ru":"Гончарка","short_name_kz":"Қыш","short_name_en":"Pottery","icon":"Palette","color":"#b5582f","requires_approval":false}') = 'pottery', 'admin adds a direction');
+select t.ok((select rule ->> 'direction' from public.achievements where id = 'ach-dir-pottery') = 'pottery'
+            and (select xp_reward from public.achievements where id = 'ach-dir-pottery') = 150, 'new direction gets its "5 visits" achievement');
+select public.admin_save_direction('{"id":"pottery","name_ru":"Гончарная студия","name_kz":"Қыш студиясы","name_en":"Pottery studio","short_name_kz":"Қыш"}');
+select t.ok((select name_ru from public.community_directions where id = 'pottery') = 'Гончарная студия'
+            and (select description_kz from public.achievements where id = 'ach-dir-pottery') like '%Қыш студиясы%', 'edit updates the direction and its achievement texts');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.ok(public.request_membership('pottery') = 'active', 'members can join the new direction (no approval needed)');
+select t.ok((select 'pottery' = any (directions) from public.profiles where id = auth.uid()), 'profile lists the new direction');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+select t.ok(public.admin_set_direction_active('pottery', false), 'admin archives the direction');
+select t.ok(not (select is_active from public.achievements where id = 'ach-dir-pottery'), 'its achievement is hidden with it');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select t.expect_fail($$select public.request_membership('pottery')$$, '%direction_not_available%');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+select t.ok((select status::text from public.memberships where direction = 'pottery' and user_id = '00000000-0000-0000-0000-000000000001') = 'active', 'archiving keeps history (memberships)');
+select t.ok(public.admin_set_direction_active('pottery', true), 'admin restores the direction');
+select t.ok((select is_active from public.community_directions where id = 'pottery') and (select is_active from public.achievements where id = 'ach-dir-pottery'), 'restore brings both back');
+reset role;
+select t.expect_fail($$insert into public.events (title, direction, starts_at, capacity, status) values ('Unknown direction', 'nope', now() + interval '1 day', 5, 'published')$$, '%events_direction_fkey%');
+
 \echo ALL_TESTS_PASSED

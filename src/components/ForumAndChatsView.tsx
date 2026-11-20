@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { activeDirections } from '../data/directions';
 import { useApp } from '../context/AppContext';
 import { canAccessRoom } from '../utils/permissions';
 import {
@@ -30,6 +31,7 @@ export const ForumAndChatsView: React.FC = () => {
     language,
     t,
     lf,
+    ln,
   } = useApp();
 
   const [activeSection, setActiveSection] = useState<'forum' | 'encrypted_rooms'>('forum');
@@ -496,12 +498,9 @@ export const ForumAndChatsView: React.FC = () => {
                   onChange={e => setNewTopicCategory(e.target.value as DirectionId)}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
                 >
-                  <option value="books">{t('frmCatBooks')}</option>
-                  <option value="english">Speaking English Club</option>
-                  <option value="arabic">{t('frmCatArabic')}</option>
-                  <option value="sport">{t('frmCatSport')}</option>
-                  <option value="art">{t('frmCatArt')}</option>
-                  <option value="intellect">{t('frmCatIntellect')}</option>
+                  {activeDirections().map(d => (
+                    <option key={d.id} value={d.id}>{ln(d)}</option>
+                  ))}
                   <option value="general">{t('frmCatGeneral')}</option>
                 </select>
               </div>

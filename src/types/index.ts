@@ -2,7 +2,8 @@ export type Language = 'ru' | 'kz' | 'en';
 
 export type UserRole = 'super_admin' | 'admin' | 'moderator' | 'organizer' | 'member';
 
-export type DirectionId = 'books' | 'english' | 'arabic' | 'sport' | 'art' | 'intellect' | 'networking' | 'general';
+/** Direction ids come from the database (admins add new ones); the first ones are kept for the demo data. */
+export type DirectionId = string;
 
 export type TierLevel = 'bronze' | 'silver' | 'gold' | 'platinum' | 'titanium' | 'tengri';
 
@@ -37,6 +38,10 @@ export interface Direction {
   descriptionRu: string;
   descriptionKz: string;
   descriptionEn: string;
+  /** false = archived by an admin: hidden from choices, history still shows its name. */
+  isActive?: boolean;
+  requiresApproval?: boolean;
+  sortOrder?: number;
 }
 
 export interface ReadBook {

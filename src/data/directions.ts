@@ -101,3 +101,6 @@ export const COMMUNITY_DIRECTIONS: Direction[] = [
     descriptionEn: 'High-trust community mixers, project matchmaking, and traditional tea ceremonies.',
   },
 ];
+
+/** Directions members can choose now (archived ones are left out; lookups by id still use the full list). */
+export const activeDirections = (): Direction[] => COMMUNITY_DIRECTIONS.filter(d => d.isActive !== false);

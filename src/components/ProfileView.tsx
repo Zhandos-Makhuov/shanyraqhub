@@ -2,7 +2,7 @@ import { genreLabel } from '../data/bookGenres';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { TIERS, SHOP_ITEMS } from '../data/gamification';
-import { COMMUNITY_DIRECTIONS } from '../data/directions';
+import { COMMUNITY_DIRECTIONS, activeDirections } from '../data/directions';
 import {
   User,
   Edit3,
@@ -475,7 +475,7 @@ export const ProfileView: React.FC = () => {
                 </label>
                 {!isDemoData && <p className="text-[11px] text-[#8c8279] mb-2">{t('liveMembershipHint')}</p>}
                 <div className="flex flex-wrap gap-2">
-                  {COMMUNITY_DIRECTIONS.map(dir => (
+                  {activeDirections().map(dir => (
                     <button
                       key={dir.id}
                       type="button"
