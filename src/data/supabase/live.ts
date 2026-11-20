@@ -600,3 +600,37 @@ export const disablePush = async (): Promise<ActionResult> => {
     return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
   }
 };
+
+// --- Telegram (bot notifications; linking an e-mail account needs a one-time code from here) ---
+export interface TelegramStatus {
+  /** The club bot's @username; null when no bot is set up for this project. */
+  botUsername: string | null;
+  linked: boolean;
+  /** Linked, but the bot may not write yet (never pressed «Старт» in the bot) or was blocked. */
+  canMessage: boolean;
+  blocked: boolean;
+}
+
+export const telegramStatus = async (): Promise<TelegramStatus> => {
+  const c = db();
+  const me = await myId();
+  const [setting, account] = await Promise.all([
+    c.from('app_settings').select('value').eq('key', 'telegram_bot_username').maybeSingle<{ value: string }>(),
+    c.from('telegram_accounts').select('chat_id, bot_blocked_at').eq('user_id', me).maybeSingle<{ chat_id: number | null; bot_blocked_at: string | null }>(),
+  ]);
+  const a = account.data;
+  return { botUsername: setting.data?.value || null, linked: !!a, canMessage: !!a?.chat_id && !a.bot_blocked_at, blocked: !!a?.bot_blocked_at };
+};
+
+/** A deep link that links this account when opened in Telegram (code valid 10 minutes, once). */
+export const createTelegramLink = async (botUsername: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> => {
+  try {
+    const { data, error } = await db().rpc('create_telegram_link_code');
+    if (error || typeof data !== 'string') return { ok: false, error: serverErrorKey(error?.message ?? '') };
+    return { ok: true, url: `https://t.me/${botUsername}?start=link_${data}` };
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
+};
+
+export const unlinkTelegram = () => call('unlink_telegram', {});

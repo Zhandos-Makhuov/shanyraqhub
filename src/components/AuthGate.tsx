@@ -9,10 +9,10 @@
 import React, { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { Eye, EyeOff, Loader2, Mail } from 'lucide-react';
-import { openedFromRecoveryLink, supabase, supabaseConfigured } from '../data/supabase/client';
+import { isTelegramMiniApp, openedFromRecoveryLink, supabase, supabaseConfigured, telegramInitData, telegramReady } from '../data/supabase/client';
 import {
   MIN_PASSWORD_LENGTH, loadOwnProfile, requestPasswordReset, resendConfirmation,
-  signIn, signOut, signUp, updatePassword, validateEmail,
+  signIn, signInWithTelegram, signOut, signUp, telegramBotUsername, updatePassword, validateEmail,
 } from '../data/supabase/auth';
 import * as liveApi from '../data/supabase/live';
 import type { LiveSnapshot } from '../data/supabase/live';
@@ -137,6 +137,10 @@ const AuthScreen: React.FC<{ initialError: string | null }> = ({ initialError })
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
   const [info, setInfo] = useState<string | null>(null);
+  const [bot, setBot] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isTelegramMiniApp) telegramBotUsername().then(setBot).catch(() => setBot(null));
+  }, []);
 
   const go = (next: Mode) => {
     setMode(next);
@@ -276,6 +280,13 @@ const AuthScreen: React.FC<{ initialError: string | null }> = ({ initialError })
           {t(submitKey)}
         </button>
 
+        {mode === 'signin' && bot && (
+          <a href={`https://t.me/${bot}`} target="_blank" rel="noopener noreferrer"
+             className="w-full p-2.5 rounded-lg border border-[#3f3834] hover:border-[#dfcfb3]/50 text-sm text-[#f5f2eb] text-center transition-colors">
+            {t('authTelegramButton')}
+          </a>
+        )}
+
         <div className="flex flex-col items-center gap-2 pt-1">
           {mode === 'signin' && (
             <>
@@ -355,10 +366,22 @@ export const AuthGate: React.FC<{ children: (account: LiveAccount) => React.Reac
   const [snapshot, setSnapshot] = useState<LiveSnapshot | null>(null);
   const [profileError, setProfileError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // Telegram Mini App: sign in with Telegram's signed data when there is no session yet.
+  const [telegramSignIn, setTelegramSignIn] = useState<'idle' | 'busy' | 'done'>(isTelegramMiniApp ? 'busy' : 'idle');
+  const [telegramError, setTelegramError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => setSession(prev => (prev === undefined ? data.session : prev)));
+    telegramReady();
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session && telegramInitData) {
+        const r = await signInWithTelegram(telegramInitData);
+        if (!r.ok) setTelegramError(r.error);
+        // On success onAuthStateChange delivers the session.
+      }
+      setTelegramSignIn('done');
+      setSession(prev => (prev === undefined ? data.session : prev));
+    });
     // Keep this callback synchronous: calling Supabase inside it can deadlock the auth client.
     const { data } = supabase.auth.onAuthStateChange((event, next) => {
       if (event === 'PASSWORD_RECOVERY') setRecovery(true);
@@ -392,9 +415,9 @@ export const AuthGate: React.FC<{ children: (account: LiveAccount) => React.Reac
   }, [userId, email, attempt]);
 
   if (!supabaseConfigured) return <CenterNote>{t('authNotConfigured')}</CenterNote>;
-  if (session === undefined) return <CenterNote>{t('authLoading')}</CenterNote>;
+  if (session === undefined || telegramSignIn === 'busy') return <CenterNote>{t(isTelegramMiniApp ? 'authTelegramSigningIn' : 'authLoading')}</CenterNote>;
   if (recovery && session) return <NewPasswordScreen onDone={() => setRecovery(false)} />;
-  if (!session) return <AuthScreen initialError={linkError} />;
+  if (!session) return <AuthScreen initialError={linkError ?? telegramError} />;
   if (profileError) {
     return (
       <CenterNote>

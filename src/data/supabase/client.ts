@@ -21,6 +21,43 @@ export const supabaseConfigured =
  */
 export const openedFromRecoveryLink = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 
+/**
+ * Telegram Mini App: Telegram opens the site with `#tgWebAppData=<signed initData>&tgWebAppVersion=…`.
+ * Read it here, before createClient looks at the URL hash, and keep it for reloads inside the Mini App.
+ * The signature is checked on the server (Edge Function telegram-auth); here it is only passed on.
+ */
+const TG_KEY = 'shq_tg_init_data';
+export const telegramInitData: string | null = (() => {
+  try {
+    const fromHash = new URLSearchParams(window.location.hash.slice(1)).get('tgWebAppData');
+    if (fromHash) {
+      sessionStorage.setItem(TG_KEY, fromHash);
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      return fromHash;
+    }
+    return sessionStorage.getItem(TG_KEY);
+  } catch {
+    return null;
+  }
+})();
+export const isTelegramMiniApp = telegramInitData !== null;
+
+/** Tells Telegram the page is ready and asks for full height (no-op outside Telegram). */
+export const telegramReady = () => {
+  if (!isTelegramMiniApp) return;
+  const post = (eventType: string) => {
+    const w = window as unknown as { TelegramWebviewProxy?: { postEvent: (t: string, d: string) => void }; external?: { notify?: (s: string) => void } };
+    try {
+      if (w.TelegramWebviewProxy) w.TelegramWebviewProxy.postEvent(eventType, '{}');
+      else if (window.parent !== window) window.parent.postMessage(JSON.stringify({ eventType, eventData: {} }), '*');
+    } catch { /* not inside Telegram after all */ }
+  };
+  post('web_app_ready');
+  post('web_app_expand');
+};
+
+export const supabaseUrl = url.replace(/\/$/, '');
+
 export const supabase: SupabaseClient | null = supabaseConfigured
   ? createClient(url, anonKey, {
       auth: {

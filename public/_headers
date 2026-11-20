@@ -1,8 +1,9 @@
 # Cloudflare Pages response headers (https://developers.cloudflare.com/pages/configuration/headers/)
+# Embedding: only this site and Telegram Web (the Mini App opens there in a frame); any other site is refused.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self' https://web.telegram.org
   Permissions-Policy: camera=(self), microphone=(), geolocation=()
   Strict-Transport-Security: max-age=31536000
 

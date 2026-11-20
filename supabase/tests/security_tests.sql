@@ -513,5 +513,14 @@ select t.ok((select value from public.app_settings where key = 'telegram_bot_use
             'bot @username is readable before sign-in');
 select t.expect_fail($$select public.set_app_setting('x', 'y')$$, '%permission denied%');
 reset role;
+-- A member who signed up through Telegram (internal e-mail) cannot unlink: it is their only way in.
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000c1', 'tg-777004@telegram.invalid');
+select public.attach_telegram('00000000-0000-0000-0000-0000000000c1', 777004, 'tg_only', 'TG', 777004);
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000000c1"}', false);
+select t.expect_fail($$select public.unlink_telegram()$$, '%telegram_only_sign_in%');
+reset role;
+select t.ok(exists (select 1 from public.telegram_accounts where user_id = '00000000-0000-0000-0000-0000000000c1'),
+            'Telegram-only member keeps the link');
 
 \echo ALL_TESTS_PASSED

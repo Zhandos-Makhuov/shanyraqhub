@@ -98,6 +98,10 @@ interface AppContextType {
   notifications: AppNotification[];
   markAllNotificationsAsRead: () => void;
   togglePushNotifications: () => Promise<boolean>;
+  /** Live only (null in demo): server API, e.g. Telegram linking in the notifications menu. */
+  liveApi: LiveAccount['api'] | null;
+  /** Live only: runs a server action, then reloads the server data (translated alert on failure). */
+  runLiveAction: (action: Promise<{ ok: true } | { ok: false; error: string }>, quiet?: boolean) => Promise<{ ok: boolean; error?: string }>;
 
   updateUserRole: (targetUserId: string, newRole: UserRole) => void;
   adjustUserCoins: (targetUserId: string, amount: number, reason: string) => boolean | Promise<boolean>;
@@ -1535,6 +1539,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         notifications,
         markAllNotificationsAsRead,
         togglePushNotifications,
+        liveApi: live ?? null,
+        runLiveAction: runLive,
         updateUserRole,
         adjustUserCoins,
         dispatchBroadcast,

@@ -6,7 +6,7 @@
  * so the screen stays in the member's language and never leaks internals.
  */
 import type { AuthError } from '@supabase/supabase-js';
-import { supabase } from './client';
+import { supabase, supabaseUrl } from './client';
 import { profileFromRows } from './adapters';
 import type { ProfileRow, UserBalanceRow, UserRoleRow } from './rows';
 import type { UserProfile } from '../../types';
@@ -83,6 +83,35 @@ export const updatePassword = async (password: string): Promise<AuthResult> => {
   const { error } = await client().auth.updateUser({ password });
   return error ? { ok: false, error: authErrorKey(error) } : { ok: true };
 };
+
+/**
+ * Sign in from the Telegram Mini App: the server checks Telegram's signature, finds the linked member
+ * (or creates a new one, who starts like every visitor) and returns a normal session.
+ */
+export const signInWithTelegram = async (initData: string): Promise<AuthResult> => {
+  try {
+    const r = await fetch(`${supabaseUrl}/functions/v1/telegram-auth`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData }),
+    });
+    const body = (await r.json().catch(() => ({}))) as { access_token?: string; refresh_token?: string; error?: string };
+    if (!r.ok || !body.access_token || !body.refresh_token) {
+      return { ok: false, error: body.error === 'init_data_expired' ? 'authErrorTelegramExpired' : 'authErrorTelegram' };
+    }
+    const { error } = await client().auth.setSession({ access_token: body.access_token, refresh_token: body.refresh_token });
+    return error ? { ok: false, error: 'authErrorTelegram' } : { ok: true };
+  } catch {
+    return { ok: false, error: 'authErrorNetwork' };
+  }
+};
+
+/** The club bot's public @username (set by the bot on setup), for "Войти через Telegram"; null if there is no bot. */
+export const telegramBotUsername = async (): Promise<string | null> => {
+  const { data } = await client().from('app_settings').select('value').eq('key', 'telegram_bot_username').maybeSingle<{ value: string }>();
+  return data?.value || null;
+};
+
+/** Members created by Telegram sign-in have an internal address that is never shown or mailed. */
+export const isInternalEmail = (email: string) => email.endsWith('@telegram.invalid');
 
 export const signOut = async (): Promise<void> => {
   // 'local' signs out this browser only; other devices keep their sessions.

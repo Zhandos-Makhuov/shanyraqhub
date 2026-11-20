@@ -5,6 +5,7 @@ import { Bell, Globe, Sparkles, ChevronDown, Coins, Database, LogOut } from 'luc
 import { Language } from '../types';
 import { DemoStatusModal } from './DemoStatusModal';
 import { canSwitchTestAccounts, isDemoData } from '../config/runtime';
+import { TelegramConnect } from './TelegramConnect';
 
 export const Header: React.FC = () => {
   const {
@@ -179,6 +180,8 @@ export const Header: React.FC = () => {
                     </div>
                   </div>
 
+                  <TelegramConnect />
+
                   <div className="max-h-64 overflow-y-auto divide-y divide-[#322c29] mt-2">
                     {myNotifs.length === 0 ? (
                       <div className="py-6 text-center text-xs text-[#9e948c]">
@@ -319,7 +322,7 @@ export const Header: React.FC = () => {
                   </div>
                   {signOut && (
                     <div className="mt-2 pt-2 border-t border-[#38322e]">
-                      {currentUser.email && (
+                      {currentUser.email && !currentUser.email.endsWith('@telegram.invalid') && (
                         <div className="text-[10px] text-[#8c8279] truncate px-1 mb-1.5">{currentUser.email}</div>
                       )}
                       <button
