@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp, NavTab } from '../context/AppContext';
 import {
   Compass,
@@ -29,6 +29,23 @@ export const MobileNavigation: React.FC = () => {
   } = useApp();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // The real visible height (Telegram Mini App / mobile browsers: 100vh can be taller than what is shown),
+  // and no page scrolling behind the open menu.
+  const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const update = () => setViewportHeight(window.visualViewport?.height ?? window.innerHeight);
+    update();
+    window.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('resize', update);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('resize', update);
+      document.body.style.overflow = overflow;
+    };
+  }, [isMenuOpen]);
 
   const isStaff =
     currentUser.role === 'super_admin' ||
@@ -131,8 +148,15 @@ export const MobileNavigation: React.FC = () => {
 
       {/* Full-Screen / Slide-over Mobile Navigation Drawer */}
       {isMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="flex-1 max-h-[85vh] mt-auto w-full bg-[#201d1c] border-t border-[#3f3834] rounded-t-2xl p-5 space-y-4 overflow-y-auto">
+        <div
+          className="md:hidden fixed top-0 left-0 right-0 z-50 flex flex-col bg-black/80 backdrop-blur-sm animate-fade-in"
+          style={{ height: viewportHeight }}
+          onClick={e => e.target === e.currentTarget && setIsMenuOpen(false)}
+        >
+          <div
+            className="flex-1 mt-auto w-full bg-[#201d1c] border-t border-[#3f3834] rounded-t-2xl p-5 space-y-4 overflow-y-auto overscroll-contain"
+            style={{ maxHeight: Math.round(viewportHeight * 0.85), paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
+          >
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-3 border-b border-[#352f2c]">
               <div className="flex items-center gap-2.5">
