@@ -32,6 +32,20 @@ export const ReadingLibraryView: React.FC = () => {
   const [bookReview, setBookReview] = useState('');
   const [bookStatus, setBookStatus] = useState<'completed' | 'reading'>('completed');
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  // Editing one's own entry: the same form, title and author fixed (the book is shared by all its readers).
+  const [editing, setEditing] = useState(false);
+  const [editingCoverUrl, setEditingCoverUrl] = useState<string | undefined>(undefined);
+  const openAdd = () => {
+    setEditing(false); setEditingCoverUrl(undefined);
+    setBookTitle(''); setBookAuthor(''); setBookReview(''); setBookRating(5); setBookStatus('completed'); setCoverFile(null);
+    setShowAddModal(true);
+  };
+  const openEdit = (item: { title: string; author: string; genre: string; userRating: number; review?: string; status?: 'completed' | 'reading'; coverUrl?: string }) => {
+    setEditing(true); setEditingCoverUrl(item.coverUrl);
+    setBookTitle(item.title); setBookAuthor(item.author); setBookGenre(item.genre || BOOK_GENRES[0][0]);
+    setBookRating(item.userRating || 5); setBookReview(item.review ?? ''); setBookStatus(item.status ?? 'completed'); setCoverFile(null);
+    setShowAddModal(true);
+  };
   const coverPreview = React.useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : null), [coverFile]);
   React.useEffect(() => () => { if (coverPreview) URL.revokeObjectURL(coverPreview); }, [coverPreview]);
 
@@ -109,7 +123,7 @@ export const ReadingLibraryView: React.FC = () => {
         </div>
 
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={openAdd}
           className="px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-[#1e1b1a] text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -274,9 +288,19 @@ export const ReadingLibraryView: React.FC = () => {
                   </div>
                 </div>
 
-                <span className="px-2 py-0.5 rounded text-[10px] bg-[#272321] text-[#9e948c] border border-[#38312d]">
-                  {item.status === 'reading' ? t('libInProgress') : t('libDone')}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {item.readerId === currentUser.id && (
+                    <button
+                      onClick={() => openEdit(item)}
+                      className="px-2 py-0.5 rounded text-[10px] bg-[#dfcfb3]/10 text-[#dfcfb3] border border-[#dfcfb3]/30 hover:bg-[#dfcfb3]/20"
+                    >
+                      {t('libEdit')}
+                    </button>
+                  )}
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-[#272321] text-[#9e948c] border border-[#38312d]">
+                    {item.status === 'reading' ? t('libInProgress') : t('libDone')}
+                  </span>
+                </div>
               </div>
             </div>
           );
@@ -295,7 +319,7 @@ export const ReadingLibraryView: React.FC = () => {
             </button>
 
             <h3 className="font-display text-lg font-bold text-[#f5f2eb]">
-              {t('actionAddBook')}
+              {editing ? t('libEditBook') : t('actionAddBook')}
             </h3>
             <p className="text-xs text-[#a39b94]">
               {t('libAddIntro')}
@@ -310,6 +334,7 @@ export const ReadingLibraryView: React.FC = () => {
                   type="text"
                   required
                   value={bookTitle}
+                  readOnly={editing}
                   onChange={e => setBookTitle(e.target.value)}
                   placeholder={t('libFormTitlePlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
@@ -324,6 +349,7 @@ export const ReadingLibraryView: React.FC = () => {
                   type="text"
                   required
                   value={bookAuthor}
+                  readOnly={editing}
                   onChange={e => setBookAuthor(e.target.value)}
                   placeholder={t('libFormAuthorPlaceholder')}
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
@@ -381,8 +407,11 @@ export const ReadingLibraryView: React.FC = () => {
                   <label className="font-medium text-[#d6cebf] block mb-1">{t('libFormCover')}</label>
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-16 rounded-md shrink-0 overflow-hidden bg-[#1a1716] border border-[#3b3430] flex items-center justify-center text-[#736a62]">
-                      {coverPreview ? <img src={coverPreview} alt="" className="w-full h-full object-cover" /> : '📖'}
+                      {coverPreview || editingCoverUrl ? <img src={coverPreview ?? editingCoverUrl} alt="" className="w-full h-full object-cover" /> : '📖'}
                     </div>
+                    {editingCoverUrl ? (
+                      <span className="text-[10px] text-[#8c8279]">{t('libCoverExists')}</span>
+                    ) : (
                     <div className="flex flex-col gap-1">
                       <label className="px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3a3330] border border-[#483f3a] text-[#dfcfb3] font-semibold cursor-pointer w-fit">
                         {coverFile ? t('libCoverChange') : t('libCoverAdd')}
@@ -391,6 +420,7 @@ export const ReadingLibraryView: React.FC = () => {
                       </label>
                       <span className="text-[10px] text-[#8c8279]">{t('libCoverHint')}</span>
                     </div>
+                    )}
                   </div>
                 </div>
               )}

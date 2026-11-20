@@ -620,6 +620,9 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     dirNewAchievement: 'Новому направлению автоматически добавится достижение «5 посещений» (150 XP, 80 коинов).',
     dirErrInvalidId: 'Код направления: 2–31 символ, латинские буквы, цифры и «_», начинается с буквы (не «general»).',
     dirErrNames: 'Укажите название на трёх языках.',
+    libEdit: 'Изменить',
+    libEditBook: 'Изменить запись о книге',
+    libCoverExists: 'У книги уже есть обложка (заменить её может модератор).',
   },
   kz: {
     // Brand & Tagline
@@ -1240,6 +1243,9 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     dirNewAchievement: 'Жаңа бағытқа «5 қатысу» жетістігі автоматты түрде қосылады (150 XP, 80 коин).',
     dirErrInvalidId: 'Бағыт коды: 2–31 таңба, латын әріптері, сандар және «_», әріптен басталады («general» емес).',
     dirErrNames: 'Атауын үш тілде көрсетіңіз.',
+    libEdit: 'Өзгерту',
+    libEditBook: 'Кітап жазбасын өзгерту',
+    libCoverExists: 'Кітаптың мұқабасы бар (оны модератор ауыстыра алады).',
   },
   en: {
     // Brand & Tagline
@@ -1860,5 +1866,8 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     dirNewAchievement: 'The new direction automatically gets a "5 visits" achievement (150 XP, 80 coins).',
     dirErrInvalidId: 'Direction code: 2–31 characters, latin letters, digits and "_", starting with a letter (not "general").',
     dirErrNames: 'Enter the name in all three languages.',
+    libEdit: 'Edit',
+    libEditBook: 'Edit book entry',
+    libCoverExists: 'This book already has a cover (a moderator can replace it).',
   },
 };

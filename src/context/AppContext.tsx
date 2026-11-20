@@ -847,9 +847,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     setAllUsers(prev =>
       prev.map(u => {
         if (u.id !== currentUser.id) return u;
+        // Same title and author = editing one's own entry (status, rating, review): replace it.
+        const same = (b: ReadBook) => b.title.trim().toLowerCase() === book.title.trim().toLowerCase() && b.author.trim().toLowerCase() === book.author.trim().toLowerCase();
+        const existing = u.readBooks.find(same);
         return {
           ...u,
-          readBooks: [newBook, ...u.readBooks],
+          readBooks: existing
+            ? u.readBooks.map(b => (same(b) ? { ...newBook, id: b.id, dateFinished: b.status === 'completed' ? b.dateFinished : newBook.dateFinished } : b))
+            : [newBook, ...u.readBooks],
         };
       })
     );
