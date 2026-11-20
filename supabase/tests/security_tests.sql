@@ -281,6 +281,8 @@ select t.ok((select count(*) from public.community_directions where id in ('book
 set role anon;
 select t.expect_fail('select * from public.community_directions', '%permission denied%');
 reset role;
+-- The tests use the seeded directions; a live project may have archived some (test transaction only).
+update public.community_directions set is_active = true where id in ('books', 'english', 'arabic', 'sport', 'art', 'intellect', 'networking');
 set role authenticated;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
 select t.ok((select count(*) from public.user_preferences) = 1, 'member sees only own preferences');
