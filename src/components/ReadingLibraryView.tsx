@@ -1,30 +1,79 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MIN_REVIEW_CHARS, isWeekFreeForCredit, reviewLength } from '../utils/bookCredit';
 import { toLocalDay } from '../utils/streak';
+import { formatShortDate } from '../utils/eventTime';
 import { useApp } from '../context/AppContext';
-import {
-  BookOpen,
-  Plus,
-  Search,
-  Star,
-  CheckCircle,
-  Clock,
-  User,
-  X,
-  Library,
-} from 'lucide-react';
-import { ReadBook } from '../types';
+import { BookOpen, Plus, Search, Star, CheckCircle, X, BookMarked } from 'lucide-react';
+import { ReadBook, UserProfile } from '../types';
 import { BOOK_GENRES, genreLabel } from '../data/bookGenres';
 import { isDemoData } from '../config/runtime';
+
+/**
+ * Books: a reading space built on the existing data only.
+ * One "book" = all members' entries with the same title and author (that is how the
+ * database identifies a book: unique lower(title), lower(author)). Statuses are the
+ * existing two (reading / completed); saving goes through the unchanged addReadBook
+ * (server rules in live: credit only for a finished book with a 100+ char review, one per week).
+ */
+
+type Entry = ReadBook & { readerName: string; readerAvatar: string; readerId: string };
+
+interface BookGroup {
+  key: string;
+  title: string;
+  author: string;
+  genre: string;
+  coverUrl?: string;
+  coverColor?: string;
+  entries: Entry[];
+  /** Average of finished readers' ratings (as before: completed entries only). */
+  avg: number | null;
+  ratings: number;
+  readingNow: Entry[];
+  reviews: Entry[];
+  mine?: Entry;
+  lastDate: string;
+}
+
+const bookKey = (title: string, author: string) => `${title.trim().toLowerCase()}|${author.trim().toLowerCase()}`;
+
+const Stars: React.FC<{ value: number; size?: string }> = ({ value, size = 'w-3 h-3' }) => (
+  <span className="inline-flex items-center gap-0.5 text-amber-400" aria-label={`${value}/5`}>
+    {[1, 2, 3, 4, 5].map(n => (
+      <Star key={n} className={`${size} ${n <= Math.round(value) ? 'fill-current' : 'opacity-30'}`} />
+    ))}
+  </span>
+);
+
+/** Cover in a fixed 2:3 frame; without a photo — a calm "book" made of its colour, title and author. */
+const BookCover: React.FC<{ book: Pick<BookGroup, 'title' | 'author' | 'coverUrl' | 'coverColor'>; className?: string; small?: boolean }> = ({ book, className = '', small }) => (
+  <div className={`relative aspect-[2/3] rounded-lg overflow-hidden border border-black/30 shadow-md ${className}`}>
+    {book.coverUrl ? (
+      <img src={book.coverUrl} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+    ) : (
+      <div className="absolute inset-0 flex flex-col justify-between p-2.5" style={{ backgroundColor: book.coverColor || '#5a4a3a' }}>
+        <span className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/25 to-black/55" />
+        <span className="absolute left-0 inset-y-0 w-1.5 bg-black/25" />
+        <span className="absolute inset-1.5 border border-white/10 rounded-[5px]" />
+        <span className={`relative pl-1 font-display font-bold text-white/90 leading-tight ${small ? 'text-[9px] line-clamp-3' : 'text-[13px] line-clamp-4'}`}>{book.title}</span>
+        <span className={`relative pl-1 text-white/70 truncate ${small ? 'text-[8px]' : 'text-[11px]'}`}>{book.author}</span>
+      </div>
+    )}
+  </div>
+);
 
 export const ReadingLibraryView: React.FC = () => {
   const { allReadBooks, allUsers, currentUser, addReadBook, setSelectedUserModal, t } = useApp();
 
-  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'reading'>('all');
+  const [scope, setScope] = useState<'club' | 'mine'>('club');
+  const [sort, setSort] = useState<'recent' | 'rating' | 'readers'>('recent');
   const [searchQuery, setSearchQuery] = useState('');
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [reviewSort, setReviewSort] = useState<'newest' | 'top'>('newest');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [saved, setSaved] = useState<{ key: string; credited: boolean; shown: boolean } | null>(null);
 
-  // Add book form state
+  // Add / edit form state (same fields and rules as before)
   const [bookTitle, setBookTitle] = useState('');
   const [bookAuthor, setBookAuthor] = useState('');
   const [bookGenre, setBookGenre] = useState('Классика / Философия');
@@ -32,373 +81,477 @@ export const ReadingLibraryView: React.FC = () => {
   const [bookReview, setBookReview] = useState('');
   const [bookStatus, setBookStatus] = useState<'completed' | 'reading'>('completed');
   const [coverFile, setCoverFile] = useState<File | null>(null);
-  // Editing one's own entry: the same form, title and author fixed (the book is shared by all its readers).
+  // Editing one's own entry, or adding a book that is already in the club: title and author are fixed.
   const [editing, setEditing] = useState(false);
+  const [lockTitle, setLockTitle] = useState(false);
   const [editingCoverUrl, setEditingCoverUrl] = useState<string | undefined>(undefined);
-  const openAdd = () => {
-    setEditing(false); setEditingCoverUrl(undefined);
-    setBookTitle(''); setBookAuthor(''); setBookReview(''); setBookRating(5); setBookStatus('completed'); setCoverFile(null);
+
+  const openAdd = (prefill?: { title: string; author: string; genre: string; coverUrl?: string; status: 'completed' | 'reading' }) => {
+    setEditing(false); setLockTitle(!!prefill); setEditingCoverUrl(prefill?.coverUrl);
+    setBookTitle(prefill?.title ?? ''); setBookAuthor(prefill?.author ?? ''); setBookGenre(prefill?.genre || BOOK_GENRES[0][0]);
+    setBookReview(''); setBookRating(5); setBookStatus(prefill?.status ?? 'completed'); setCoverFile(null);
+    setOpenKey(null);
     setShowAddModal(true);
   };
-  const openEdit = (item: { title: string; author: string; genre: string; userRating: number; review?: string; status?: 'completed' | 'reading'; coverUrl?: string }) => {
-    setEditing(true); setEditingCoverUrl(item.coverUrl);
+  const openEdit = (item: Entry) => {
+    setEditing(true); setLockTitle(true); setEditingCoverUrl(item.coverUrl);
     setBookTitle(item.title); setBookAuthor(item.author); setBookGenre(item.genre || BOOK_GENRES[0][0]);
     setBookRating(item.userRating || 5); setBookReview(item.review ?? ''); setBookStatus(item.status ?? 'completed'); setCoverFile(null);
+    setOpenKey(null);
     setShowAddModal(true);
   };
-  const coverPreview = React.useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : null), [coverFile]);
-  React.useEffect(() => () => { if (coverPreview) URL.revokeObjectURL(coverPreview); }, [coverPreview]);
+  const coverPreview = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : null), [coverFile]);
+  useEffect(() => () => { if (coverPreview) URL.revokeObjectURL(coverPreview); }, [coverPreview]);
 
-  // Live hint: will this book count for the reward and book achievements?
+  // Live hint: will this book count for the reward and book achievements? (unchanged rule)
   const reviewChars = reviewLength(bookReview);
   const creditHint = (() => {
-    if (bookStatus !== 'completed') {
-      return { ok: false, text: t('libHintOnlyCompleted') };
-    }
-    if (reviewChars < MIN_REVIEW_CHARS) {
-      return {
-        ok: false,
-        text: t('libHintMoreChars').replace('{n}', String(MIN_REVIEW_CHARS - reviewChars)),
-      };
-    }
-    if (!isWeekFreeForCredit(currentUser.readBooks, toLocalDay())) {
-      return { ok: false, text: t('libHintWeekUsed') };
-    }
+    if (bookStatus !== 'completed') return { ok: false, text: t('libHintOnlyCompleted') };
+    if (reviewChars < MIN_REVIEW_CHARS) return { ok: false, text: t('libHintMoreChars').replace('{n}', String(MIN_REVIEW_CHARS - reviewChars)) };
+    if (!isWeekFreeForCredit(currentUser.readBooks, toLocalDay())) return { ok: false, text: t('libHintWeekUsed') };
     return { ok: true, text: t('libHintOk') };
   })();
 
-  const genres = BOOK_GENRES;
-  const ratedBooks = allReadBooks.filter(b => b.status === 'completed' && b.userRating > 0);
-  const averageRating = ratedBooks.length ? (ratedBooks.reduce((s, b) => s + b.userRating, 0) / ratedBooks.length).toFixed(1) : null;
-
-  const filteredBooks = allReadBooks.filter(item => {
-    if (statusFilter !== 'all' && item.status !== statusFilter) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchTitle = item.title.toLowerCase().includes(q);
-      const matchAuthor = item.author.toLowerCase().includes(q);
-      const matchReader = item.readerName.toLowerCase().includes(q);
-      const matchGenre = item.genre.toLowerCase().includes(q);
-      if (!matchTitle && !matchAuthor && !matchReader && !matchGenre) return false;
+  // ---- Books grouped from members' entries --------------------------------------------
+  const books: BookGroup[] = useMemo(() => {
+    const map = new Map<string, Entry[]>();
+    for (const e of allReadBooks as Entry[]) {
+      const k = bookKey(e.title, e.author);
+      map.set(k, [...(map.get(k) ?? []), e]);
     }
-    return true;
-  });
+    return [...map.entries()].map(([key, entries]) => {
+      const rated = entries.filter(e => e.status === 'completed' && e.userRating > 0);
+      const first = entries[0];
+      return {
+        key,
+        title: first.title,
+        author: first.author,
+        genre: entries.find(e => e.genre)?.genre ?? '',
+        coverUrl: entries.find(e => e.coverUrl)?.coverUrl,
+        coverColor: entries.find(e => e.coverColor)?.coverColor,
+        entries,
+        avg: rated.length ? rated.reduce((s, e) => s + e.userRating, 0) / rated.length : null,
+        ratings: rated.length,
+        readingNow: entries.filter(e => e.status === 'reading'),
+        reviews: entries.filter(e => e.review && e.review.trim()),
+        mine: entries.find(e => e.readerId === currentUser.id),
+        lastDate: entries.reduce((m, e) => (e.dateFinished > m ? e.dateFinished : m), ''),
+      };
+    });
+  }, [allReadBooks, currentUser.id]);
+
+  // Show "saved" only once the entry is really on the shelf (live: after the server refresh).
+  useEffect(() => {
+    if (saved && !saved.shown && books.some(b => b.key === saved.key && b.mine)) setSaved({ ...saved, shown: true });
+  }, [books, saved]);
+  useEffect(() => {
+    if (!saved?.shown) return;
+    const timer = window.setTimeout(() => setSaved(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [saved]);
+
+  const q = searchQuery.trim().toLowerCase();
+  const matches = (b: BookGroup) =>
+    !q || [b.title, b.author, b.genre, genreLabel(b.genre, t), ...b.entries.map(e => e.readerName)].some(v => v.toLowerCase().includes(q));
+  const sorted = books.filter(matches).sort((a, b) =>
+    sort === 'rating' ? (b.avg ?? 0) - (a.avg ?? 0) || b.ratings - a.ratings
+    : sort === 'readers' ? b.entries.length - a.entries.length
+    : b.lastDate.localeCompare(a.lastDate));
+  const myBooks = books.filter(b => b.mine && matches(b));
+  const myReading = myBooks.filter(b => b.mine!.status === 'reading');
+  const myDone = myBooks.filter(b => b.mine!.status === 'completed').sort((a, b) => b.mine!.dateFinished.localeCompare(a.mine!.dateFinished));
+
+  const clubDone = allReadBooks.filter(b => b.status === 'completed');
+  const ratedAll = clubDone.filter(b => b.userRating > 0);
+  const clubAvg = ratedAll.length ? (ratedAll.reduce((s, b) => s + b.userRating, 0) / ratedAll.length).toFixed(1) : '—';
+  const weekOpen = isWeekFreeForCredit(currentUser.readBooks, toLocalDay());
+  const recentReviews = (allReadBooks as Entry[])
+    .filter(e => e.review && e.review.trim() && e.status === 'completed')
+    .sort((a, b) => b.dateFinished.localeCompare(a.dateFinished))
+    .slice(0, 6);
+  const open = books.find(b => b.key === openKey) ?? null;
+  const memberOf = (id: string): UserProfile | undefined => allUsers.find(u => u.id === id);
 
   const handleAddBook = (e: React.FormEvent) => {
     e.preventDefault();
     if (!bookTitle.trim() || !bookAuthor.trim()) return;
-
     const coverColors = ['#967d58', '#4a433f', '#bfa882', '#475569', '#059669', '#1e1b4b', '#b91c1c'];
-    const randomCoverColor = coverColors[Math.floor(Math.random() * coverColors.length)];
-
-    addReadBook({
+    const key = bookKey(bookTitle, bookAuthor);
+    const result = addReadBook({
       title: bookTitle.trim(),
       author: bookAuthor.trim(),
       genre: bookGenre,
       userRating: bookRating,
       review: bookReview.trim() || undefined,
       dateFinished: toLocalDay(),
-      coverColor: randomCoverColor,
+      coverColor: coverColors[Math.floor(Math.random() * coverColors.length)],
       status: bookStatus,
     }, coverFile ?? undefined);
-
+    Promise.resolve(result).then(credited => setSaved({ key, credited: !!credited, shown: false }));
     setShowAddModal(false);
     setCoverFile(null);
-    setBookTitle('');
-    setBookAuthor('');
-    setBookReview('');
   };
 
-  return (
-    <div className="space-y-6 pb-12">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-[#f5f2eb]">
-            {t('libraryTitle')}
-          </h1>
-          <p className="text-xs text-[#9e948c]">
-            {t('librarySubtitle')}
-          </p>
-        </div>
+  // A render helper (not a nested component) so cards are not re-mounted on every render.
+  const renderCard = (b: BookGroup, showMine?: boolean) => (
+    <button
+      key={b.key}
+      onClick={() => { setReviewSort('newest'); setOpenKey(b.key); }}
+      className="group text-left flex flex-col gap-2 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfcfb3]/60 rounded-xl"
+    >
+      <div className="relative">
+        <BookCover book={b} className="w-full transition-transform duration-200 group-hover:-translate-y-0.5" />
+      </div>
+      <span className="min-w-0">
+        <span className="block font-display text-[14px] font-bold leading-snug text-[#f5f2eb] group-hover:text-[#ecd9bf] line-clamp-2">{b.title}</span>
+        <span className="block text-[12px] text-[#9e948c] truncate">{b.author}</span>
+        {b.mine && !showMine && (
+          <span className={`mt-1 inline-block px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
+            b.mine.status === 'reading' ? 'bg-amber-900/50 text-amber-200' : 'bg-emerald-900/50 text-emerald-200'
+          }`}>
+            {b.mine.status === 'reading' ? t('libMyReading') : t('libMyRead')}
+          </span>
+        )}
+        <span className="mt-1 flex items-center gap-1.5 text-[11px] text-[#8c8279]">
+          {showMine && b.mine?.status === 'completed' ? (
+            <Stars value={b.mine.userRating} />
+          ) : b.avg !== null ? (
+            <>
+              <Star className="w-3 h-3 text-amber-400 fill-current" />
+              <span className="font-mono-numbers text-[#d6cebf]">{b.avg.toFixed(1)}</span>
+              <span>· {b.entries.length}</span>
+            </>
+          ) : (
+            <span>{t('libReadersCount').replace('{n}', String(b.entries.length))}</span>
+          )}
+        </span>
+      </span>
+    </button>
+  );
 
-        <button
-          onClick={openAdd}
-          className="px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-[#1e1b1a] text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>{t('actionAddBook')}</span>
+  const grid = 'grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-5 sm:gap-x-4';
+
+  return (
+    <div className="space-y-5 sm:space-y-6 pb-12 w-full max-w-full">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-[#f5f2eb]">{t('libraryTitle')}</h1>
+          <p className="text-[13px] text-[#9e948c] mt-0.5">{t('librarySubtitle')}</p>
+        </div>
+        <button onClick={() => openAdd()} className="btn-primary shrink-0 px-3 sm:px-4">
+          <Plus className="w-4 h-4" />
+          <span className="hidden min-[400px]:inline">{t('actionAddBook')}</span>
         </button>
       </div>
 
-      {/* Stats Summary Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c] flex items-center justify-between">
-          <div>
-            <span className="text-xs text-[#8c8279] block">{t('totalBooksRead')}</span>
-            <span className="text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
-              {allReadBooks.filter(b => b.status === 'completed').length}
-            </span>
-          </div>
-          <Library className="w-8 h-8 text-[#dfcfb3]/40" />
-        </div>
-
-        <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c] flex items-center justify-between">
-          <div>
-            <span className="text-xs text-[#8c8279] block">{t('activeReaders')}</span>
-            <span className="text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
-              {new Set(allReadBooks.map(b => b.readerId)).size}
-            </span>
-          </div>
-          <BookOpen className="w-8 h-8 text-[#dfcfb3]/40" />
-        </div>
-
-        <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c] flex items-center justify-between">
-          <div>
-            <span className="text-xs text-[#8c8279] block">{t('averageRating')}</span>
-            <span className="text-2xl font-bold font-mono-numbers text-[#f5d77f]">
-              {averageRating ?? '—'} <span className="text-xs text-[#8c8279] font-normal">/ 5.0 ★</span>
-            </span>
-          </div>
-          <Star className="w-8 h-8 text-amber-400/40" />
-        </div>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-[#23201e] border border-[#352f2c] rounded-xl">
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
-          <button
-            onClick={() => setStatusFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
-              statusFilter === 'all'
-                ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
-                : 'text-[#9e948c] hover:text-[#f5f2eb]'
-            }`}
-          >
-            {t('libAllEntries')} ({allReadBooks.length})
+      {/* My reading summary + the club in one quiet line */}
+      <section className="rounded-2xl bg-gradient-to-br from-[#26211f] to-[#1d1a19] border border-[#3d3632] p-4 space-y-3">
+        <div className="grid grid-cols-2 sm:grid-cols-[auto_auto_1fr] gap-2 sm:gap-6 items-center">
+          <button onClick={() => setScope('mine')} className="text-left">
+            <span className="block text-[11px] text-[#8c8279]">{t('libMyRead')}</span>
+            <span className="text-xl font-bold font-mono-numbers text-[#f5f2eb]">{currentUser.readBooks.filter(b => b.status === 'completed').length}</span>
           </button>
-          <button
-            onClick={() => setStatusFilter('completed')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
-              statusFilter === 'completed'
-                ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
-                : 'text-[#9e948c] hover:text-[#f5f2eb]'
-            }`}
-          >
-            {t('readingStatusCompleted')}
+          <button onClick={() => setScope('mine')} className="text-left">
+            <span className="block text-[11px] text-[#8c8279]">{t('libMyReading')}</span>
+            <span className="text-xl font-bold font-mono-numbers text-[#f5f2eb]">{currentUser.readBooks.filter(b => b.status === 'reading').length}</span>
           </button>
-          <button
-            onClick={() => setStatusFilter('reading')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
-              statusFilter === 'reading'
-                ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
-                : 'text-[#9e948c] hover:text-[#f5f2eb]'
-            }`}
-          >
-            {t('readingStatusReading')}
-          </button>
+          <span className={`col-span-2 sm:col-span-1 inline-flex items-center gap-1.5 text-[12px] ${weekOpen ? 'text-[#c8b393]' : 'text-emerald-400'}`}>
+            {weekOpen ? <BookMarked className="w-4 h-4 shrink-0" /> : <CheckCircle className="w-4 h-4 shrink-0" />}
+            {weekOpen ? t('libWeekOpen') : t('libWeekCredited')}
+          </span>
         </div>
+        <p className="pt-2 border-t border-[#302a28] text-[11px] text-[#8c8279]">
+          {t('libClubLine').replace('{books}', String(clubDone.length)).replace('{readers}', String(new Set(allReadBooks.map(b => b.readerId)).size)).replace('{avg}', clubAvg)}
+        </p>
+      </section>
 
-        <div className="relative">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8c8279]" />
+      {saved?.shown && (
+        <div role="status" className={`flex items-center gap-2 p-3 rounded-xl border text-[13px] animate-fade-in ${saved.credited ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-200' : 'bg-[#23201e] border-[#3d3632] text-[#e6dfd3]'}`}>
+          <CheckCircle className="w-4 h-4 shrink-0" />
+          {saved.credited ? t('libSavedCredited') : t('libSaved')}
+        </div>
+      )}
+
+      {/* Scope, search, sort */}
+      <div className="space-y-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center bg-[#23201e] rounded-xl p-1 border border-[#352f2c]" role="group">
+            {(['club', 'mine'] as const).map(sc => (
+              <button
+                key={sc}
+                onClick={() => setScope(sc)}
+                aria-pressed={scope === sc}
+                className={`min-h-9 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${scope === sc ? 'bg-[#3a3330] text-[#f5f2eb]' : 'text-[#8c8279] hover:text-[#d6cebf]'}`}
+              >
+                {sc === 'club' ? t('libScopeClub') : t('libScopeMine')}
+                <span className="ml-1 font-mono-numbers text-[11px] opacity-70">{sc === 'club' ? books.length : books.filter(b => b.mine).length}</span>
+              </button>
+            ))}
+          </div>
+          {scope === 'club' && (
+            <select
+              value={sort}
+              onChange={e => setSort(e.target.value as typeof sort)}
+              aria-label={t('libSortRecent')}
+              className="min-h-10 px-3 rounded-xl bg-[#23201e] border border-[#352f2c] text-xs text-[#d6cebf] focus:outline-none focus:border-[#dfcfb3]/70"
+            >
+              <option value="recent">{t('libSortRecent')}</option>
+              <option value="rating">{t('libSortRating')}</option>
+              <option value="readers">{t('libSortReaders')}</option>
+            </select>
+          )}
+        </div>
+        <div className="relative sm:max-w-sm">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8c8279] pointer-events-none" />
           <input
-            type="text"
+            type="search"
             placeholder={t('libSearch')}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-8 pr-3 py-1.5 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3] w-full sm:w-72"
+            className="w-full min-h-10 pl-9 pr-3 rounded-xl bg-[#23201e] border border-[#352f2c] text-sm text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]/70"
           />
         </div>
       </div>
 
-      {/* Books Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredBooks.map(item => {
-          const readerUser = allUsers.find(u => u.id === item.readerId);
-
-          return (
-            <div
-              key={item.id}
-              className="rounded-2xl bg-[#23201e] border border-[#352f2c] hover:border-[#4d443f] p-5 flex flex-col justify-between transition-all shadow-md group"
-            >
-              <div className="space-y-3">
-                {/* Book Header with faux spine visual */}
-                <div className="flex items-start gap-3">
-                  {item.coverUrl ? (
-                    <img src={item.coverUrl} alt={item.title} loading="lazy"
-                         className="w-12 h-16 rounded-md shrink-0 object-cover shadow-md border border-black/20" />
-                  ) : (
-                  <div
-                    className="w-12 h-16 rounded-md shrink-0 flex flex-col justify-between p-1.5 shadow-md border border-black/20"
-                    style={{ backgroundColor: item.coverColor || '#967d58' }}
+      {scope === 'club' ? (
+        <>
+          {/* Recent reviews (real, newest first) */}
+          {!q && recentReviews.length > 0 && (
+            <section className="space-y-2.5">
+              <h2 className="font-display text-base sm:text-lg font-bold text-[#f5f2eb]">{t('libRecentReviews')}</h2>
+              <div className="-mx-3 px-3 sm:mx-0 sm:px-0 flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-1">
+                {recentReviews.map(r => (
+                  <button
+                    key={r.id + r.readerId}
+                    onClick={() => setOpenKey(bookKey(r.title, r.author))}
+                    className="snap-start shrink-0 w-[85%] max-w-[340px] sm:w-80 text-left flex gap-3 p-3 rounded-2xl bg-[#23201e] border border-[#352f2c] hover:border-[#4d443f] transition-colors"
                   >
-                    <div className="w-full h-1 bg-white/20 rounded" />
-                    <span className="text-[8px] text-white/90 font-bold uppercase truncate">
-                      {item.author.split(' ')[0]}
+                    <BookCover book={{ ...r, coverUrl: books.find(b => b.key === bookKey(r.title, r.author))?.coverUrl }} small className="w-12 shrink-0 self-start" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-semibold text-[#f5f2eb] truncate">{r.title}</span>
+                      <span className="flex items-center gap-1.5 mt-0.5">
+                        <img src={r.readerAvatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+                        <span className="text-[11px] text-[#9e948c] truncate">{r.readerName}</span>
+                        <Stars value={r.userRating} size="w-2.5 h-2.5" />
+                      </span>
+                      <span className="mt-1.5 block text-[12px] text-[#b8afa3] leading-relaxed line-clamp-3">«{r.review}»</span>
                     </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Catalogue */}
+          {sorted.length === 0 ? (
+            <p className="p-8 text-center rounded-2xl bg-[#23201e] border border-[#352f2c] text-[13px] text-[#9e948c]">{t('libEmptySearch')}</p>
+          ) : (
+            <section className="space-y-3">
+              {!q && <h2 className="font-display text-base sm:text-lg font-bold text-[#f5f2eb]">{t('libScopeClub')}</h2>}
+              <div className={grid} data-books-grid>
+                {sorted.map(b => renderCard(b))}
+              </div>
+            </section>
+          )}
+        </>
+      ) : myBooks.length === 0 ? (
+        <div className="p-8 text-center rounded-2xl bg-[#23201e] border border-[#352f2c] space-y-3">
+          <BookOpen className="w-9 h-9 mx-auto text-[#8c8279] opacity-50" />
+          <p className="text-[13px] text-[#9e948c] max-w-sm mx-auto">{q ? t('libEmptySearch') : t('libEmptyMine')}</p>
+          {!q && <button onClick={() => openAdd()} className="btn-primary"><Plus className="w-4 h-4" />{t('actionAddBook')}</button>}
+        </div>
+      ) : (
+        <div className="space-y-7">
+          {[{ title: t('libMyReading'), list: myReading }, { title: t('libMyRead'), list: myDone }].filter(g => g.list.length).map(g => (
+            <section key={g.title} className="space-y-3">
+              <h2 className="flex items-baseline gap-2 font-display text-base sm:text-lg font-bold text-[#f5f2eb]">
+                {g.title}<span className="text-xs font-mono-numbers font-normal text-[#8c8279]">{g.list.length}</span>
+              </h2>
+              <div className={grid} data-books-grid>
+                {g.list.map(b => renderCard(b, true))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {/* Book detail */}
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4 bg-black/75 backdrop-blur-sm animate-fade-in"
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+          onClick={e => e.target === e.currentTarget && setOpenKey(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="relative w-full max-w-xl max-h-full sm:max-h-[90dvh] flex flex-col overflow-hidden bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl">
+            <button onClick={() => setOpenKey(null)} aria-label={t('actionClose')} className="absolute top-3 right-3 z-10 btn-icon text-[#9e948c]">
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-5">
+              <div className="flex gap-4 pr-10">
+                <BookCover book={open} className="w-24 sm:w-28 shrink-0" />
+                <div className="min-w-0 space-y-1.5">
+                  {open.genre && <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#c8b393]">{genreLabel(open.genre, t)}</span>}
+                  <h2 className="font-display text-lg sm:text-xl font-bold leading-snug text-[#f5f2eb] break-words">{open.title}</h2>
+                  <p className="text-sm text-[#b0a79d]">{open.author}</p>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-[#9e948c]">
+                    {open.avg !== null ? (
+                      <span className="inline-flex items-center gap-1"><Stars value={open.avg} /><span className="font-mono-numbers text-[#e6dfd3]">{open.avg.toFixed(1)}</span><span>({open.ratings})</span></span>
+                    ) : <span>{t('libNoRating')}</span>}
                   </div>
-                  )}
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-[10px] text-[#dfcfb3] font-medium truncate">
-                        {genreLabel(item.genre, t)}
-                      </span>
-                      <span className="text-[10px] text-amber-400 font-mono flex items-center gap-0.5">
-                        <Star className="w-3 h-3 fill-current" />
-                        {item.userRating}/5
-                      </span>
-                    </div>
-
-                    <h3 className="font-display text-sm font-bold text-[#f5f2eb] leading-snug truncate mt-0.5">
-                      {item.title}
-                    </h3>
-                    <p className="text-xs text-[#8c8279] truncate">
-                      {item.author}
-                    </p>
+                  <div className="text-[12px] text-[#8c8279]">
+                    {t('libReadersCount').replace('{n}', String(open.entries.length))}
                   </div>
                 </div>
+              </div>
 
-                {/* Personal Review Quote */}
-                {item.review && (
-                  <div className="p-3 rounded-xl bg-[#1c1918] border border-[#302a28] text-xs text-[#b8afa3] italic leading-relaxed">
-                    «{item.review}»
+              {open.readingNow.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[#8c8279]">{t('libReadingNowList')}</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {open.readingNow.map(r => (
+                      <button key={r.readerId} onClick={() => { const m = memberOf(r.readerId); if (m) { setOpenKey(null); setSelectedUserModal(m); } }}
+                              className="flex items-center gap-1.5 pl-0.5 pr-2.5 py-0.5 min-h-8 rounded-full bg-[#1c1918] border border-[#302a28] hover:border-[#4d443f]">
+                        <img src={r.readerAvatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                        <span className="text-[12px] text-[#d6cebf] max-w-[9rem] truncate">{r.readerName}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[#8c8279]">
+                    {t('libReviewsTitle')} <span className="font-mono-numbers">{open.reviews.length}</span>
+                  </h3>
+                  {open.reviews.length > 1 && (
+                    <div className="flex items-center bg-[#1c1918] rounded-lg p-0.5 border border-[#302a28]">
+                      {(['newest', 'top'] as const).map(rs => (
+                        <button key={rs} onClick={() => setReviewSort(rs)} aria-pressed={reviewSort === rs}
+                                className={`min-h-7 px-2 rounded-md text-[11px] ${reviewSort === rs ? 'bg-[#3a3330] text-[#f5f2eb]' : 'text-[#8c8279]'}`}>
+                          {rs === 'newest' ? t('libReviewNewest') : t('libReviewTop')}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {open.reviews.length === 0 ? (
+                  <p className="text-[13px] text-[#8c8279]">{t('libNoReviews')}</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {[...open.reviews]
+                      .sort((a, b) => (reviewSort === 'top' ? b.userRating - a.userRating : 0) || b.dateFinished.localeCompare(a.dateFinished))
+                      .map(r => (
+                        <article key={r.readerId} className="p-3.5 rounded-xl bg-[#1c1918] border border-[#302a28] space-y-2">
+                          <div className="flex items-center gap-2.5">
+                            <button onClick={() => { const m = memberOf(r.readerId); if (m) { setOpenKey(null); setSelectedUserModal(m); } }} className="shrink-0">
+                              <img src={r.readerAvatar} alt="" className="w-8 h-8 rounded-full object-cover ring-1 ring-[#dfcfb3]/40" />
+                            </button>
+                            <div className="min-w-0 flex-1">
+                              <span className="block text-[13px] font-semibold text-[#f5f2eb] truncate">{r.readerName}</span>
+                              <span className="block text-[11px] text-[#8c8279]">
+                                {r.status === 'reading' ? t('libReadingNow') : `${t('libFinishedOn')} ${formatShortDate(r.dateFinished, t)}`}
+                              </span>
+                            </div>
+                            {r.status === 'completed' && <Stars value={r.userRating} />}
+                          </div>
+                          <p className="text-[13px] text-[#d6cebf] leading-relaxed whitespace-pre-line break-words">{r.review}</p>
+                        </article>
+                      ))}
                   </div>
                 )}
               </div>
-
-              {/* Reader attribution footer */}
-              <div className="mt-4 pt-3 border-t border-[#302a28] flex items-center justify-between text-xs">
-                <div
-                  onClick={() => readerUser && setSelectedUserModal(readerUser)}
-                  className="flex items-center gap-2 cursor-pointer group-hover:text-[#dfcfb3] transition-colors"
-                >
-                  <img
-                    src={item.readerAvatar}
-                    alt={item.readerName}
-                    className="w-6 h-6 rounded-full object-cover ring-1 ring-[#dfcfb3]/50"
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-semibold text-[#f5f2eb] truncate max-w-[130px]">
-                      {item.readerName}
-                    </span>
-                    <span className="text-[9px] text-[#8c8279]">
-                      {item.status === 'reading' ? t('libReadingNow') : `${t('libFinishedOn')} ${item.dateFinished}`}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  {item.readerId === currentUser.id && (
-                    <button
-                      onClick={() => openEdit(item)}
-                      className="px-2 py-0.5 rounded text-[10px] bg-[#dfcfb3]/10 text-[#dfcfb3] border border-[#dfcfb3]/30 hover:bg-[#dfcfb3]/20"
-                    >
-                      {t('libEdit')}
-                    </button>
-                  )}
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-[#272321] text-[#9e948c] border border-[#38312d]">
-                    {item.status === 'reading' ? t('libInProgress') : t('libDone')}
-                  </span>
-                </div>
-              </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* Add Read Book Modal */}
+            {/* Actions: always visible */}
+            <div className="shrink-0 flex items-center gap-2 px-5 sm:px-6 py-3 border-t border-[#302a28] bg-[#201d1c]">
+              {open.mine ? (
+                <>
+                  <span className={`inline-flex items-center gap-1.5 text-[13px] font-medium min-w-0 ${open.mine.status === 'reading' ? 'text-amber-200' : 'text-emerald-300'}`}>
+                    <CheckCircle className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{open.mine.status === 'reading' ? t('libMyStatusReading') : t('libMyStatusDone')}</span>
+                  </span>
+                  <button onClick={() => openEdit(open.mine!)} className="btn-primary ml-auto shrink-0">{t('libEdit')}</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => openAdd({ title: open.title, author: open.author, genre: open.genre, coverUrl: open.coverUrl, status: 'reading' })} className="btn-secondary flex-1 min-w-0 px-3">
+                    <BookOpen className="w-4 h-4 shrink-0 hidden min-[420px]:block" /><span className="truncate">{t('libMarkReading')}</span>
+                  </button>
+                  <button onClick={() => openAdd({ title: open.title, author: open.author, genre: open.genre, coverUrl: open.coverUrl, status: 'completed' })} className="btn-primary flex-1 min-w-0 px-3">
+                    <CheckCircle className="w-4 h-4 shrink-0 hidden min-[420px]:block" /><span className="truncate">{t('libMarkRead')}</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / edit form */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="relative w-full max-w-md bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl p-6 space-y-4">
-            <button
-              onClick={() => setShowAddModal(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-[#9e948c] hover:text-white bg-[#1a1716]"
-            >
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4 bg-black/75 backdrop-blur-sm animate-fade-in"
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <form onSubmit={handleAddBook} className="relative w-full max-w-md max-h-full sm:max-h-[90dvh] flex flex-col overflow-hidden bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl">
+            <button type="button" onClick={() => setShowAddModal(false)} aria-label={t('actionClose')} className="absolute top-3 right-3 z-10 btn-icon text-[#9e948c]">
               <X className="w-4 h-4" />
             </button>
-
-            <h3 className="font-display text-lg font-bold text-[#f5f2eb]">
-              {editing ? t('libEditBook') : t('actionAddBook')}
-            </h3>
-            <p className="text-xs text-[#a39b94]">
-              {t('libAddIntro')}
-            </p>
-
-            <form onSubmit={handleAddBook} className="space-y-3 text-xs">
-              <div>
-                <label className="font-medium text-[#d6cebf] block mb-1">
-                  {t('libFormTitle')} *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={bookTitle}
-                  readOnly={editing}
-                  onChange={e => setBookTitle(e.target.value)}
-                  placeholder={t('libFormTitlePlaceholder')}
-                  className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
-                />
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-4 text-xs">
+              <div className="pr-10">
+                <h3 className="font-display text-lg font-bold text-[#f5f2eb]">{editing ? t('libEditBook') : t('actionAddBook')}</h3>
+                <p className="mt-1 text-[12px] text-[#a39b94] leading-relaxed">{t('libAddIntro')}</p>
               </div>
 
               <div>
-                <label className="font-medium text-[#d6cebf] block mb-1">
-                  {t('libFormAuthor')} *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={bookAuthor}
-                  readOnly={editing}
-                  onChange={e => setBookAuthor(e.target.value)}
-                  placeholder={t('libFormAuthorPlaceholder')}
-                  className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
-                />
+                <label className="font-medium text-[#d6cebf] block mb-1">{t('libFormTitle')} *</label>
+                <input type="text" required value={bookTitle} readOnly={lockTitle} onChange={e => setBookTitle(e.target.value)}
+                       placeholder={t('libFormTitlePlaceholder')}
+                       className={`w-full min-h-10 px-3 rounded-xl bg-[#1a1716] border border-[#3b3430] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3] ${lockTitle ? 'opacity-70' : ''}`} />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">{t('libFormGenre')}</label>
-                  <select
-                    value={bookGenre}
-                    onChange={e => setBookGenre(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
-                  >
-                    {genres.map(([g, k]) => (
-                      <option key={g} value={g}>{t(k)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">{t('libFormStatus')}</label>
-                  <select
-                    value={bookStatus}
-                    onChange={e => setBookStatus(e.target.value as 'completed' | 'reading')}
-                    className="w-full p-2 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
-                  >
-                    <option value="completed">{t('libStatusDone')}</option>
-                    <option value="reading">{t('libStatusReading')}</option>
-                  </select>
-                </div>
+              <div>
+                <label className="font-medium text-[#d6cebf] block mb-1">{t('libFormAuthor')} *</label>
+                <input type="text" required value={bookAuthor} readOnly={lockTitle} onChange={e => setBookAuthor(e.target.value)}
+                       placeholder={t('libFormAuthorPlaceholder')}
+                       className={`w-full min-h-10 px-3 rounded-xl bg-[#1a1716] border border-[#3b3430] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3] ${lockTitle ? 'opacity-70' : ''}`} />
               </div>
 
               <div>
-                <label className="font-medium text-[#d6cebf] block mb-1">
-                  {t('libFormRating')} ({bookRating}/5):
-                </label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setBookRating(star)}
-                      className={`flex-1 py-1 rounded text-xs font-bold ${
-                        bookRating === star ? 'bg-[#dfcfb3] text-[#1e1b1a]' : 'bg-[#1a1716] text-[#8c8279]'
-                      }`}
-                    >
-                      {star}★
+                <span className="font-medium text-[#d6cebf] block mb-1">{t('libStatusLabel')}</span>
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#1a1716] border border-[#3b3430]" role="group">
+                  {(['reading', 'completed'] as const).map(st => (
+                    <button key={st} type="button" onClick={() => setBookStatus(st)} aria-pressed={bookStatus === st}
+                            className={`min-h-9 rounded-lg text-xs font-semibold transition-colors ${bookStatus === st ? 'bg-[#dfcfb3] text-[#1e1b1a]' : 'text-[#9e948c] hover:text-[#f5f2eb]'}`}>
+                      {st === 'reading' ? t('libStatusReading') : t('libStatusDone')}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-medium text-[#d6cebf] block mb-1">{t('libFormGenre')}</label>
+                  <select value={bookGenre} onChange={e => setBookGenre(e.target.value)}
+                          className="w-full min-h-10 px-2 rounded-xl bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]">
+                    {BOOK_GENRES.map(([g, k]) => <option key={g} value={g}>{t(k)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <span className="font-medium text-[#d6cebf] block mb-1">{t('libFormRating')}</span>
+                  <div className="flex items-center gap-0.5 min-h-10" role="radiogroup">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button key={star} type="button" onClick={() => setBookRating(star)} role="radio" aria-checked={bookRating === star} aria-label={`${star}/5`}
+                              className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#2b2725]">
+                        <Star className={`w-5 h-5 ${star <= bookRating ? 'text-amber-400 fill-current' : 'text-[#4d443f]'}`} />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -406,62 +559,47 @@ export const ReadingLibraryView: React.FC = () => {
                 <div>
                   <label className="font-medium text-[#d6cebf] block mb-1">{t('libFormCover')}</label>
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-16 rounded-md shrink-0 overflow-hidden bg-[#1a1716] border border-[#3b3430] flex items-center justify-center text-[#736a62]">
+                    <div className="w-12 aspect-[2/3] rounded-md shrink-0 overflow-hidden bg-[#1a1716] border border-[#3b3430] flex items-center justify-center text-[#736a62]">
                       {coverPreview || editingCoverUrl ? <img src={coverPreview ?? editingCoverUrl} alt="" className="w-full h-full object-cover" /> : '📖'}
                     </div>
                     {editingCoverUrl ? (
-                      <span className="text-[10px] text-[#8c8279]">{t('libCoverExists')}</span>
+                      <span className="text-[11px] text-[#8c8279]">{t('libCoverExists')}</span>
                     ) : (
-                    <div className="flex flex-col gap-1">
-                      <label className="px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3a3330] border border-[#483f3a] text-[#dfcfb3] font-semibold cursor-pointer w-fit">
-                        {coverFile ? t('libCoverChange') : t('libCoverAdd')}
-                        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                               onChange={e => setCoverFile(e.target.files?.[0] ?? null)} />
-                      </label>
-                      <span className="text-[10px] text-[#8c8279]">{t('libCoverHint')}</span>
-                    </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="btn-secondary min-h-9 px-3 text-xs cursor-pointer w-fit">
+                          {coverFile ? t('libCoverChange') : t('libCoverAdd')}
+                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => setCoverFile(e.target.files?.[0] ?? null)} />
+                        </label>
+                        <span className="text-[11px] text-[#8c8279]">{t('libCoverHint')}</span>
+                      </div>
                     )}
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="font-medium text-[#d6cebf] block mb-1">
-                  {t('libFormReview')}:
-                </label>
-                <textarea
-                  rows={3}
-                  value={bookReview}
-                  onChange={e => setBookReview(e.target.value)}
-                  placeholder={t('libFormReviewPlaceholder')}
-                  className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
-                />
-                {/* Book credit rule: finished + review of 100+ chars, one book per week */}
-                <div className="mt-1 flex items-start justify-between gap-3 text-[11px]">
-                  <span className={creditHint.ok ? 'text-emerald-400' : 'text-[#9e948c]'}>{creditHint.text}</span>
-                  <span className={`font-mono shrink-0 ${reviewChars >= MIN_REVIEW_CHARS ? 'text-emerald-400' : 'text-[#736a62]'}`}>
-                    {reviewChars}/{MIN_REVIEW_CHARS}
-                  </span>
+                <label className="font-medium text-[#d6cebf] block mb-1">{t('libFormReview')}</label>
+                <textarea rows={5} value={bookReview} onChange={e => setBookReview(e.target.value)} placeholder={t('libFormReviewPlaceholder')}
+                          className="w-full p-3 rounded-xl bg-[#1a1716] border border-[#3b3430] text-sm leading-relaxed text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]" />
+                {/* Book credit rule: finished + review of 100+ chars, one book per week (unchanged) */}
+                <div className="mt-1.5 space-y-1">
+                  <div className="h-1 rounded-full bg-[#141211] overflow-hidden">
+                    <div className={`h-full rounded-full ${reviewChars >= MIN_REVIEW_CHARS ? 'bg-emerald-500' : 'bg-[#c8b393]'}`}
+                         style={{ width: `${Math.min(100, Math.round((reviewChars / MIN_REVIEW_CHARS) * 100))}%` }} />
+                  </div>
+                  <div className="flex items-start justify-between gap-3 text-[11px]">
+                    <span className={creditHint.ok ? 'text-emerald-400' : 'text-[#9e948c]'}>{creditHint.text}</span>
+                    <span className={`font-mono shrink-0 ${reviewChars >= MIN_REVIEW_CHARS ? 'text-emerald-400' : 'text-[#736a62]'}`}>{reviewChars}/{MIN_REVIEW_CHARS}</span>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#302a28]">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-3 py-1.5 text-[#8c8279] hover:text-[#f5f2eb]"
-                >
-                  {t('actionClose')}
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-xs font-semibold text-[#1e1b1a]"
-                >
-                  {t('actionSave')}{creditHint.ok ? ' (+50 XP, +30 🪙)' : ''}
-                </button>
-              </div>
-            </form>
-          </div>
+            <div className="shrink-0 flex items-center justify-end gap-2 px-5 sm:px-6 py-3 border-t border-[#302a28] bg-[#201d1c]">
+              <button type="button" onClick={() => setShowAddModal(false)} className="btn-ghost">{t('actionClose')}</button>
+              <button type="submit" className="btn-primary">{t('actionSave')}{creditHint.ok ? ' (+50 XP, +30 🪙)' : ''}</button>
+            </div>
+          </form>
         </div>
       )}
     </div>
