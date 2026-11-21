@@ -4,7 +4,7 @@ import { COMMUNITY_DIRECTIONS, activeDirections, eventImage } from '../data/dire
 import { hasRole } from '../utils/permissions';
 import { isDemoData } from '../config/runtime';
 import { exportEventToIcs } from '../utils/calendar';
-import { getEventStart, hasEventEnded, hasEventStarted } from '../utils/eventTime';
+import { formatEventDay, getEventStart, hasEventEnded, hasEventStarted } from '../utils/eventTime';
 import { takeEventsIntent } from '../utils/navIntent';
 import { EventCard } from './EventCard';
 import { MyQrModal } from './CheckInQr';
@@ -293,8 +293,13 @@ export const EventsView: React.FC = () => {
 
       {/* Event Details Modal */}
       {activeModalEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in" onClick={e => e.target === e.currentTarget && setActiveModalEvent(null)}>
-          <div className="relative w-full max-w-xl max-h-[90dvh] overflow-y-auto bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4 sm:space-y-5">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4 bg-black/75 backdrop-blur-sm animate-fade-in"
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+          onClick={e => e.target === e.currentTarget && setActiveModalEvent(null)}
+        >
+          {/* Close button and actions stay in place; only the middle scrolls. */}
+          <div className="relative w-full max-w-xl max-h-full sm:max-h-[90dvh] flex flex-col overflow-hidden bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl">
             <button
               onClick={() => setActiveModalEvent(null)}
               aria-label={t('actionClose')}
@@ -303,6 +308,7 @@ export const EventsView: React.FC = () => {
               <X className="w-4 h-4" />
             </button>
 
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-4 sm:space-y-5">
             <div className="-mx-5 sm:-mx-6 -mt-5 sm:-mt-6 relative">
               <img src={eventImage(activeModalEvent)} alt="" className="w-full h-44 sm:h-52 object-cover rounded-t-2xl" />
               {canEditCover(activeModalEvent) && (
@@ -338,8 +344,9 @@ export const EventsView: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 p-3 rounded-xl bg-[#1c1918] border border-[#302a28] text-xs">
               <div className="space-y-1">
                 <span className="text-[#8c8279] block">{t('evDateTime')}:</span>
-                <span className="text-[#f5f2eb] font-medium font-mono-numbers">
-                  {activeModalEvent.date} {t('evAt')} {activeModalEvent.time} ({activeModalEvent.durationMinutes} {t('evMin')})
+                <span className="text-[#f5f2eb] font-medium">
+                  {formatEventDay(activeModalEvent, t)} · {activeModalEvent.time}
+                  <span className="text-[#8c8279] font-normal"> · {activeModalEvent.durationMinutes} {t('evMin')}</span>
                 </span>
               </div>
               <div className="space-y-1">
@@ -412,11 +419,13 @@ export const EventsView: React.FC = () => {
               </div>
             )}
 
-            {/* Modal Bottom Actions */}
-            <div className="flex items-center justify-between pt-3 border-t border-[#302a28]">
+            </div>
+
+            {/* Modal Bottom Actions: always visible */}
+            <div className="shrink-0 flex items-center justify-between gap-2 px-5 sm:px-6 py-3 border-t border-[#302a28] bg-[#201d1c]">
               <button
                 onClick={() => exportEventToIcs(activeModalEvent)}
-                className="px-3 py-2 rounded-lg bg-[#272321] hover:bg-[#322c29] text-xs font-medium text-[#dfcfb3] border border-[#3d3632] flex items-center gap-1.5"
+                className="btn-ghost px-3 text-[#dfcfb3]"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{t('actionExportCalendar')}</span>
@@ -437,12 +446,12 @@ export const EventsView: React.FC = () => {
                   (!activeModalEvent.registeredUserIds.includes(currentUser.id) &&
                     activeModalEvent.registeredUserIds.length >= activeModalEvent.maxCapacity)
                 }
-                className="px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold text-[#1e1b1a]"
+                className="btn-primary min-w-0 flex-1 sm:flex-none"
               >
                 {hasEventStarted(activeModalEvent)
                   ? t('registrationClosed')
                   : activeModalEvent.registeredUserIds.includes(currentUser.id)
-                    ? t('actionCancelRegistration')
+                    ? t('evCancelRegistration')
                     : activeModalEvent.registeredUserIds.length >= activeModalEvent.maxCapacity
                       ? t('eventFull')
                       : t('actionRegister')}

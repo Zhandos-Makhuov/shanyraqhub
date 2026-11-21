@@ -136,7 +136,7 @@ export const DashboardView: React.FC = () => {
   const stats = computeCommunityStats(allUsers, events);
 
   const stepTitle = (key: string, ev?: CommunityEvent) => t(key).replace('{title}', ev?.title ?? '');
-  const eventWhen = (ev: CommunityEvent) => `${formatEventDay(ev, language)} · ${ev.time} · ${ev.locationAddress}`;
+  const eventWhen = (ev: CommunityEvent) => `${formatEventDay(ev, t)} · ${ev.time} · ${ev.locationAddress}`;
 
   const NextAchievementIcon = nextAchievement ? ACHIEVEMENT_ICONS[nextAchievement.ach.icon] || Award : Award;
 
@@ -203,7 +203,7 @@ export const DashboardView: React.FC = () => {
               className="sm:w-56 shrink-0"
               aria-label={t('evDetails')}
             >
-              <img src={eventImage(nextStep.event)} alt="" className="w-full h-28 sm:h-full object-cover" />
+              <img src={eventImage(nextStep.event)} alt="" className="w-full h-24 sm:h-full object-cover" />
             </button>
           )}
           <div className="flex-1 min-w-0 p-4 sm:p-5 flex flex-col gap-3">
@@ -222,11 +222,16 @@ export const DashboardView: React.FC = () => {
               </div>
             ) : (
               <div className="min-w-0">
-                <h2 className="font-display text-lg font-bold text-[#f5f2eb] leading-snug line-clamp-2">
+                {(nextStep.kind === 'registered' || nextStep.kind === 'suggest') && (
+                  <span className="block mb-0.5 text-[13px] font-medium text-[#dfcfb3]">
+                    {t(nextStep.kind === 'registered' ? 'nsRegisteredLabel' : 'nsSuggestLabel')}
+                  </span>
+                )}
+                {/* Status on its own line, so the event title is not cut short on narrow screens. */}
+                <h2 className="font-display text-base sm:text-lg font-bold text-[#f5f2eb] leading-snug line-clamp-3 break-words">
                   {nextStep.kind === 'qr' ? stepTitle('nsQrTitle', nextStep.event)
                     : nextStep.kind === 'feedback' ? stepTitle('nsFeedbackTitle', nextStep.event)
-                    : nextStep.kind === 'registered' ? stepTitle('nsRegisteredTitle', nextStep.event)
-                    : stepTitle('nsSuggestTitle', nextStep.event)}
+                    : nextStep.event.title}
                 </h2>
                 <p className="mt-1 text-[13px] text-[#a39b94] line-clamp-2">
                   {nextStep.kind === 'qr' ? t('nsQrText')
@@ -320,9 +325,10 @@ export const DashboardView: React.FC = () => {
       {/* 4. Upcoming events (the one in "next step" is not repeated) */}
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-bold text-[#f5f2eb]">{t('eventsUpcoming')}</h2>
+          <h2 className="font-display text-base sm:text-lg font-bold text-[#f5f2eb] min-w-0">{t('eventsUpcoming')}</h2>
           <button onClick={() => openEvents()} className="inline-flex items-center gap-1 min-h-9 text-[13px] font-medium text-[#dfcfb3] hover:text-[#ecd9bf] shrink-0">
-            {t('homeAllEvents')}
+            <span className="sm:hidden">{t('homeAllShort')}</span>
+            <span className="hidden sm:inline">{t('homeAllEvents')}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

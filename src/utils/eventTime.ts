@@ -34,28 +34,20 @@ export const hasEventEnded = (
   now = new Date(),
 ): boolean => getEventStart(event).getTime() + (event.durationMinutes || 90) * 60_000 <= now.getTime();
 
-const DATE_LOCALES: Record<string, string> = { ru: 'ru-RU', kz: 'kk-KZ', en: 'en-GB' };
-
-/** "Сб, 23 нояб." / "сб, 23 қар." / "Sat, 23 Nov" — the event's day in club time, for cards. */
-const KZ_WEEKDAYS = ['Жс', 'Дс', 'Сс', 'Ср', 'Бс', 'Жм', 'Сб'];
-const KZ_MONTHS = ['қаң.', 'ақп.', 'нау.', 'сәу.', 'мам.', 'мау.', 'шіл.', 'там.', 'қыр.', 'қаз.', 'қар.', 'жел.'];
-
-export const formatEventDay = (event: Pick<CommunityEvent, 'date' | 'time'>, language: string): string => {
-  // Kazakh month names are missing from some browsers' date data (they print "M11"), so they are spelled here.
-  if (language === 'kz') {
-    const [y, m, d] = event.date.split('-').map(Number);
-    if (!y || !m || !d) return event.date;
-    const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-    return `${KZ_WEEKDAYS[weekday]}, ${d} ${KZ_MONTHS[m - 1]}`;
-  }
-  try {
-    const s = new Intl.DateTimeFormat(DATE_LOCALES[language] || 'ru-RU', {
-      timeZone: 'Asia/Almaty', weekday: 'short', day: 'numeric', month: 'short',
-    }).format(getEventStart(event));
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  } catch {
-    return event.date;
-  }
+/**
+ * "Сб, 23 нояб." / "Сб, 23 қар." / "Sat, 23 Nov" — the event's day for cards and details.
+ * Day and month names come from the translations (dateWeekdaysShort, dateMonthsShort), so every
+ * browser shows the same text (some lack Kazakh date data and would print "M11").
+ * `date` is already the club's local day (Almaty), so no time-zone conversion is needed.
+ */
+export const formatEventDay = (event: Pick<CommunityEvent, 'date'>, t: (key: string) => string): string => {
+  const [y, m, d] = event.date.split('-').map(Number);
+  if (!y || !m || !d) return event.date;
+  const weekdays = t('dateWeekdaysShort').split(',');
+  const months = t('dateMonthsShort').split(',');
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  if (weekdays.length !== 7 || months.length !== 12) return event.date;
+  return t('dateDayPattern').replace('{wd}', weekdays[weekday]).replace('{d}', String(d)).replace('{m}', months[m - 1]);
 };
 
 /** What a member sees on an event card; the order of checks matches the registration rules. */

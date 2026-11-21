@@ -131,7 +131,7 @@ export const EventCard: React.FC<{
           <div className="flex items-center gap-2 min-w-0">
             <Clock className="w-3.5 h-3.5 text-[#c8b393] shrink-0" />
             <span className="truncate">
-              <span className="font-medium text-[#e6dfd3]">{formatEventDay(event, language)}</span>
+              <span className="font-medium text-[#e6dfd3]">{formatEventDay(event, t)}</span>
               {' · '}{event.time}
               <span className="text-[#8c8279]"> · {event.durationMinutes} {t('evMin')}</span>
             </span>
