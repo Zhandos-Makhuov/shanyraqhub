@@ -46,8 +46,8 @@ const Stars: React.FC<{ value: number; size?: string }> = ({ value, size = 'w-3 
 );
 
 /** Cover in a fixed 2:3 frame; without a photo — a calm "book" made of its colour, title and author. */
-const BookCover: React.FC<{ book: Pick<BookGroup, 'title' | 'author' | 'coverUrl' | 'coverColor'>; className?: string; small?: boolean }> = ({ book, className = '', small }) => (
-  <div className={`relative aspect-[2/3] rounded-lg overflow-hidden border border-black/30 shadow-md ${className}`}>
+const BookCover: React.FC<{ book: Pick<BookGroup, 'title' | 'author' | 'coverUrl' | 'coverColor'>; className?: string; small?: boolean; ratio?: string }> = ({ book, className = '', small, ratio = 'aspect-[2/3]' }) => (
+  <div className={`relative ${ratio} rounded-lg overflow-hidden border border-black/30 shadow-md ${className}`}>
     {book.coverUrl ? (
       <img src={book.coverUrl} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
     ) : (
@@ -197,13 +197,14 @@ export const ReadingLibraryView: React.FC = () => {
     <button
       key={b.key}
       onClick={() => { setReviewSort('newest'); setOpenKey(b.key); }}
-      className="group text-left flex flex-col gap-2 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfcfb3]/60 rounded-xl"
+      className="group text-left flex flex-col gap-1.5 sm:gap-2 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfcfb3]/60 rounded-xl"
     >
       <div className="relative">
-        <BookCover book={b} className="w-full transition-transform duration-200 group-hover:-translate-y-0.5" />
+        {/* Phones (2 columns): a little shorter frame to cut scrolling; the cover photo still fills it (object-cover). */}
+        <BookCover book={b} ratio="aspect-[3/4] min-[480px]:aspect-[2/3]" className="w-full transition-transform duration-200 group-hover:-translate-y-0.5" />
       </div>
       <span className="min-w-0">
-        <span className="block font-display text-[14px] font-bold leading-snug text-[#f5f2eb] group-hover:text-[#ecd9bf] line-clamp-2">{b.title}</span>
+        <span className="block font-display text-[13px] min-[360px]:text-[14px] font-bold leading-snug text-[#f5f2eb] group-hover:text-[#ecd9bf] line-clamp-2 break-words">{b.title}</span>
         <span className="block text-[12px] text-[#9e948c] truncate">{b.author}</span>
         {b.mine && !showMine && (
           <span className={`mt-1 inline-block px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${
@@ -229,7 +230,7 @@ export const ReadingLibraryView: React.FC = () => {
     </button>
   );
 
-  const grid = 'grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-5 sm:gap-x-4';
+  const grid = 'grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-x-3 gap-y-4 sm:gap-x-4 sm:gap-y-5';
 
   return (
     <div className="space-y-5 sm:space-y-6 pb-12 w-full max-w-full">
@@ -379,7 +380,7 @@ export const ReadingLibraryView: React.FC = () => {
       {/* Book detail */}
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4 bg-black/75 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4 bg-black/75 backdrop-blur-sm animate-fade-in overscroll-contain"
           style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
           onClick={e => e.target === e.currentTarget && setOpenKey(null)}
           role="dialog"
@@ -391,10 +392,10 @@ export const ReadingLibraryView: React.FC = () => {
             </button>
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-5">
               <div className="flex gap-4 pr-10">
-                <BookCover book={open} className="w-24 sm:w-28 shrink-0" />
+                <BookCover book={open} className="w-20 min-[360px]:w-24 sm:w-28 shrink-0" />
                 <div className="min-w-0 space-y-1.5">
                   {open.genre && <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#c8b393]">{genreLabel(open.genre, t)}</span>}
-                  <h2 className="font-display text-lg sm:text-xl font-bold leading-snug text-[#f5f2eb] break-words">{open.title}</h2>
+                  <h2 className="font-display text-base min-[360px]:text-lg sm:text-xl font-bold leading-snug text-[#f5f2eb] break-words">{open.title}</h2>
                   <p className="text-sm text-[#b0a79d]">{open.author}</p>
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-[#9e948c]">
                     {open.avg !== null ? (
@@ -478,10 +479,10 @@ export const ReadingLibraryView: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <button onClick={() => openAdd({ title: open.title, author: open.author, genre: open.genre, coverUrl: open.coverUrl, status: 'reading' })} className="btn-secondary flex-1 min-w-0 px-3">
+                  <button onClick={() => openAdd({ title: open.title, author: open.author, genre: open.genre, coverUrl: open.coverUrl, status: 'reading' })} className="btn-secondary flex-1 min-w-0 px-2 min-[360px]:px-3 text-[13px] min-[360px]:text-sm">
                     <BookOpen className="w-4 h-4 shrink-0 hidden min-[420px]:block" /><span className="truncate">{t('libMarkReading')}</span>
                   </button>
-                  <button onClick={() => openAdd({ title: open.title, author: open.author, genre: open.genre, coverUrl: open.coverUrl, status: 'completed' })} className="btn-primary flex-1 min-w-0 px-3">
+                  <button onClick={() => openAdd({ title: open.title, author: open.author, genre: open.genre, coverUrl: open.coverUrl, status: 'completed' })} className="btn-primary flex-1 min-w-0 px-2 min-[360px]:px-3 text-[13px] min-[360px]:text-sm">
                     <CheckCircle className="w-4 h-4 shrink-0 hidden min-[420px]:block" /><span className="truncate">{t('libMarkRead')}</span>
                   </button>
                 </>
@@ -494,7 +495,7 @@ export const ReadingLibraryView: React.FC = () => {
       {/* Add / edit form */}
       {showAddModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4 bg-black/75 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4 bg-black/75 backdrop-blur-sm animate-fade-in overscroll-contain"
           style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
           role="dialog"
           aria-modal="true"
@@ -505,7 +506,7 @@ export const ReadingLibraryView: React.FC = () => {
             </button>
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-4 text-xs">
               <div className="pr-10">
-                <h3 className="font-display text-lg font-bold text-[#f5f2eb]">{editing ? t('libEditBook') : t('actionAddBook')}</h3>
+                <h3 className="font-display text-base min-[360px]:text-lg font-bold text-[#f5f2eb]">{editing ? t('libEditBook') : t('actionAddBook')}</h3>
                 <p className="mt-1 text-[12px] text-[#a39b94] leading-relaxed">{t('libAddIntro')}</p>
               </div>
 
@@ -597,7 +598,7 @@ export const ReadingLibraryView: React.FC = () => {
 
             <div className="shrink-0 flex items-center justify-end gap-2 px-5 sm:px-6 py-3 border-t border-[#302a28] bg-[#201d1c]">
               <button type="button" onClick={() => setShowAddModal(false)} className="btn-ghost">{t('actionClose')}</button>
-              <button type="submit" className="btn-primary">{t('actionSave')}{creditHint.ok ? ' (+50 XP, +30 🪙)' : ''}</button>
+              <button type="submit" className="btn-primary">{t('actionSave')}{creditHint.ok && <span className="hidden min-[360px]:inline">&nbsp;(+50 XP, +30 🪙)</span>}</button>
             </div>
           </form>
         </div>
