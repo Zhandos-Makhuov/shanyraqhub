@@ -86,7 +86,7 @@ export const Header: React.FC = () => {
                   setShowNotifDropdown(false);
                   setShowUserDropdown(false);
                 }}
-                className="flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] text-xs font-medium text-[#dfcfb3] transition-colors"
+                className="flex items-center gap-1 min-h-9 px-2 sm:px-2.5 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] text-xs font-medium text-[#dfcfb3] transition-colors"
                 title={t('hdrChangeLanguage')}
               >
                 <Globe className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
@@ -120,7 +120,7 @@ export const Header: React.FC = () => {
             {/* Shanyraq Coins Pill */}
             <button
               onClick={() => setActiveTab('shop')}
-              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] text-xs font-semibold text-[#f5d77f] transition-all"
+              className="flex items-center gap-1 sm:gap-1.5 min-h-9 px-2 sm:px-2.5 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] text-xs font-semibold text-[#f5d77f] transition-all"
               title={t('hdrShopTitle')}
             >
               <Coins className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -148,7 +148,7 @@ export const Header: React.FC = () => {
                   setShowUserDropdown(false);
                   setShowLangDropdown(false);
                 }}
-                className="relative p-1.5 sm:p-2 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] text-[#d6cebf] transition-colors"
+                className="relative flex items-center justify-center min-w-9 min-h-9 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] text-[#d6cebf] transition-colors"
                 title={t('hdrNotifications')}
               >
                 <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
@@ -229,7 +229,7 @@ export const Header: React.FC = () => {
                   setShowNotifDropdown(false);
                   setShowLangDropdown(false);
                 }}
-                className="flex items-center gap-1.5 pl-1 pr-1.5 sm:pr-2 py-1 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] transition-colors"
+                className="flex items-center gap-1.5 min-h-9 pl-1 pr-1.5 sm:pr-2 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] transition-colors"
               >
                 <div className="relative w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden ring-1 ring-[#dfcfb3]/50 shrink-0">
                   <img

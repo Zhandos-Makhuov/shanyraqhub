@@ -13,10 +13,17 @@ import {
   Sparkles,
   User,
   ShieldCheck,
-  Coins,
   Globe,
 } from 'lucide-react';
 import { TIERS } from '../data/gamification';
+
+/** Sections always on the bottom bar; the rest open from "More". */
+const BAR_TABS: { id: NavTab; labelKey: string; icon: React.FC<{ className?: string }> }[] = [
+  { id: 'dashboard', labelKey: 'tabDashboard', icon: Compass },
+  { id: 'events', labelKey: 'tabEventsShort', icon: Calendar },
+  { id: 'library', labelKey: 'tabLibrary', icon: BookOpen },
+  { id: 'leaderboard', labelKey: 'tabLeaderboard', icon: Trophy },
+];
 
 export const MobileNavigation: React.FC = () => {
   const {
@@ -69,6 +76,8 @@ export const MobileNavigation: React.FC = () => {
     ...(isStaff ? [{ id: 'admin' as NavTab, label: t('tabAdmin'), icon: ShieldCheck }] : []),
   ];
 
+  const inBar = BAR_TABS.some(b => b.id === activeTab);
+
   const handleSelectTab = (tabId: NavTab) => {
     setActiveTab(tabId);
     setIsMenuOpen(false);
@@ -77,73 +86,35 @@ export const MobileNavigation: React.FC = () => {
 
   return (
     <>
-      {/* Fixed Bottom Bar on Mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1e1b1a]/95 backdrop-blur-md border-t border-[#352f2c] px-2 py-1.5 safe-area-pb">
-        <div className="flex items-center justify-around max-w-md mx-auto">
-          {/* 1. Dashboard */}
-          <button
-            onClick={() => handleSelectTab('dashboard')}
-            className={`flex flex-1 min-w-0 flex-col items-center justify-center min-h-[44px] py-1 px-0.5 transition-colors ${
-              activeTab === 'dashboard' ? 'text-[#dfcfb3]' : 'text-[#8c8279]'
-            }`}
-          >
-            <Compass className="w-4 h-4" />
-            <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
-              {t('tabDashboard')}
-            </span>
-          </button>
-
-          {/* 2. Events */}
-          <button
-            onClick={() => handleSelectTab('events')}
-            className={`flex flex-1 min-w-0 flex-col items-center justify-center min-h-[44px] py-1 px-0.5 transition-colors ${
-              activeTab === 'events' ? 'text-[#dfcfb3]' : 'text-[#8c8279]'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
-              {t('tabEventsShort')}
-            </span>
-          </button>
-
-          {/* 3. Library */}
-          <button
-            onClick={() => handleSelectTab('library')}
-            className={`flex flex-1 min-w-0 flex-col items-center justify-center min-h-[44px] py-1 px-0.5 transition-colors ${
-              activeTab === 'library' ? 'text-[#dfcfb3]' : 'text-[#8c8279]'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
-              {t('tabLibrary')}
-            </span>
-          </button>
-
-          {/* 4. Leaderboard */}
-          <button
-            onClick={() => handleSelectTab('leaderboard')}
-            className={`flex flex-1 min-w-0 flex-col items-center justify-center min-h-[44px] py-1 px-0.5 transition-colors ${
-              activeTab === 'leaderboard' ? 'text-[#dfcfb3]' : 'text-[#8c8279]'
-            }`}
-          >
-            <Trophy className="w-4 h-4" />
-            <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
-              {t('tabLeaderboard')}
-            </span>
-          </button>
-
-          {/* 5. Menu trigger */}
-          <button
-            onClick={() => setIsMenuOpen(true)}
-            className={`flex flex-1 min-w-0 flex-col items-center justify-center min-h-[44px] py-1 px-0.5 transition-colors ${
-              isMenuOpen ? 'text-[#dfcfb3]' : 'text-[#8c8279]'
-            }`}
-          >
-            <Menu className="w-4 h-4" />
-            <span className="max-w-full text-[10px] max-[374px]:text-[9px] mt-0.5 font-medium truncate">
-              {t('navMenu')}
-            </span>
-          </button>
+      {/* Fixed bottom bar: four main sections + "More" (everything else lives in the sheet). */}
+      <nav
+        aria-label={t('navAllSections')}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1e1b1a]/95 backdrop-blur-md border-t border-[#352f2c] px-1.5 pt-1 safe-area-pb"
+      >
+        <div className="flex items-stretch justify-around max-w-md mx-auto">
+          {[
+            ...BAR_TABS.map(b => ({ ...b, label: t(b.labelKey), active: activeTab === b.id, onClick: () => handleSelectTab(b.id) })),
+            { id: 'more', icon: Menu, label: t('navMenu'), active: isMenuOpen || !inBar, onClick: () => setIsMenuOpen(true) },
+          ].map(item => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={item.onClick}
+                aria-current={item.active ? 'page' : undefined}
+                className={`flex flex-1 min-w-0 flex-col items-center justify-center gap-0.5 min-h-[52px] px-0.5 transition-colors ${
+                  item.active ? 'text-[#ecd9bf]' : 'text-[#8c8279] active:text-[#d6cebf]'
+                }`}
+              >
+                <span className={`flex items-center justify-center w-12 h-7 rounded-full transition-colors ${item.active ? 'bg-[#dfcfb3]/15' : ''}`}>
+                  <Icon className="w-5 h-5" />
+                </span>
+                <span className={`max-w-full text-[11px] max-[359px]:text-[10px] leading-tight truncate ${item.active ? 'font-semibold' : 'font-medium'}`}>
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </nav>
 
@@ -155,7 +126,7 @@ export const MobileNavigation: React.FC = () => {
           onClick={e => e.target === e.currentTarget && setIsMenuOpen(false)}
         >
           <div
-            className="flex-1 mt-auto w-full bg-[#201d1c] border-t border-[#3f3834] rounded-t-2xl p-5 space-y-4 overflow-y-auto overscroll-contain"
+            className="mt-auto w-full bg-[#201d1c] border-t border-[#3f3834] rounded-t-2xl p-5 space-y-4 overflow-y-auto overscroll-contain"
             style={{ maxHeight: Math.round(viewportHeight * 0.85), paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
           >
             {/* Drawer Header */}
@@ -178,7 +149,8 @@ export const MobileNavigation: React.FC = () => {
 
               <button
                 onClick={() => setIsMenuOpen(false)}
-                className="p-2 rounded-lg bg-[#191615] text-[#9e948c] hover:text-white"
+                aria-label={t('actionClose')}
+                className="btn-icon text-[#9e948c]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -195,7 +167,7 @@ export const MobileNavigation: React.FC = () => {
                   <button
                     key={l}
                     onClick={() => setLanguage(l)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-mono font-semibold uppercase ${
+                    className={`min-h-8 min-w-10 px-2.5 rounded-lg text-xs font-mono font-semibold uppercase ${
                       language === l
                         ? 'bg-[#dfcfb3] text-[#1e1b1a]'
                         : 'text-[#8c8279] hover:text-[#f5f2eb]'
@@ -213,46 +185,34 @@ export const MobileNavigation: React.FC = () => {
                 {t('navAllSections')}
               </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {allSections.map(sec => {
+              <div className="grid grid-cols-2 gap-2">
+                {allSections.filter(sec => !BAR_TABS.some(b => b.id === sec.id)).map(sec => {
                   const Icon = sec.icon;
                   const isCurrent = activeTab === sec.id;
                   return (
                     <button
                       key={sec.id}
                       onClick={() => handleSelectTab(sec.id)}
-                      className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-medium transition-all ${
+                      aria-current={isCurrent ? 'page' : undefined}
+                      className={`flex flex-col items-start gap-2 min-h-[72px] p-3 rounded-xl text-left text-[13px] transition-colors ${
                         isCurrent
-                          ? 'bg-[#dfcfb3] text-[#1e1b1a] font-bold shadow-sm'
-                          : 'bg-[#191615] text-[#d6cebf] hover:bg-[#282321] border border-[#302a28]'
+                          ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
+                          : 'bg-[#191615] text-[#e6dfd3] font-medium border border-[#302a28] active:bg-[#282321]'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
-                        <Icon className={`w-4 h-4 ${isCurrent ? 'text-[#1e1b1a]' : 'text-[#dfcfb3]'}`} />
-                        <span>{sec.label}</span>
-                      </div>
-                      {sec.badge && (
-                        <span className={`text-[10px] font-mono ${isCurrent ? 'text-[#1e1b1a]' : 'text-amber-400'}`}>
-                          {sec.badge}
-                        </span>
-                      )}
+                      <span className="w-full flex items-center justify-between">
+                        <Icon className={`w-5 h-5 ${isCurrent ? 'text-[#1e1b1a]' : 'text-[#dfcfb3]'}`} />
+                        {sec.badge && (
+                          <span className={`text-[11px] font-mono-numbers ${isCurrent ? 'text-[#1e1b1a]' : 'text-amber-400'}`}>
+                            {sec.badge}
+                          </span>
+                        )}
+                      </span>
+                      <span className="leading-tight">{sec.label}</span>
                     </button>
                   );
                 })}
               </div>
-            </div>
-
-            {/* Quick Profile & Shop footer in drawer */}
-            <div className="pt-2 border-t border-[#302a28] flex items-center justify-between text-xs text-[#8c8279]">
-              <span className="font-mono text-amber-400 font-semibold">
-                {t('navBalance')}: {currentUser.coins} 🪙
-              </span>
-              <button
-                onClick={() => handleSelectTab('profile')}
-                className="text-[#dfcfb3] hover:underline font-medium"
-              >
-                {t('navOpenProfile')} →
-              </button>
             </div>
           </div>
         </div>

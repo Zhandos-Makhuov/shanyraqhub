@@ -4,13 +4,12 @@ import { COMMUNITY_DIRECTIONS, activeDirections, eventImage } from '../data/dire
 import { hasRole } from '../utils/permissions';
 import { isDemoData } from '../config/runtime';
 import { exportEventToIcs } from '../utils/calendar';
-import { hasEventStarted, isCheckInWindowOpen } from '../utils/eventTime';
+import { getEventStart, hasEventEnded, hasEventStarted } from '../utils/eventTime';
+import { takeEventsIntent } from '../utils/navIntent';
+import { EventCard } from './EventCard';
 import { MyQrModal } from './CheckInQr';
 import { CommunityEvent, DirectionId } from '../types';
 import {
-  Clock,
-  MapPin,
-  Users,
   Download,
   Plus,
   Search,
@@ -18,7 +17,6 @@ import {
   Check,
   X,
   FilterX,
-  QrCode,
 } from 'lucide-react';
 
 export const EventsView: React.FC = () => {
@@ -29,7 +27,6 @@ export const EventsView: React.FC = () => {
     cancelEventRegistration,
     submitEventFeedback,
     createEvent,
-    issueCheckInCode,
     liveApi,
     runLiveAction,
     language,
@@ -37,12 +34,18 @@ export const EventsView: React.FC = () => {
     ln,
   } = useApp();
 
-  const [selectedDirection, setSelectedDirection] = useState<string>('all');
+  // The home page can open this screen with a direction chosen, an event's details or its feedback form.
+  const [intent] = useState(takeEventsIntent);
+  const [selectedDirection, setSelectedDirection] = useState<string>(intent.direction ?? 'all');
   const [selectedFormat, setSelectedFormat] = useState<'all' | 'offline' | 'online'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeModalEvent, setActiveModalEvent] = useState<CommunityEvent | null>(null);
+  const [activeModalEvent, setActiveModalEvent] = useState<CommunityEvent | null>(
+    () => events.find(e => e.id === intent.openEventId) ?? null,
+  );
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showFeedbackModal, setShowFeedbackModal] = useState<CommunityEvent | null>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState<CommunityEvent | null>(
+    () => events.find(e => e.id === intent.feedbackEventId) ?? null,
+  );
   const [qrEvent, setQrEvent] = useState<CommunityEvent | null>(null);
 
   // Feedback form state
@@ -96,6 +99,12 @@ export const EventsView: React.FC = () => {
     }
     return true;
   });
+
+  const hasActiveFilters = selectedDirection !== 'all' || selectedFormat !== 'all' || searchQuery.trim() !== '';
+  // Upcoming first (soonest on top), then past events (latest on top).
+  const byStart = (a: CommunityEvent, b: CommunityEvent) => getEventStart(a).getTime() - getEventStart(b).getTime();
+  const upcomingList = filteredEvents.filter(e => !hasEventEnded(e)).sort(byStart);
+  const pastList = filteredEvents.filter(e => hasEventEnded(e)).sort((a, b) => byStart(b, a));
 
   const handleFeedbackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,7 +170,7 @@ export const EventsView: React.FC = () => {
         {isStaff && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="self-start sm:self-auto px-3.5 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-[#1e1b1a] text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0 active:scale-95"
+            className="btn-primary self-start sm:self-auto shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>{t('actionCreateEvent')}</span>
@@ -169,17 +178,13 @@ export const EventsView: React.FC = () => {
         )}
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 sm:gap-3 p-2.5 sm:p-3 bg-[#23201e] border border-[#352f2c] rounded-xl">
-        {/* Directions Horizontal Scroll */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
+      {/* Filters: directions (scrolling chips), format and search; active filters can be reset in one tap. */}
+      <div className="space-y-2.5">
+        <div className="-mx-3 sm:mx-0 px-3 sm:px-0 flex items-center gap-2 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setSelectedDirection('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-              selectedDirection === 'all'
-                ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
-                : 'text-[#9e948c] hover:text-[#f5f2eb] hover:bg-[#2b2725]'
-            }`}
+            className={`chip shrink-0 ${selectedDirection === 'all' ? 'chip-active' : ''}`}
+            aria-pressed={selectedDirection === 'all'}
           >
             {t('actionFilterAll')}
           </button>
@@ -187,57 +192,58 @@ export const EventsView: React.FC = () => {
             <button
               key={dir.id}
               onClick={() => setSelectedDirection(dir.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                selectedDirection === dir.id
-                  ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
-                  : 'text-[#9e948c] hover:text-[#f5f2eb] hover:bg-[#2b2725]'
-              }`}
+              className={`chip shrink-0 ${selectedDirection === dir.id ? 'chip-active' : ''}`}
+              aria-pressed={selectedDirection === dir.id}
             >
               {language === 'kz' ? dir.shortNameKz : language === 'en' ? dir.shortNameEn : dir.shortNameRu}
             </button>
           ))}
         </div>
 
-        {/* Format & Search */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
-          <div className="flex items-center bg-[#191615] rounded-lg p-0.5 border border-[#3b3430] shrink-0">
-            <button
-              onClick={() => setSelectedFormat('all')}
-              className={`px-2.5 py-1 text-[11px] font-medium rounded ${
-                selectedFormat === 'all' ? 'bg-[#352f2c] text-[#f5f2eb]' : 'text-[#8c8279]'
-              }`}
-            >
-              {t('evFormatAll')}
-            </button>
-            <button
-              onClick={() => setSelectedFormat('offline')}
-              className={`px-2.5 py-1 text-[11px] font-medium rounded ${
-                selectedFormat === 'offline' ? 'bg-[#352f2c] text-[#f5f2eb]' : 'text-[#8c8279]'
-              }`}
-            >
-              {t('evOffline')}
-            </button>
-            <button
-              onClick={() => setSelectedFormat('online')}
-              className={`px-2.5 py-1 text-[11px] font-medium rounded ${
-                selectedFormat === 'online' ? 'bg-[#352f2c] text-[#f5f2eb]' : 'text-[#8c8279]'
-              }`}
-            >
-              {t('evOnline')}
-            </button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-[#23201e] rounded-xl p-1 border border-[#352f2c] shrink-0" role="group">
+            {(['all', 'offline', 'online'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setSelectedFormat(f)}
+                aria-pressed={selectedFormat === f}
+                className={`min-h-8 px-2.5 sm:px-3 text-xs font-medium rounded-lg transition-colors ${
+                  selectedFormat === f ? 'bg-[#3a3330] text-[#f5f2eb]' : 'text-[#8c8279] hover:text-[#d6cebf]'
+                }`}
+              >
+                {f === 'all' ? t('evFormatAll') : f === 'offline' ? t('evOffline') : t('evOnline')}
+              </button>
+            ))}
           </div>
 
-          <div className="relative flex-1 sm:w-48">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8c8279]" />
+          <div className="relative flex-1 min-w-0 sm:max-w-xs">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8c8279] pointer-events-none" />
             <input
-              type="text"
+              type="search"
               placeholder={t('actionSearch')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+              className="w-full min-h-10 pl-9 pr-3 rounded-xl bg-[#23201e] border border-[#352f2c] text-sm text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]/70"
             />
           </div>
+
+          {hasActiveFilters && (
+            <button onClick={resetFilters} className="hidden sm:inline-flex btn-ghost min-h-10 px-3 text-xs shrink-0">
+              <FilterX className="w-3.5 h-3.5" />
+              {t('evResetShort')}
+            </button>
+          )}
         </div>
+
+        {hasActiveFilters && (
+          <div className="flex items-center justify-between text-xs text-[#8c8279]">
+            <span>{t('evShown').replace('{n}', String(filteredEvents.length))}</span>
+            <button onClick={resetFilters} className="sm:hidden inline-flex items-center gap-1 min-h-8 px-2 text-[#dfcfb3] font-medium">
+              <FilterX className="w-3.5 h-3.5" />
+              {t('evResetShort')}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Empty State */}
@@ -250,159 +256,36 @@ export const EventsView: React.FC = () => {
           <p className="text-xs text-[#9e948c] max-w-sm mx-auto">
             {t('evEmptyText')}
           </p>
-          <button
-            onClick={resetFilters}
-            className="px-4 py-2 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] text-xs font-semibold text-[#dfcfb3] border border-[#483f3a] transition-colors"
-          >
-            {t('evResetFilters')}
-          </button>
+          {hasActiveFilters && (
+            <button onClick={resetFilters} className="btn-secondary">
+              {t('evResetFilters')}
+            </button>
+          )}
         </div>
       ) : (
-        /* Events Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-          {filteredEvents.map(event => {
-            const isRegistered = event.registeredUserIds.includes(currentUser.id);
-            const hasAttended = event.attendedUserIds.includes(currentUser.id);
-            const seatsLeft = Math.max(0, event.maxCapacity - event.registeredUserIds.length);
-            const isStarted = hasEventStarted(event);
-            const directionMeta = COMMUNITY_DIRECTIONS.find(d => d.id === event.direction);
-
-            return (
-              <div
-                key={event.id}
-                className="rounded-2xl bg-[#23201e] border border-[#352f2c] hover:border-[#4d443f] overflow-hidden flex flex-col justify-between transition-all shadow-md group"
-              >
-                <img
-                  src={eventImage(event)}
-                  alt=""
-                  loading="lazy"
-                  onClick={() => setActiveModalEvent(event)}
-                  className="w-full h-36 sm:h-40 object-cover cursor-pointer"
-                />
-                <div className="p-4 sm:p-5 space-y-3">
-                  {/* Meta Header */}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-[#dfcfb3]">
-                      {directionMeta
-                        ? language === 'kz' ? directionMeta.shortNameKz : language === 'en' ? directionMeta.shortNameEn : directionMeta.shortNameRu
-                        : event.direction}
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#2d2825] text-[#b0a79d] border border-[#3f3834]">
-                      {event.format === 'offline' ? t('evOffline') : t('evOnlineLive')}
-                    </span>
-                  </div>
-
-                  {/* Event Title */}
-                  <h3
-                    onClick={() => setActiveModalEvent(event)}
-                    className="font-display text-base font-bold text-[#f5f2eb] group-hover:text-[#dfcfb3] cursor-pointer transition-colors leading-snug"
-                  >
-                    {event.title}
-                  </h3>
-
-                  {/* Short Description */}
-                  <p className="text-xs text-[#a39b94] line-clamp-3 leading-relaxed">
-                    {event.description}
-                  </p>
-
-                  {/* Logistics */}
-                  <div className="pt-2 space-y-1.5 text-xs text-[#9e948c] border-t border-[#302a28]">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
-                      <span className="truncate">{event.date} {t('evAt')} {event.time} ({event.durationMinutes} {t('evMin')})</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
-                      <span className="truncate">{event.locationAddress}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Users className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
-                      <span className="truncate">
-                        {t('evRegistered')} {event.registeredUserIds.length} / {event.maxCapacity} ({seatsLeft > 0 ? `${t('evSeatsLeft')} ${seatsLeft}` : t('evNoSeats')})
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Required Materials Preview */}
-                  {realMaterials(event).length > 0 && (
-                    <div className="p-2.5 rounded-lg bg-[#1c1918] border border-[#302a28] text-[11px] space-y-1">
-                      <span className="font-semibold text-[#dfcfb3] block">
-                        {t('eventMaterials')}:
-                      </span>
-                      <ul className="list-disc list-inside text-[#9e948c] space-y-0.5">
-                        {realMaterials(event).slice(0, 2).map((mat, i) => (
-                          <li key={i} className="truncate">{mat}</li>
-                        ))}
-                        {realMaterials(event).length > 2 && (
-                          <li className="text-[10px] text-[#736a62]">
-                            {t('evMoreItems')} {realMaterials(event).length - 2}…
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {/* Card Footer Actions */}
-                <div className="p-3 sm:p-4 bg-[#1e1b1a] border-t border-[#302a28] flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <button
-                      onClick={() => exportEventToIcs(event)}
-                      className="p-1.5 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3d3632] text-[#dfcfb3] transition-colors"
-                      title={t('actionExportCalendar')}
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                    </button>
-
-                    <button
-                      onClick={() => setActiveModalEvent(event)}
-                      className="text-xs text-[#a39b94] hover:text-[#f5f2eb] underline underline-offset-4"
-                    >
-                      {t('evDetails')}
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {issueCheckInCode && isRegistered && !hasAttended && isCheckInWindowOpen(event) && (
-                      <button
-                        onClick={() => setQrEvent(event)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-[11px] font-semibold text-[#1e1b1a] flex items-center gap-1"
-                      >
-                        <QrCode className="w-3.5 h-3.5" />
-                        {t('qrMyCodeButton')}
-                      </button>
-                    )}
-                    {hasAttended && !event.feedbacks.some(f => f.userId === currentUser.id) && (
-                      <button
-                        onClick={() => setShowFeedbackModal(event)}
-                        className="px-2.5 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] text-[11px] font-medium text-[#dfcfb3] border border-[#483f3a]"
-                      >
-                        {t('evFeedbackShort')}
-                      </button>
-                    )}
-
-                    {isRegistered ? (
-                      <button
-                        onClick={() => cancelEventRegistration(event.id)}
-                        disabled={isStarted}
-                        className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3d3633] disabled:hover:bg-[#2e2927] disabled:cursor-default text-xs font-medium text-[#dfcfb3] border border-[#483f3a] transition-colors"
-                      >
-                        {isStarted ? t('actionRegistered') : `${t('actionRegistered')} (${t('evCancelShort')})`}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => registerForEvent(event.id)}
-                        disabled={seatsLeft === 0 || isStarted}
-                        className="px-3 sm:px-4 py-1.5 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold text-[#1e1b1a] transition-all"
-                      >
-                        {isStarted ? t('registrationClosed') : seatsLeft > 0 ? t('actionRegister') : t('eventFull')}
-                      </button>
-                    )}
-                  </div>
-                </div>
+        <div className="space-y-8">
+          {[
+            { key: 'upcoming', title: t('evUpcomingSection'), list: upcomingList },
+            { key: 'past', title: t('evPastSection'), list: pastList },
+          ].filter(g => g.list.length > 0).map(group => (
+            <section key={group.key} className="space-y-3">
+              <h2 className="flex items-baseline gap-2 font-display text-base sm:text-lg font-bold text-[#f5f2eb]">
+                {group.title}
+                <span className="text-xs font-mono-numbers font-normal text-[#8c8279]">{group.list.length}</span>
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {group.list.map(event => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    onOpen={setActiveModalEvent}
+                    onQr={setQrEvent}
+                    onFeedback={setShowFeedbackModal}
+                  />
+                ))}
               </div>
-            );
-          })}
+            </section>
+          ))}
         </div>
       )}
 
@@ -410,11 +293,12 @@ export const EventsView: React.FC = () => {
 
       {/* Event Details Modal */}
       {activeModalEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4 sm:space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in" onClick={e => e.target === e.currentTarget && setActiveModalEvent(null)}>
+          <div className="relative w-full max-w-xl max-h-[90dvh] overflow-y-auto bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4 sm:space-y-5">
             <button
               onClick={() => setActiveModalEvent(null)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-[#9e948c] hover:text-white bg-[#1a1716]"
+              aria-label={t('actionClose')}
+              className="absolute top-3 right-3 z-10 flex items-center justify-center w-10 h-10 rounded-xl text-[#e6dfd3] hover:text-white bg-black/55 backdrop-blur-sm"
             >
               <X className="w-4 h-4" />
             </button>
@@ -571,7 +455,7 @@ export const EventsView: React.FC = () => {
       {/* Leave Feedback Modal */}
       {showFeedbackModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-md bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-md bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4 max-h-[90dvh] overflow-y-auto">
             <button
               onClick={() => setShowFeedbackModal(null)}
               className="absolute top-4 right-4 p-1.5 rounded-lg text-[#9e948c] hover:text-white bg-[#1a1716]"

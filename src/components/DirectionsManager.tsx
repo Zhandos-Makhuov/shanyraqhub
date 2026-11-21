@@ -120,7 +120,7 @@ export const DirectionsManager: React.FC = () => {
 
       {form && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
-          <form onSubmit={submit} className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#23201e] border border-[#3f3834] rounded-2xl p-5 space-y-3">
+          <form onSubmit={submit} className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto bg-[#23201e] border border-[#3f3834] rounded-2xl p-5 space-y-3">
             <button type="button" onClick={() => setForm(null)} className="absolute top-3 right-3 p-1.5 rounded-lg text-[#9e948c] hover:text-white bg-[#1a1716]">
               <X className="w-4 h-4" />
             </button>

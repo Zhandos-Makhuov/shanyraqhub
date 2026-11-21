@@ -30,7 +30,7 @@ const MainContent: React.FC = () => {
       <NavigationTabs />
 
       {/* Main Viewport Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-10">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 md:pb-10">
         {activeTab === 'dashboard' && <DashboardView />}
         {activeTab === 'events' && <EventsView />}
         {activeTab === 'achievements' && <AchievementsView />}
@@ -46,7 +46,7 @@ const MainContent: React.FC = () => {
       {/* Persistent Mobile Bottom Navigation */}
       <MobileNavigation />
 
-      <footer className="border-t border-[#302a28] bg-[#161312] py-8 px-4 lg:px-8 text-xs text-[#8c8279] mb-14 md:mb-0">
+      <footer className="border-t border-[#302a28] bg-[#161312] py-8 px-4 lg:px-8 text-xs text-[#8c8279] mb-[calc(3.75rem+env(safe-area-inset-bottom))] md:mb-0">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-full overflow-hidden bg-[#24201e] ring-1 ring-[#dfcfb3]/40 p-0.5 shrink-0 flex items-center justify-center">

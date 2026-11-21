@@ -1,333 +1,405 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
-import { COMMUNITY_DIRECTIONS, activeDirections, eventImage } from '../data/directions';
-import { getEventStart, hasEventStarted } from '../utils/eventTime';
+import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
+import { activeDirections, eventImage } from '../data/directions';
+import {
+  formatEventDay,
+  getEventStart,
+  hasEventEnded,
+  hasEventStarted,
+  isCheckInWindowOpen,
+} from '../utils/eventTime';
 import { computeCommunityStats } from '../utils/communityStats';
+import { setEventsIntent } from '../utils/navIntent';
+import { EventCard } from './EventCard';
+import { MyQrModal } from './CheckInQr';
+import { ACHIEVEMENT_ICONS } from './AchievementsView';
+import { CommunityEvent } from '../types';
 import {
   Calendar,
-  BookOpen,
-  Sparkles,
   ArrowRight,
-  MapPin,
-  Clock,
-  CheckCircle2,
-  Users,
   Coins,
+  QrCode,
+  MessageSquareText,
+  CalendarCheck,
+  Compass,
+  Flame,
+  UserCheck,
   Award,
 } from 'lucide-react';
 
+const TIER_ORDER = ['bronze', 'silver', 'gold', 'platinum', 'titanium', 'tengri'] as const;
+const FEEDBACK_REMINDER_DAYS = 30;
+
+type NextStep =
+  | { kind: 'qr'; event: CommunityEvent }
+  | { kind: 'feedback'; event: CommunityEvent }
+  | { kind: 'registered'; event: CommunityEvent }
+  | { kind: 'suggest'; event: CommunityEvent }
+  | { kind: 'neutral' };
+
+/**
+ * Member home: 1) who I am and how far I am, 2) the one thing worth doing now,
+ * 3) what is coming up, 4) my progress, 5) club directions, 6) the club in numbers.
+ * Everything is derived from data the app already has; nothing is invented.
+ */
 export const DashboardView: React.FC = () => {
   const {
     currentUser,
     events,
     registerForEvent,
-    cancelEventRegistration,
     setActiveTab,
-    allReadBooks,
     allUsers,
+    issueCheckInCode,
+    getAchievementProgress,
+    getWeekStreak,
     language,
     t,
+    ln,
+    lf,
   } = useApp();
+  const [qrEvent, setQrEvent] = useState<CommunityEvent | null>(null);
 
+  // --- Level -----------------------------------------------------------------
   const currentTier = TIERS[currentUser.tier] || TIERS.bronze;
-
-  // Next tier progress
-  const tierOrder = ['bronze', 'silver', 'gold', 'platinum', 'titanium', 'tengri'] as const;
-  const currentIndex = tierOrder.indexOf(currentUser.tier);
-  const nextTierKey = currentIndex < tierOrder.length - 1 ? tierOrder[currentIndex + 1] : null;
+  const tierIndex = TIER_ORDER.indexOf(currentUser.tier);
+  const nextTierKey = tierIndex >= 0 && tierIndex < TIER_ORDER.length - 1 ? TIER_ORDER[tierIndex + 1] : null;
   const nextTier = nextTierKey ? TIERS[nextTierKey] : null;
-
   const xpProgress = nextTier
-    ? Math.min(
-        100,
-        Math.round(((currentUser.xp - currentTier.minXp) / (nextTier.minXp - currentTier.minXp)) * 100)
-      )
+    ? Math.max(0, Math.min(100, Math.round(((currentUser.xp - currentTier.minXp) / (nextTier.minXp - currentTier.minXp)) * 100)))
     : 100;
 
-  const upcomingEvents = events
-    .filter(e => !hasEventStarted(e))
-    .sort((a, b) => getEventStart(a).getTime() - getEventStart(b).getTime())
-    .slice(0, 3);
-  // Real numbers only (see utils/communityStats.ts).
+  // --- Events ----------------------------------------------------------------
+  const me = currentUser.id;
+  const upcoming = useMemo(
+    () => events.filter(e => !hasEventStarted(e)).sort((a, b) => getEventStart(a).getTime() - getEventStart(b).getTime()),
+    [events],
+  );
+
+  const nextStep: NextStep = useMemo(() => {
+    const now = Date.now();
+    const qr = issueCheckInCode
+      ? events.find(e => e.registeredUserIds.includes(me) && !e.attendedUserIds.includes(me) && isCheckInWindowOpen(e))
+      : undefined;
+    if (qr) return { kind: 'qr', event: qr };
+
+    const feedback = events
+      .filter(e => e.attendedUserIds.includes(me) && hasEventEnded(e))
+      // Same "already given" rule as submitEventFeedback.
+      .filter(e => !e.feedbacks.some(f => f.userId === me) && !currentUser.attendedEvents.some(a => a.eventId === e.id && a.feedbackGiven))
+      .filter(e => now - getEventStart(e).getTime() < FEEDBACK_REMINDER_DAYS * 86_400_000)
+      .sort((a, b) => getEventStart(b).getTime() - getEventStart(a).getTime())[0];
+    if (feedback) return { kind: 'feedback', event: feedback };
+
+    const registered = upcoming.find(e => e.registeredUserIds.includes(me));
+    if (registered) return { kind: 'registered', event: registered };
+
+    const open = upcoming.filter(e => !e.registeredUserIds.includes(me) && e.registeredUserIds.length < e.maxCapacity);
+    const suggestion = open.find(e => currentUser.directions?.includes(e.direction)) ?? open[0];
+    if (suggestion) return { kind: 'suggest', event: suggestion };
+
+    return { kind: 'neutral' };
+  }, [events, upcoming, me, issueCheckInCode, currentUser.directions, currentUser.attendedEvents]);
+
+  const featuredId = nextStep.kind === 'neutral' ? null : nextStep.event.id;
+  const upcomingCards = upcoming.filter(e => e.id !== featuredId).slice(0, 3);
+
+  const openEvents = (intent: Parameters<typeof setEventsIntent>[0] = {}) => {
+    setEventsIntent(intent);
+    setActiveTab('events');
+    window.scrollTo({ top: 0 });
+  };
+
+  // --- Progress ----------------------------------------------------------------
+  const visits = events.filter(e => e.attendedUserIds.includes(me)).length;
+  const weekStreak = getWeekStreak(me);
+  // Recomputed each render: progress depends on books, forum and reviews too (34 cheap checks).
+  const nextAchievement = (() => {
+    const unlocked = new Set(currentUser.achievements.map(a => a.id));
+    let best: { ach: (typeof ALL_ACHIEVEMENTS)[number]; value: number; target: number } | null = null;
+    for (const ach of ALL_ACHIEVEMENTS) {
+      const target = ach.rule?.threshold ?? 0;
+      if (unlocked.has(ach.id) || isManualAchievement(ach) || target <= 0) continue;
+      const value = Math.min(getAchievementProgress(me, ach.id), target);
+      if (
+        !best ||
+        value / target > best.value / best.target ||
+        (value / target === best.value / best.target && target < best.target)
+      ) {
+        best = { ach, value, target };
+      }
+    }
+    return best;
+  })();
+
   const stats = computeCommunityStats(allUsers, events);
+
+  const stepTitle = (key: string, ev?: CommunityEvent) => t(key).replace('{title}', ev?.title ?? '');
+  const eventWhen = (ev: CommunityEvent) => `${formatEventDay(ev, language)} · ${ev.time} · ${ev.locationAddress}`;
+
+  const NextAchievementIcon = nextAchievement ? ACHIEVEMENT_ICONS[nextAchievement.ach.icon] || Award : Award;
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-12 w-full max-w-full">
-      {/* Hero Welcome Banner */}
-      <div className="relative rounded-2xl bg-gradient-to-br from-[#26211f] via-[#201d1c] to-[#181514] border border-[#3d3632] p-4 sm:p-6 lg:p-8 overflow-hidden shadow-xl">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 pointer-events-none hidden sm:flex items-center justify-center">
+      {/* 1. Welcome: name, level, XP towards the next level, coins */}
+      <section className="relative rounded-2xl bg-gradient-to-br from-[#26211f] to-[#1d1a19] border border-[#3d3632] p-4 sm:p-6 overflow-hidden">
+        <div className="relative flex items-start gap-3 sm:gap-4">
           <img
-            src="/assets/aistudio/IMG_9313_86e71ea6.PNG"
+            src={currentUser.avatar}
             alt=""
-            className="w-80 h-80 object-contain"
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover ring-2 ring-[#dfcfb3]/60 shrink-0"
           />
-        </div>
-
-        <div className="relative z-10 max-w-2xl space-y-3 sm:space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] sm:text-xs uppercase tracking-widest text-[#dfcfb3] font-semibold">
-              Shanyraq Community Hub
-            </span>
-            <span className="text-[#655d56]">·</span>
-            <span className={`text-[11px] sm:text-xs font-medium ${currentTier.textColor}`}>
-              {language === 'kz' ? currentTier.nameKz : language === 'en' ? currentTier.nameEn : currentTier.nameRu}
-            </span>
-          </div>
-
-          <h1 className="font-display text-xl sm:text-3xl lg:text-4xl font-bold text-[#f5f2eb] leading-tight">
-            {language === 'kz' ? 'Қош келдіңіз' : language === 'en' ? 'Welcome back' : 'Добро пожаловать'}, {currentUser.name}
-          </h1>
-
-          <p className="text-xs sm:text-sm text-[#b0a79d] leading-relaxed">
-            {language === 'kz'
-              ? 'Тұлғалық өсу, мазмұнды әдебиет және шынайы орта. Клубтық іс-шараларға қатысып, монеталар мен жаңа дәрежелерді бағындырыңыз.'
-              : language === 'en'
-              ? 'Your sanctuary for intellectual growth, book culture, and authentic friendships. Participate in events, earn Shanyraq coins, and ascend the tiers.'
-              : 'Пространство интеллектуального роста, культуры чтения и живого общения. Участвуйте во встречах, зарабатывайте коины и открывайте редкие клубные артефакты.'}
-          </p>
-
-          {/* Gamification Progress Bar */}
-          <div className="pt-1 sm:pt-2">
-            <div className="flex items-center justify-between text-xs mb-1.5 font-medium">
-              <span className="text-[#dfcfb3] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span className="font-mono-numbers">{currentUser.xp} XP</span>
-              </span>
-              <span className="text-[#9e948c] text-[11px] sm:text-xs truncate max-w-[200px] sm:max-w-none text-right">
-                {nextTier ? (
-                  <>
-                    {t('nextLevelAt')}: <span className="text-[#f5f2eb] font-mono-numbers">{nextTier.minXp} XP</span> ({language === 'kz' ? nextTier.nameKz : language === 'en' ? nextTier.nameEn : nextTier.nameRu})
-                  </>
-                ) : (
-                  t('dashMaxTier')
-                )}
-              </span>
-            </div>
-            <div className="w-full h-2 rounded-full bg-[#161413] border border-[#3b3430] overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-[#bfa882] to-[#dfcfb3] rounded-full transition-all duration-500"
-                style={{ width: `${xpProgress}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Quick Action Badges */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1">
-            <button
-              onClick={() => setActiveTab('events')}
-              className="px-3 sm:px-4 py-2 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-[#1e1b1a] text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>{t('tabEvents')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('library')}
-              className="px-3 sm:px-4 py-2 rounded-lg bg-[#2c2725] hover:bg-[#38312e] border border-[#433c37] text-xs font-medium text-[#f5f2eb] transition-all flex items-center gap-1.5 active:scale-95"
-            >
-              <BookOpen className="w-3.5 h-3.5 text-[#dfcfb3]" />
-              <span>{t('tabLibrary')}</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('shop')}
-              className="px-3 sm:px-4 py-2 rounded-lg bg-[#2c2725] hover:bg-[#38312e] border border-[#433c37] text-xs font-medium text-[#f5d77f] transition-all flex items-center gap-1.5 active:scale-95"
-            >
-              <Coins className="w-3.5 h-3.5 text-amber-400" />
-              <span>{t('tabShop')} ({currentUser.coins} 🪙)</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Community Key Metrics Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        <div className="p-3 sm:p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-          <div className="flex items-center justify-between text-[#8c8279] mb-1">
-            <span className="text-[11px] sm:text-xs font-medium">{t('dashMembers')}</span>
-            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
-          </div>
-          <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
-            {stats.members}
-          </div>
-          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">{t('dashMembersSub')}</span>
-        </div>
-
-        <div className="p-3 sm:p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-          <div className="flex items-center justify-between text-[#8c8279] mb-1">
-            <span className="text-[11px] sm:text-xs font-medium">{t('dashBooks')}</span>
-            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
-          </div>
-          <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
-            {stats.reviewedBooks}
-          </div>
-          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">{t('dashBooksSub')}</span>
-        </div>
-
-        <div className="p-3 sm:p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-          <div className="flex items-center justify-between text-[#8c8279] mb-1">
-            <span className="text-[11px] sm:text-xs font-medium">{t('dashVisits')}</span>
-            <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
-          </div>
-          <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
-            {stats.verifiedVisits}
-          </div>
-          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">{t('dashVisitsSub')}</span>
-        </div>
-
-        <div className="p-3 sm:p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-          <div className="flex items-center justify-between text-[#8c8279] mb-1">
-            <span className="text-[11px] sm:text-xs font-medium">{t('dashSatisfaction')}</span>
-            <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
-          </div>
-          <div className="text-lg sm:text-2xl font-bold font-mono-numbers text-[#f5f2eb]">
-            {stats.avgSatisfaction !== null ? stats.avgSatisfaction.toFixed(2) : '—'}{' '}
-            <span className="text-[10px] sm:text-xs text-[#8c8279] font-normal">/ 5.0</span>
-          </div>
-          <span className="text-[10px] sm:text-[11px] text-[#8c8279] truncate block">
-            {stats.feedbackCount > 0 ? t('dashFeedbackCount').replace('{n}', String(stats.feedbackCount)) : t('dashNoFeedback')}
-          </span>
-        </div>
-      </div>
-
-      {/* Community Directions Showcase */}
-      <div className="space-y-3 sm:space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-display text-base sm:text-lg font-bold text-[#f5f2eb]">
-              {language === 'kz' ? 'Клубтық бағыттар' : language === 'en' ? 'Club Chapters & Focus Areas' : 'Направления Shanyraq Hub'}
-            </h2>
-            <p className="text-xs text-[#9e948c]">
-              {t('dashDirectionsSub')}
-            </p>
+          <div className="min-w-0 flex-1">
+            <h1 className="font-display text-xl sm:text-2xl font-bold text-[#f5f2eb] leading-tight break-words">
+              {t('homeWelcome').replace('{name}', currentUser.name)}
+            </h1>
+            <p className="mt-0.5 text-[13px] text-[#9e948c]">{t('homeSubtitle')}</p>
           </div>
           <button
-            onClick={() => setActiveTab('events')}
-            className="text-xs text-[#dfcfb3] hover:underline flex items-center gap-1 font-medium shrink-0"
+            onClick={() => setActiveTab('shop')}
+            className="hidden sm:inline-flex items-center gap-1.5 min-h-10 px-3 rounded-xl bg-[#272321] border border-[#3f3834] hover:bg-[#322c29] text-sm font-semibold text-[#f5d77f] transition-colors shrink-0"
+            title={t('tabShop')}
           >
-            <span>{t('dashMeetups')}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <Coins className="w-4 h-4 text-amber-400" />
+            <span className="font-mono-numbers">{currentUser.coins}</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {activeDirections().slice(0, 4).map(dir => (
-            <div
-              key={dir.id}
-              onClick={() => setActiveTab('events')}
-              className="p-4 rounded-xl bg-[#23201e] hover:bg-[#2b2725] border border-[#352f2c] hover:border-[#4d443f] cursor-pointer transition-all group flex flex-col justify-between"
+        <div className="relative mt-4">
+          <div className="flex items-center justify-between gap-3 text-xs mb-1.5">
+            <span className={`font-semibold ${currentTier.textColor}`}>{ln(currentTier)}</span>
+            <span className="font-mono-numbers text-[#dfcfb3]">{currentUser.xp} XP</span>
+          </div>
+          <div
+            className="w-full h-2 rounded-full bg-[#141211] border border-[#3b3430] overflow-hidden"
+            role="progressbar"
+            aria-valuenow={xpProgress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div className="h-full bg-[#dfcfb3] rounded-full transition-[width] duration-500" style={{ width: `${xpProgress}%` }} />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px] text-[#8c8279]">
+            <span>
+              {nextTier
+                ? t('homeXpToNext').replace('{n}', String(Math.max(0, nextTier.minXp - currentUser.xp))).replace('{tier}', ln(nextTier))
+                : t('dashMaxTier')}
+            </span>
+            <button onClick={() => setActiveTab('shop')} className="sm:hidden inline-flex items-center gap-1 font-mono-numbers font-semibold text-[#f5d77f]">
+              <Coins className="w-3.5 h-3.5 text-amber-400" />
+              {currentUser.coins}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. Next step + 3. Progress */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <section className="lg:col-span-2 rounded-2xl bg-[#23201e] border border-[#352f2c] overflow-hidden flex flex-col sm:flex-row">
+          {nextStep.kind !== 'neutral' && (
+            <button
+              onClick={() => openEvents({ openEventId: nextStep.event.id })}
+              className="sm:w-56 shrink-0"
+              aria-label={t('evDetails')}
             >
+              <img src={eventImage(nextStep.event)} alt="" className="w-full h-28 sm:h-full object-cover" />
+            </button>
+          )}
+          <div className="flex-1 min-w-0 p-4 sm:p-5 flex flex-col gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#c8b393] flex items-center gap-1.5">
+              {nextStep.kind === 'qr' ? <QrCode className="w-3.5 h-3.5" />
+                : nextStep.kind === 'feedback' ? <MessageSquareText className="w-3.5 h-3.5" />
+                : nextStep.kind === 'registered' ? <CalendarCheck className="w-3.5 h-3.5" />
+                : <Compass className="w-3.5 h-3.5" />}
+              {t('homeNextStep')}
+            </span>
+
+            {nextStep.kind === 'neutral' ? (
               <div>
-                <span className="text-xs font-semibold text-[#dfcfb3] group-hover:text-[#ecd9bf] transition-colors">
-                  {language === 'kz' ? dir.nameKz : language === 'en' ? dir.nameEn : dir.nameRu}
-                </span>
-                <p className="text-[11px] text-[#9e948c] mt-2 line-clamp-3 leading-relaxed">
-                  {language === 'kz' ? dir.descriptionKz : language === 'en' ? dir.descriptionEn : dir.descriptionRu}
+                <h2 className="font-display text-lg font-bold text-[#f5f2eb] leading-snug">{t('nsNeutralTitle')}</h2>
+                <p className="mt-1 text-[13px] text-[#a39b94]">{t('nsNeutralText')}</p>
+              </div>
+            ) : (
+              <div className="min-w-0">
+                <h2 className="font-display text-lg font-bold text-[#f5f2eb] leading-snug line-clamp-2">
+                  {nextStep.kind === 'qr' ? stepTitle('nsQrTitle', nextStep.event)
+                    : nextStep.kind === 'feedback' ? stepTitle('nsFeedbackTitle', nextStep.event)
+                    : nextStep.kind === 'registered' ? stepTitle('nsRegisteredTitle', nextStep.event)
+                    : stepTitle('nsSuggestTitle', nextStep.event)}
+                </h2>
+                <p className="mt-1 text-[13px] text-[#a39b94] line-clamp-2">
+                  {nextStep.kind === 'qr' ? t('nsQrText')
+                    : nextStep.kind === 'feedback' ? t('nsFeedbackText')
+                    : eventWhen(nextStep.event)}
                 </p>
               </div>
-              <div className="mt-3 pt-2 border-t border-[#302a28] flex items-center justify-between text-[11px] text-[#8c8279]">
-                <span>{t('dashSchedule')}</span>
-                <ArrowRight className="w-3 h-3 text-[#dfcfb3] transition-transform group-hover:translate-x-1" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+            )}
 
-      {/* Next Upcoming Events Highlight */}
-      <div className="space-y-3 sm:space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-display text-base sm:text-lg font-bold text-[#f5f2eb]">
-              {t('eventsUpcoming')}
-            </h2>
-            <p className="text-xs text-[#9e948c]">
-              {t('dashUpcoming')}
-            </p>
+            <div className="mt-auto flex flex-wrap items-center gap-2">
+              {nextStep.kind === 'qr' && (
+                <button onClick={() => setQrEvent(nextStep.event)} className="btn-primary">
+                  <QrCode className="w-4 h-4" />
+                  {t('qrMyCodeButton')}
+                </button>
+              )}
+              {nextStep.kind === 'feedback' && (
+                <button onClick={() => openEvents({ feedbackEventId: nextStep.event.id })} className="btn-primary">
+                  {t('actionLeaveFeedback')}
+                </button>
+              )}
+              {nextStep.kind === 'suggest' && (
+                <button onClick={() => registerForEvent(nextStep.event.id)} className="btn-primary">
+                  {t('actionRegister')}
+                </button>
+              )}
+              {nextStep.kind === 'neutral' ? (
+                <button onClick={() => openEvents()} className="btn-primary">
+                  <Calendar className="w-4 h-4" />
+                  {t('homeAllEvents')}
+                </button>
+              ) : (
+                <button onClick={() => openEvents({ openEventId: nextStep.event.id })} className={nextStep.kind === 'registered' ? 'btn-primary' : 'btn-ghost'}>
+                  {t('evDetails')}
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl bg-[#23201e] border border-[#352f2c] p-4 sm:p-5 flex flex-col gap-3">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wide text-[#c8b393]">{t('homeProgress')}</h2>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className="text-left p-3 rounded-xl bg-[#1c1918] border border-[#302a28] hover:border-[#4d443f] transition-colors"
+            >
+              <UserCheck className="w-4 h-4 text-[#c8b393]" />
+              <div className="mt-1.5 text-xl font-bold font-mono-numbers text-[#f5f2eb]">{visits}</div>
+              <div className="text-[11px] text-[#8c8279] leading-tight">{t('homeVisits')}</div>
+            </button>
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className="text-left p-3 rounded-xl bg-[#1c1918] border border-[#302a28] hover:border-[#4d443f] transition-colors"
+            >
+              <Flame className={`w-4 h-4 ${weekStreak > 0 ? 'text-amber-400' : 'text-[#8c8279]'}`} />
+              <div className="mt-1.5 text-xl font-bold font-mono-numbers text-[#f5f2eb]">{weekStreak}</div>
+              <div className="text-[11px] text-[#8c8279] leading-tight">{t('homeWeekStreak')}</div>
+            </button>
           </div>
           <button
-            onClick={() => setActiveTab('events')}
-            className="text-xs text-[#dfcfb3] hover:underline flex items-center gap-1 font-medium shrink-0"
+            onClick={() => setActiveTab('achievements')}
+            className="text-left p-3 rounded-xl bg-[#1c1918] border border-[#302a28] hover:border-[#4d443f] transition-colors"
           >
-            <span>{language === 'kz' ? 'Барлық шаралар' : language === 'en' ? 'View all events' : 'Все события'}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span className="block text-[11px] text-[#8c8279]">{t('homeNextAchievement')}</span>
+            {nextAchievement ? (
+              <>
+                <span className="mt-1 flex items-center gap-2 min-w-0">
+                  <NextAchievementIcon className="w-4 h-4 text-[#dfcfb3] shrink-0" />
+                  <span className="text-sm font-semibold text-[#f5f2eb] truncate">{lf(nextAchievement.ach, 'title')}</span>
+                </span>
+                <span className="mt-2 flex items-center gap-2">
+                  <span className="flex-1 h-1.5 rounded-full bg-[#141211] overflow-hidden">
+                    <span
+                      className="block h-full bg-[#c8b393] rounded-full"
+                      style={{ width: `${Math.round((nextAchievement.value / nextAchievement.target) * 100)}%` }}
+                    />
+                  </span>
+                  <span className="text-[11px] font-mono-numbers text-[#9e948c]">
+                    {nextAchievement.value}/{nextAchievement.target}
+                  </span>
+                </span>
+              </>
+            ) : (
+              <span className="mt-1 block text-sm text-[#d6cebf]">{t('homeAllAchievementsDone')}</span>
+            )}
+          </button>
+        </section>
+      </div>
+
+      {/* 4. Upcoming events (the one in "next step" is not repeated) */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-lg font-bold text-[#f5f2eb]">{t('eventsUpcoming')}</h2>
+          <button onClick={() => openEvents()} className="inline-flex items-center gap-1 min-h-9 text-[13px] font-medium text-[#dfcfb3] hover:text-[#ecd9bf] shrink-0">
+            {t('homeAllEvents')}
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-          {upcomingEvents.map(event => {
-            const isRegistered = event.registeredUserIds.includes(currentUser.id);
-            const seatsLeft = Math.max(0, event.maxCapacity - event.registeredUserIds.length);
-
-            return (
-              <div
+        {upcomingCards.length === 0 ? (
+          <p className="p-5 rounded-2xl bg-[#23201e] border border-[#352f2c] text-[13px] text-[#9e948c] text-center">
+            {upcoming.length === 0 ? t('homeNoUpcoming') : t('nsNeutralText')}
+          </p>
+        ) : (
+          <div className="-mx-3 px-3 sm:mx-0 sm:px-0 flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 overflow-x-auto sm:overflow-visible snap-x snap-mandatory scrollbar-none">
+            {upcomingCards.map(event => (
+              <EventCard
                 key={event.id}
-                className="rounded-xl bg-[#23201e] border border-[#352f2c] overflow-hidden flex flex-col justify-between hover:border-[#4d443f] transition-all"
-              >
-                <img src={eventImage(event)} alt="" loading="lazy" className="w-full h-32 object-cover" />
-                <div className="p-4 sm:p-5 space-y-2.5 sm:space-y-3">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-medium text-[#dfcfb3]">
-                      {event.format === 'offline' ? `🏛 ${t('evOffline')}` : `🌐 ${t('evOnlineLive')}`}
-                    </span>
-                    <span className="font-mono text-[#9e948c]">
-                      {seatsLeft > 0 ? t('dashSeatsLeft').replace('{n}', String(seatsLeft)) : t('dashAllTaken')}
-                    </span>
-                  </div>
+                event={event}
+                variant="compact"
+                onOpen={ev => openEvents({ openEventId: ev.id })}
+                className="w-[82%] max-w-[320px] sm:w-auto sm:max-w-none shrink-0 snap-start"
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
-                  <h3 className="text-sm font-bold text-[#f5f2eb] leading-snug line-clamp-2">
-                    {event.title}
-                  </h3>
-
-                  <p className="text-xs text-[#a39b94] line-clamp-2 leading-relaxed">
-                    {event.description}
-                  </p>
-
-                  <div className="pt-2 space-y-1.5 text-xs text-[#8c8279] border-t border-[#302a28]">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
-                      <span className="truncate">{event.date} {t('evAt')} {event.time} ({event.durationMinutes} {t('evMin')})</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" />
-                      <span className="truncate">{event.locationAddress}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 sm:p-4 bg-[#1e1b1a] border-t border-[#302a28] flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <img
-                      src={event.speaker.avatar}
-                      alt={event.speaker.name}
-                      className="w-6 h-6 rounded-full object-cover shrink-0"
-                    />
-                    <span className="text-[11px] text-[#a39b94] truncate">
-                      {event.speaker.name}
-                    </span>
-                  </div>
-
-                  {isRegistered ? (
-                    <button
-                      onClick={() => cancelEventRegistration(event.id)}
-                      className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#2e2927] hover:bg-[#3a3330] text-xs font-medium text-[#dfcfb3] transition-colors shrink-0"
-                    >
-                      {t('actionRegistered')} ({t('evCancelShort')})
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => registerForEvent(event.id)}
-                      disabled={seatsLeft === 0}
-                      className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] disabled:opacity-50 text-xs font-semibold text-[#1e1b1a] transition-colors shrink-0"
-                    >
-                      {seatsLeft > 0 ? t('actionRegister') : t('eventFull')}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+      {/* 5. Club directions: light tiles, each opens events filtered by it */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="font-display text-lg font-bold text-[#f5f2eb]">{t('homeDirections')}</h2>
+          <p className="text-[13px] text-[#8c8279]">{t('dashDirectionsSub')}</p>
         </div>
-      </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
+          {activeDirections().map(dir => (
+            <button
+              key={dir.id}
+              onClick={() => openEvents({ direction: dir.id })}
+              className="group text-left flex items-center gap-3 p-2.5 sm:p-3 rounded-xl bg-[#23201e] border border-[#352f2c] hover:border-[#4d443f] hover:bg-[#282422] transition-colors min-w-0"
+            >
+              <img
+                src={eventImage({ direction: dir.id })}
+                alt=""
+                loading="lazy"
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0"
+              />
+              <span className="min-w-0">
+                <span className="text-[13px] font-semibold text-[#f5f2eb] group-hover:text-[#ecd9bf] leading-tight line-clamp-2">
+                  {language === 'kz' ? dir.shortNameKz : language === 'en' ? dir.shortNameEn : dir.shortNameRu}
+                </span>
+                <span className="hidden sm:block mt-0.5">
+                  <span className="text-[11px] text-[#8c8279] line-clamp-2">{lf(dir, 'description')}</span>
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* 6. The club in numbers (real data only, see utils/communityStats.ts) */}
+      <section className="rounded-2xl border border-[#302a28] p-4">
+        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-[#8c8279] mb-3">{t('homeClubNow')}</h2>
+        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
+          {[
+            { label: t('dashMembers'), value: String(stats.members) },
+            { label: t('dashBooks'), value: String(stats.reviewedBooks) },
+            { label: t('dashVisits'), value: String(stats.verifiedVisits) },
+            {
+              label: t('dashSatisfaction'),
+              value: stats.avgSatisfaction !== null ? `${stats.avgSatisfaction.toFixed(1)} / 5` : '—',
+            },
+          ].map(s => (
+            <div key={s.label} className="min-w-0">
+              <dt className="text-[11px] text-[#8c8279] truncate">{s.label}</dt>
+              <dd className="text-base font-semibold font-mono-numbers text-[#d6cebf]">{s.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      {qrEvent && <MyQrModal event={qrEvent} onClose={() => setQrEvent(null)} />}
     </div>
   );
 };

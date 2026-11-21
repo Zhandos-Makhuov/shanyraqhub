@@ -388,7 +388,7 @@ export const ProfileView: React.FC = () => {
       {/* Edit Profile Modal */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl p-6 space-y-4">
+          <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl p-6 space-y-4">
             <button
               onClick={() => setShowEditModal(false)}
               className="absolute top-4 right-4 p-1.5 rounded-lg text-[#9e948c] hover:text-white bg-[#1a1716]"
