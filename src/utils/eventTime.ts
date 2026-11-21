@@ -65,3 +65,12 @@ export const getEventStatus = (
   if (event.registeredUserIds.length >= event.maxCapacity) return 'full';
   return 'open';
 };
+
+/** "30 шіл. 2024" / "30 июл. 2024" / "30 Jul 2024" for a YYYY-MM-DD (or ISO) date, names from the translations. */
+export const formatShortDate = (value: string | undefined, t: (key: string) => string): string => {
+  if (!value) return '';
+  const [y, m, d] = value.slice(0, 10).split('-').map(Number);
+  const months = t('dateMonthsShort').split(',');
+  if (!y || !m || !d || months.length !== 12) return value;
+  return `${d} ${months[m - 1]} ${y}`;
+};

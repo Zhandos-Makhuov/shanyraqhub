@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { ACHIEVEMENT_ICONS } from './AchievementsView';
 import { TIERS, SHOP_ITEMS } from '../data/gamification';
 import { COMMUNITY_DIRECTIONS } from '../data/directions';
 import {
@@ -147,9 +148,10 @@ export const MemberProfileModal: React.FC = () => {
             {selectedUserModal.achievements.map(ach => (
               <span
                 key={ach.id}
-                className="text-xs px-2.5 py-1 rounded-lg bg-[#1c1918] border border-[#38312d] text-[#f5f2eb]"
+                className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-[#1c1918] border border-[#38312d] text-[#f5f2eb]"
               >
-                ✓ {lf(ach, 'title')}
+                {React.createElement(ACHIEVEMENT_ICONS[ach.icon] || Award, { className: 'w-3.5 h-3.5 text-[#dfcfb3] shrink-0' })}
+                {lf(ach, 'title')}
               </span>
             ))}
           </div>

@@ -1,6 +1,8 @@
 import { genreLabel } from '../data/bookGenres';
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { ACHIEVEMENT_ICONS } from './AchievementsView';
+import { formatShortDate } from '../utils/eventTime';
 import { TIERS, SHOP_ITEMS } from '../data/gamification';
 import { COMMUNITY_DIRECTIONS, activeDirections } from '../data/directions';
 import {
@@ -316,24 +318,30 @@ export const ProfileView: React.FC = () => {
 
       {/* SUB-TAB 3: ACHIEVEMENTS */}
       {activeSubTab === 'achievements' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {currentUser.achievements.map(ach => (
-            <div
-              key={ach.id}
-              className="p-4 rounded-xl bg-[#23201e] border border-[#dfcfb3]/40 space-y-2 text-xs"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#dfcfb3]/20 border border-[#dfcfb3] text-[#dfcfb3] flex items-center justify-center font-bold">
-                  ✓
+        <div className="space-y-3">
+          {currentUser.achievements.length === 0 ? (
+            <p className="p-6 text-center rounded-xl bg-[#23201e] border border-[#352f2c] text-[13px] text-[#9e948c]">{t('achEmptyEarned')}</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {currentUser.achievements.map(ach => (
+                <div key={ach.id} className="flex items-start gap-3 p-4 rounded-xl bg-[#23201e] border border-[#dfcfb3]/35">
+                  <span className="w-10 h-10 shrink-0 rounded-xl bg-[#dfcfb3]/15 border border-[#dfcfb3]/80 text-[#ecd9bf] flex items-center justify-center">
+                    {React.createElement(ACHIEVEMENT_ICONS[ach.icon] || Award, { className: 'w-5 h-5' })}
+                  </span>
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-bold text-[#f5f2eb] leading-snug">{lf(ach, 'title')}</h4>
+                    <p className="mt-0.5 text-[12px] text-[#a39b94] line-clamp-2">{lf(ach, 'description')}</p>
+                    <span className="mt-1 block text-[11px] text-[#c8b393]">
+                      {ach.unlockedAt ? t('achEarnedOn').replace('{date}', formatShortDate(ach.unlockedAt, t)) : t('prfRewardReceived')}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-[#f5f2eb]">{lf(ach, 'title')}</h4>
-                  <span className="text-[10px] text-[#dfcfb3]">{t('prfRewardReceived')}</span>
-                </div>
-              </div>
-              <p className="text-[11px] text-[#a39b94]">{lf(ach, 'description')}</p>
+              ))}
             </div>
-          ))}
+          )}
+          <button onClick={() => setActiveTab('achievements')} className="inline-flex items-center gap-1 min-h-9 text-[13px] font-medium text-[#dfcfb3] hover:text-[#ecd9bf]">
+            {t('achOpenAll')} →
+          </button>
         </div>
       )}
 

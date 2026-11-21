@@ -16,6 +16,7 @@ import { ForumAndChatsView } from './components/ForumAndChatsView';
 import { ProfileView } from './components/ProfileView';
 import { AdminView } from './components/AdminView';
 import { MemberProfileModal } from './components/MemberProfileModal';
+import { AchievementToast } from './components/AchievementToast';
 
 // Live mode only: sign-in gate + Supabase client. Compared against the inlined env value
 // so demo builds drop this chunk (and supabase-js) entirely.
@@ -78,6 +79,7 @@ const MainContent: React.FC = () => {
 
       {/* Global Member Profile Inspection Modal */}
       <MemberProfileModal />
+      <AchievementToast />
     </div>
   );
 };
