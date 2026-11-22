@@ -13,7 +13,7 @@ import type {
   AchievementRevocationRow, BookRow, UserBookRow, EventAttendanceRow, EventFeedbackRow, EventRegistrationRow, EventRow,
   PeerReviewRow, ProfileRow, UserAchievementRow, UserBalanceRow, UserRoleRow,
 } from './rows';
-import type { AppNotification, AuditLog, ChatMessage, CoinTransaction, CommunityEvent, DirectionId, ItemCategory, PeerReview, EncryptedChatRoom, ForumTopic, ReadBook, UserProfile, UserRole } from '../../types';
+import type { AppNotification, AuditLog, ChatMessage, CoinTransaction, CommunityEvent, DirectionId, ItemCategory, PeerReview, EncryptedChatRoom, ForumCategory, ForumTopic, ReadBook, UserProfile, UserRole } from '../../types';
 import { hasRole } from '../../utils/permissions';
 import { roleFromDb, roleToDb } from './adapters';
 import { TRANSLATIONS } from '../translations';
@@ -25,6 +25,8 @@ export interface LiveSnapshot {
   events: CommunityEvent[];
   notifications: AppNotification[];
   forumTopics: ForumTopic[];
+  /** Forum sections from public.forum_categories (a topic's category_id must be one of them). */
+  forumCategories: ForumCategory[];
   chatRooms: EncryptedChatRoom[];
   coinTransactions: CoinTransaction[];
   auditLogs: AuditLog[];
@@ -61,8 +63,6 @@ interface ChatMessageRow { id: number; room_id: string; sender_id: string; body:
 export const clubDay = (iso: string | Date) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: CLUB_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
 
-const formatTime = (iso: string) =>
-  new Intl.DateTimeFormat('ru-RU', { timeZone: CLUB_TIME_ZONE, hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 const formatDateTime = (iso: string) =>
   new Intl.DateTimeFormat('ru-RU', { timeZone: CLUB_TIME_ZONE, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     .format(new Date(iso)).replace(',', '');
@@ -175,7 +175,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       authorName: author.name,
       authorAvatar: author.avatar,
       authorRole: author.role,
-      createdAt: formatDateTime(t.created_at),
+      createdAt: t.created_at, // ISO; the forum screen shows it in the member's language, club time
       upvotes: topicVotes.filter(v => v.topic_id === t.id).map(v => v.user_id),
       views: t.view_count,
       isPinned: t.is_pinned,
@@ -184,7 +184,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
         const a = nameOf(r.author_id);
         return {
           id: r.id, authorId: r.author_id, authorName: a.name, authorAvatar: a.avatar, authorRole: a.role,
-          content: r.content, createdAt: formatDateTime(r.created_at),
+          content: r.content, createdAt: r.created_at,
           upvotes: replyVotes.filter(v => v.reply_id === r.id).map(v => v.user_id),
         };
       }),
@@ -205,7 +205,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       messages: messages.filter(m => m.room_id === r.id).reverse().map((m): ChatMessage => {
         const snd = nameOf(m.sender_id);
         return { id: String(m.id), senderId: m.sender_id, senderName: snd.name, senderAvatar: snd.avatar, senderRole: snd.role,
-          text: m.body, timestamp: formatTime(m.created_at) };
+          text: m.body, timestamp: m.created_at };
       }),
     };
   });
@@ -239,8 +239,12 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
     .filter(m => m.status === 'pending' && m.user_id !== myId)
     .map(m => ({ id: m.id, userId: m.user_id, userName: nameOf(m.user_id).name, direction: m.direction,
       message: m.message ?? '', createdAt: formatDateTime(m.created_at) }));
+  const forumCategories: ForumCategory[] = [...categories]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(c => ({ id: c.id, nameRu: c.name_ru, nameKz: c.name_kz, nameEn: c.name_en }));
   return {
     forumTopics,
+    forumCategories,
     chatRooms,
     coinTransactions,
     auditLogs,
@@ -440,6 +444,7 @@ export const saveUserBook = async (book: Omit<ReadBook, 'id'>, coverFile?: File)
 const insertOrDelete = async (op: PromiseLike<{ error: { message: string } | null }>): Promise<ActionResult> => {
   try {
     const { error } = await op;
+    if (error) console.warn('[live] server rejected the action:', error.message);
     return error ? { ok: false, error: serverErrorKey(error.message) } : { ok: true };
   } catch (e) {
     return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };

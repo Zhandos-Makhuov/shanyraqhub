@@ -6,6 +6,7 @@ import {
   UserRole,
   CommunityEvent,
   ForumTopic,
+  ForumCategory,
   EncryptedChatRoom,
   AppNotification,
   CoinTransaction,
@@ -18,6 +19,8 @@ import {
 } from '../types';
 import { TRANSLATIONS } from '../data/translations';
 import { NEW_MEMBER_ID, NEW_MEMBER_PROFILE } from '../data/newMember';
+import { FORUM_CATEGORIES, FORUM_LIMITS } from '../data/forumCategories';
+import { COMMUNITY_DIRECTIONS } from '../data/directions';
 import type { InitialData } from '../data/sources';
 import type { LiveAccount } from '../components/AuthGate';
 import type { MembershipApplication } from '../data/supabase/live';
@@ -86,13 +89,16 @@ interface AppContextType {
   addReadBook: (book: Omit<ReadBook, 'id'>, coverFile?: File) => boolean | Promise<boolean>;
 
   forumTopics: ForumTopic[];
-  createForumTopic: (title: string, content: string, categoryId: string, direction?: DirectionId) => void;
-  replyToForumTopic: (topicId: string, content: string) => void;
+  /** Forum sections (live: from the database; demo: the reference list). A topic's section is one of these ids. */
+  forumCategories: ForumCategory[];
+  /** Resolve with the result so the form keeps the text and shows the error itself (no alert). */
+  createForumTopic: (title: string, content: string, categoryId: string) => Promise<{ ok: boolean; error?: string }>;
+  replyToForumTopic: (topicId: string, content: string) => Promise<{ ok: boolean; error?: string }>;
   upvoteReply: (topicId: string, replyId: string) => void;
   upvoteTopic: (topicId: string) => void;
 
   chatRooms: EncryptedChatRoom[];
-  sendChatMessage: (roomId: string, text: string) => void;
+  sendChatMessage: (roomId: string, text: string) => Promise<{ ok: boolean; error?: string }>;
 
   buyShopItem: (itemId: string) => boolean | Promise<boolean>;
   equipShopItem: (itemId: string, category: ItemCategory) => void;
@@ -176,6 +182,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     const saved = localStorage.getItem(`${storeKey}_topics`);
     return saved ? JSON.parse(saved) : initialData.forumTopics;
   });
+
+  const [forumCategories, setForumCategories] = useState<ForumCategory[]>(() =>
+    account?.snapshot.forumCategories?.length ? account.snapshot.forumCategories : FORUM_CATEGORIES,
+  );
 
   const [chatRooms, setChatRooms] = useState<EncryptedChatRoom[]>(() => {
     if (account) return account.snapshot.chatRooms;
@@ -445,6 +455,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       setEvents(snap.events);
       setNotifications(snap.notifications);
       setForumTopics(snap.forumTopics);
+      if (snap.forumCategories.length) setForumCategories(snap.forumCategories);
       setChatRooms(snap.chatRooms);
       setCoinTransactions(snap.coinTransactions);
       setAuditLogs(snap.auditLogs);
@@ -889,17 +900,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   // Forum
-  const createForumTopic = (title: string, content: string, categoryId: string, direction?: DirectionId) => {
-    if (live) {
-      void runLive(live.createForumTopic(title, content, categoryId, direction));
-      return;
-    }
+  /** Same checks as the database (core schema), so demo and live agree; live errors come back as translation keys. */
+  const forumTextError = (text: string, min: number, max: number): string | null =>
+    text.trim().length < min || text.length > max ? 'liveErrInvalid' : null;
+
+  const createForumTopic = async (title: string, content: string, categoryId: string): Promise<{ ok: boolean; error?: string }> => {
+    const category = forumCategories.find(c => c.id === categoryId);
+    if (!category) return { ok: false, error: 'frmErrNoSection' };
+    const invalid = forumTextError(title, FORUM_LIMITS.titleMin, FORUM_LIMITS.titleMax) ?? forumTextError(content, 1, FORUM_LIMITS.contentMax);
+    if (invalid) return { ok: false, error: invalid };
+    // A section that is also a club direction marks the topic with that direction; other sections ("general") have none.
+    const direction = COMMUNITY_DIRECTIONS.some(d => d.id === categoryId) ? categoryId : undefined;
+    if (live) return runLive(live.createForumTopic(title, content, categoryId, direction), true);
     const newTopic: ForumTopic = {
       id: `topic-${Date.now()}`,
       categoryId,
-      categoryNameRu: title,
-      categoryNameKz: title,
-      categoryNameEn: title,
+      categoryNameRu: category.nameRu,
+      categoryNameKz: category.nameKz,
+      categoryNameEn: category.nameEn,
       direction,
       title,
       content,
@@ -907,7 +925,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       authorName: currentUser.name,
       authorAvatar: currentUser.avatar,
       authorRole: currentUser.role,
-      createdAt: new Date().toLocaleDateString('ru-RU') + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: new Date().toISOString(),
       upvotes: [],
       views: 1,
       replies: [],
@@ -919,13 +937,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       group: 'forum_topic',
       dailyCap: 3,
     });
+    return { ok: true };
   };
 
-  const replyToForumTopic = (topicId: string, content: string) => {
+  const replyToForumTopic = async (topicId: string, content: string): Promise<{ ok: boolean; error?: string }> => {
+    const invalid = forumTextError(content, 1, FORUM_LIMITS.replyMax);
+    if (invalid) return { ok: false, error: invalid };
     if (live) {
-      void runLive(live.replyToForumTopic(topicId, content));
-      return;
+      // RLS refuses a reply only when the topic is closed or hidden (the author is always the member).
+      const r = await runLive(live.replyToForumTopic(topicId, content), true);
+      return r.ok || r.error !== 'liveErrForbidden' ? r : { ok: false, error: 'frmErrClosed' };
     }
+    // Demo mirrors the database rule: no replies in a closed (or missing) topic.
+    const topic = forumTopics.find(tp => tp.id === topicId);
+    if (!topic) return { ok: false, error: 'authErrorGeneric' };
+    if (topic.isClosed) return { ok: false, error: 'frmErrClosed' };
     const newReply = {
       id: `reply-${Date.now()}`,
       authorId: currentUser.id,
@@ -933,7 +959,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       authorAvatar: currentUser.avatar,
       authorRole: currentUser.role,
       content,
-      createdAt: new Date().toLocaleDateString('ru-RU') + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: new Date().toISOString(),
       upvotes: [],
     };
 
@@ -952,6 +978,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       group: 'forum_reply',
       dailyCap: 10,
     });
+    return { ok: true };
   };
 
   const upvoteReply = (topicId: string, replyId: string) => {
@@ -1011,13 +1038,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   // Closed (members-only) chat rooms
-  const sendChatMessage = (roomId: string, text: string) => {
+  const sendChatMessage = async (roomId: string, text: string): Promise<{ ok: boolean; error?: string }> => {
     const room = chatRooms.find(r => r.id === roomId);
-    if (!room || !canAccessRoom(room, currentUser.role)) return;
-    if (live) {
-      void runLive(live.sendChatMessage(roomId, text));
-      return;
-    }
+    if (!room || !canAccessRoom(room, currentUser.role)) return { ok: false, error: 'liveErrForbidden' };
+    const invalid = forumTextError(text, 1, FORUM_LIMITS.chatMax);
+    if (invalid) return { ok: false, error: invalid };
+    if (live) return runLive(live.sendChatMessage(roomId, text), true);
 
     const newMsg = {
       id: `msg-${Date.now()}`,
@@ -1026,7 +1052,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       senderAvatar: currentUser.avatar,
       senderRole: currentUser.role,
       text,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toISOString(),
     };
 
     setChatRooms(prev =>
@@ -1038,6 +1064,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         };
       })
     );
+    return { ok: true };
   };
 
   // Virtual Shop & Avatar
@@ -1558,6 +1585,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         allReadBooks,
         addReadBook,
         forumTopics,
+        forumCategories,
         createForumTopic,
         replyToForumTopic,
         upvoteReply,

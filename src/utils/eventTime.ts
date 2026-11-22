@@ -93,3 +93,27 @@ export const toClubDate = (value: string | undefined): string => {
 /** "22 қар. 2026" for any date or timestamp, on the club's calendar day. */
 export const formatClubDate = (value: string | undefined, t: (key: string) => string): string =>
   formatShortDate(toClubDate(value), t);
+
+/**
+ * Club-local day and time of a forum/chat timestamp. Accepts an ISO timestamp (live: moved to Almaty, UTC+5),
+ * "YYYY-MM-DD HH:mm" / "DD.MM.YYYY HH:mm" (club time already, older demo data) or just "HH:mm" (no day known).
+ */
+export const clubDayTime = (value: string | undefined): { day?: string; time?: string } => {
+  if (!value) return {};
+  const onlyTime = value.match(/^(\d{1,2}):(\d{2})$/);
+  if (onlyTime) return { time: `${onlyTime[1].padStart(2, '0')}:${onlyTime[2]}` };
+  const local = value.match(/^(\d{4}-\d{2}-\d{2}|\d{1,2}\.\d{1,2}\.\d{4})[ ,]+(\d{1,2}):(\d{2})$/);
+  if (local) return { day: toClubDate(local[1]), time: `${local[2].padStart(2, '0')}:${local[3]}` };
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(value)) return { day: toClubDate(value) };
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) return {};
+  const iso = new Date(ms + 5 * 3600_000).toISOString();
+  return { day: iso.slice(0, 10), time: iso.slice(11, 16) };
+};
+
+/** "22 қар. 2026, 14:30" — a forum post's date and time in the member's language (club time). */
+export const formatClubDateTime = (value: string | undefined, t: (key: string) => string): string => {
+  const { day, time } = clubDayTime(value);
+  if (day && time) return `${formatShortDate(day, t)}, ${time}`;
+  return day ? formatShortDate(day, t) : time ?? '';
+};

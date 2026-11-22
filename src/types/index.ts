@@ -255,6 +255,14 @@ export interface ForumReply {
   upvotes: string[];
 }
 
+/** A forum section (public.forum_categories). */
+export interface ForumCategory {
+  id: string;
+  nameRu: string;
+  nameKz: string;
+  nameEn: string;
+}
+
 export interface ForumTopic {
   id: string;
   categoryId: string;
