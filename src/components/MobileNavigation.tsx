@@ -88,7 +88,7 @@ export const MobileNavigation: React.FC = () => {
     <>
       {/* Fixed bottom bar: four main sections + "More" (everything else lives in the sheet). */}
       <nav
-        aria-label={t('navAllSections')}
+        aria-label={t('navMainSections')}
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#1e1b1a]/95 backdrop-blur-md border-t border-[#352f2c] px-1.5 pt-1 safe-area-pb"
       >
         <div className="flex items-stretch justify-around max-w-md mx-auto">

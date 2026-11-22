@@ -40,3 +40,13 @@ test.describe('phone', () => {
     await noHorizontalOverflow(page);
   });
 });
+
+test.describe('phone, More sheet heading', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  test('"More" sheet is titled "other sections", not "all sections"', async ({ page }) => {
+    await openApp(page);
+    await openMore(page);
+    await expect(page.locator('div.fixed.top-0')).toContainText('Басқа бөлімдер');
+    await expect(page.locator('div.fixed.top-0')).not.toContainText('барлық бөлімдері');
+  });
+});
