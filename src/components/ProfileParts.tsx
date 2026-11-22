@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Star } from 'lucide-react';
+import { Send, Star } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SHOP_ITEMS } from '../data/gamification';
 import { COMMUNITY_DIRECTIONS } from '../data/directions';
@@ -148,5 +148,46 @@ export const ReviewCard: React.FC<{ review: PeerReview; compact?: boolean }> = (
         {formatClubDate(review.createdAt, t)} · {t('prfAspect')}: {t(`aspect_${review.aspect}`)}
       </span>
     </div>
+  );
+};
+
+/**
+ * A Telegram username as Telegram allows it (5–32 letters, digits, "_"; with or without "@").
+ * Only such a value becomes a t.me link; anything else is shown as plain text, never turned into a URL.
+ */
+export const telegramUsername = (value: string | undefined): string | null => {
+  const m = (value ?? '').trim().match(/^@?([A-Za-z][A-Za-z0-9_]{4,31})$/);
+  return m ? m[1] : null;
+};
+
+/** Telegram contact: Telegram icon and colour (different from the club handle), label for screen readers, wraps on narrow screens. */
+export const TelegramContact: React.FC<{ value?: string; className?: string }> = ({ value, className = '' }) => {
+  const { t } = useApp();
+  const raw = (value ?? '').trim();
+  if (!raw) return null;
+  const username = telegramUsername(raw);
+  const text = username ? `@${username}` : raw;
+  const inner = (
+    <>
+      <Send className="w-3.5 h-3.5 text-[#6fb3e0] shrink-0" aria-hidden="true" />
+      <span className="sr-only">{t('prfTelegramLabel')}: </span>
+      <span className="font-mono text-[#a7c9e0] break-all">{text}</span>
+    </>
+  );
+  return username ? (
+    <a
+      href={`https://t.me/${username}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={t('prfTelegramLabel')}
+      data-contact="telegram"
+      className={`flex items-center gap-1 min-w-0 hover:underline decoration-[#6fb3e0]/60 ${className}`}
+    >
+      {inner}
+    </a>
+  ) : (
+    <span title={t('prfTelegramLabel')} data-contact="telegram" className={`flex items-center gap-1 min-w-0 ${className}`}>
+      {inner}
+    </span>
   );
 };

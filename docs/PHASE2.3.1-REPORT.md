@@ -16,7 +16,7 @@
 | `src/context/AppContext.tsx` | открытый профиль хранится по id; `updateProfile` и `addPeerReview` возвращают результат (для показа ошибки в форме) |
 | `src/utils/eventTime.ts` | `toClubDate` / `formatClubDate` — день по Алматы (UTC+5) |
 | `src/data/supabase/adapters.ts` | 1 строка: дата получения достижения — по Алматы, а не по UTC |
-| `src/data/translations.ts` | 27 новых ключей × 3 языка (роли, подписи, подсказки, значки талисманов) |
+| `src/data/translations.ts` | 25 новых ключей × 3 языка (роли 5, профиль 9, отзывы 4, значки талисманов 7) — _исправлено в 2.3.1.1, ранее ошибочно «27»_ |
 | `e2e/profile.spec.ts` (новый) | 27 автопроверок профиля |
 
 ## Исправленные проблемы

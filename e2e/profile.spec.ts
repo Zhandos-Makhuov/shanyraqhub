@@ -225,3 +225,105 @@ test('desktop: member window keyboard focus starts inside', async ({ page }) => 
   await openMember(page, 'Дана Серік');
   expect(await memberDialog(page).evaluate(el => el.contains(document.activeElement))).toBe(true);
 });
+
+// --- Phase 2.3.1.1: Telegram in the member window, keyboard navigation of profile tabs ---
+
+for (const [w, h] of [[320, 568], [390, 844], [1280, 860]]) {
+  test.describe(`${w}px: Telegram and tab keyboard`, () => {
+    const mobile = w < 768;
+    test.use({ viewport: { width: w, height: h }, isMobile: mobile, hasTouch: mobile });
+
+    test('member window shows Telegram as a safe t.me link, separate from the handle', async ({ page }) => {
+      await openApp(page, 'Алихан Берік');
+      await openMember(page, 'Дана Серік');
+      const dlg = memberDialog(page);
+      const tg = dlg.locator('[data-contact="telegram"]');
+      await expect(tg).toBeVisible();
+      await expect(tg).toContainText('@dana_ieltsexpert');
+      await expect(tg).toHaveAttribute('href', 'https://t.me/dana_ieltsexpert');
+      await expect(tg).toHaveAttribute('rel', 'noopener noreferrer');
+      await expect(dlg.locator('[data-contact="handle"]')).toContainText('@dana_english');
+      await noHorizontalOverflow(page);
+      // No phone, e-mail or internal ids in the window.
+      const text = await dlg.innerText();
+      expect(text).not.toMatch(/@[\w.-]+\.(test|com|kz|invalid)\b/);
+      expect(text).not.toMatch(/\+7|\b8 ?7\d{2}/);
+      expect(text).not.toMatch(/user-\d|[0-9a-f]{8}-[0-9a-f]{4}-/);
+    });
+
+    test('tabs: ←/→ with wrap, Home/End, roving tabindex, linked panels', async ({ page }) => {
+      await openApp(page, 'Алихан Берік');
+      await openProfile(page);
+      const tabs = page.locator('[data-profile-tabs] [role="tab"]');
+      const selected = () => page.locator('[data-profile-tabs] [role="tab"][aria-selected="true"]');
+      await tabs.first().focus();
+      const expectOn = async (id: string) => {
+        await expect(selected()).toHaveAttribute('id', `prf-tab-${id}`);
+        await expect(page.locator(`#prf-tab-${id}`)).toBeFocused();
+        await expect(page.locator('[data-profile-tabs] [role="tab"][tabindex="0"]')).toHaveCount(1);
+        await expect(page.locator(`#prf-tab-${id}`)).toHaveAttribute('aria-controls', `prf-panel-${id}`);
+        const panel = page.locator(`#prf-panel-${id}`);
+        await expect(panel).toBeVisible();
+        await expect(panel).toHaveAttribute('aria-labelledby', `prf-tab-${id}`);
+        await expect(page.locator('[role="tabpanel"]:visible')).toHaveCount(1);
+        await expect.poll(() => page.locator(`#prf-tab-${id}`).evaluate(el => {
+          const s = el.parentElement!.getBoundingClientRect();
+          const b = el.getBoundingClientRect();
+          return b.left >= s.left - 1 && b.right <= s.right + 1;
+        })).toBe(true);
+        await noHorizontalOverflow(page);
+      };
+      await page.keyboard.press('ArrowRight'); await expectOn('events');
+      await page.keyboard.press('ArrowRight'); await expectOn('achievements');
+      await page.keyboard.press('End'); await expectOn('reviews');
+      await page.keyboard.press('ArrowRight'); await expectOn('books');
+      await page.keyboard.press('ArrowLeft'); await expectOn('reviews');
+      await page.keyboard.press('Home'); await expectOn('books');
+      // Tab leaves the strip after the chosen tab (only one tab is in the Tab order).
+      await page.keyboard.press('Tab');
+      expect(await page.evaluate(() => document.activeElement?.getAttribute('role'))).not.toBe('tab');
+      // Mouse/touch still works.
+      await tabs.nth(2).click();
+      await expect(selected()).toHaveAttribute('id', 'prf-tab-achievements');
+    });
+  });
+}
+
+test.describe('Telegram: empty and free-text values', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test('empty Telegram is not shown; text that is not a username is shown as text, not as a link', async ({ page }) => {
+    await openApp(page, 'Алихан Берік');
+    await openProfile(page);
+    const edit = page.locator('main button', { hasText: 'Профильді өңдеу' });
+    const dlg = page.locator('[role="dialog"][aria-labelledby="profile-edit-title"]');
+    await edit.click();
+    await dlg.locator('#prf-telegram').fill('');
+    await dlg.locator('button[type="submit"]').click();
+    await expect(page.locator('main [data-contact="telegram"]')).toHaveCount(0);
+    await openMember(page, 'Алихан Берік');
+    await expect(memberDialog(page).locator('[data-contact="telegram"]')).toHaveCount(0);
+    await expect(memberDialog(page).locator('[data-contact="handle"]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await openProfile(page);
+    await edit.click();
+    await dlg.locator('#prf-telegram').fill('javascript:alert(1)');
+    await dlg.locator('button[type="submit"]').click();
+    const tg = page.locator('main [data-contact="telegram"]');
+    await expect(tg).toContainText('javascript:alert(1)');
+    expect(await tg.evaluate(el => el.tagName)).toBe('SPAN');
+    await expect(page.locator('main a[href^="javascript"]')).toHaveCount(0);
+  });
+
+  for (const lang of ['ru', 'en'] as const) {
+    test(`${lang}: Telegram label in the member window`, async ({ page }) => {
+      await openApp(page, 'Алихан Берік');
+      await setLanguage(page, lang);
+      await openMember(page, 'Дана Серік');
+      const dlg = memberDialog(page);
+      await expect(dlg.locator('[data-contact="telegram"]')).toHaveAttribute('title', 'Telegram');
+      await expect(dlg.locator('[data-contact="handle"]')).toHaveAttribute('title', lang === 'ru' ? 'Имя в клубе' : 'Club handle');
+      await noTechnicalText(await dlg.innerText());
+    });
+  }
+});

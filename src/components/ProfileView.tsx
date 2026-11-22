@@ -12,20 +12,16 @@ import {
   Award,
   Star,
   MapPin,
-  Send,
   UserRound,
   X,
 } from 'lucide-react';
 import { DirectionId } from '../types';
 import { isDemoData } from '../config/runtime';
 import { MembershipApplications } from './MembershipApplications';
-import { AvatarWithFallback, EquippedAvatar, ProfileRoleBadge, ReviewCard, useDirectionName } from './ProfileParts';
+import { AvatarWithFallback, EquippedAvatar, ProfileRoleBadge, ReviewCard, TelegramContact, useDirectionName } from './ProfileParts';
 import { useDialog } from '../hooks/useDialog';
 
 type SubTab = 'books' | 'events' | 'achievements' | 'reviews';
-
-/** "@name" for a Telegram username typed with or without the "@". */
-const asTelegram = (v: string) => (v.startsWith('@') ? v : `@${v}`);
 
 export const ProfileView: React.FC = () => {
   const { currentUser, updateProfile, uploadAvatar, setActiveTab, t, ln, lf } = useApp();
@@ -110,6 +106,23 @@ export const ProfileView: React.FC = () => {
     else if (btn.offsetLeft + btn.offsetWidth + pad > el.scrollLeft + el.clientWidth)
       el.scrollTo({ left: btn.offsetLeft + btn.offsetWidth + pad - el.clientWidth, behavior: 'smooth' });
   };
+  // Keyboard: ←/→ move between tabs (wrapping), Home/End jump to the first/last; only the chosen tab is in the Tab order.
+  const onTabKey = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    const order = tabs.map(x => x.id);
+    const i = order.indexOf(activeSubTab);
+    const next =
+      e.key === 'ArrowRight' ? (i + 1) % order.length
+      : e.key === 'ArrowLeft' ? (i - 1 + order.length) % order.length
+      : e.key === 'Home' ? 0
+      : e.key === 'End' ? order.length - 1
+      : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    const btn = tabsRef.current?.querySelector<HTMLButtonElement>(`#prf-tab-${order[next]}`);
+    if (!btn) return;
+    btn.focus({ preventScroll: true });
+    selectTab(order[next], btn);
+  };
   const tabs: { id: SubTab; icon: React.ElementType; label: string; count: number }[] = [
     { id: 'books', icon: BookOpen, label: t('myReadBooks'), count: currentUser.readBooks.length },
     { id: 'events', icon: Calendar, label: t('myEventsHistory'), count: currentUser.attendedEvents.length },
@@ -156,13 +169,7 @@ export const ProfileView: React.FC = () => {
                   <span className="sr-only">{t('prfHandleLabel')}: </span>
                   <span className="font-mono text-[#dfcfb3] break-all">{currentUser.handle}</span>
                 </span>
-                {currentUser.telegram && (
-                  <span className="flex items-center gap-1 min-w-0" title={t('prfTelegramLabel')} data-contact="telegram">
-                    <Send className="w-3.5 h-3.5 text-[#6fb3e0] shrink-0" aria-hidden="true" />
-                    <span className="sr-only">{t('prfTelegramLabel')}: </span>
-                    <span className="font-mono text-[#a7c9e0] break-all">{asTelegram(currentUser.telegram)}</span>
-                  </span>
-                )}
+                <TelegramContact value={currentUser.telegram} />
                 <span>{t('joinedSince')} {formatClubDate(currentUser.joinedDate, t)}</span>
               </div>
 
@@ -230,9 +237,13 @@ export const ProfileView: React.FC = () => {
           {tabs.map(tab => (
             <button
               key={tab.id}
+              id={`prf-tab-${tab.id}`}
               role="tab"
               aria-selected={activeSubTab === tab.id}
+              aria-controls={`prf-panel-${tab.id}`}
+              tabIndex={activeSubTab === tab.id ? 0 : -1}
               onClick={e => selectTab(tab.id, e.currentTarget)}
+              onKeyDown={onTabKey}
               className={`flex items-center gap-2 px-4 py-2 min-h-10 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
                 activeSubTab === tab.id
                   ? 'bg-[#dfcfb3] text-[#1e1b1a]'
@@ -253,8 +264,9 @@ export const ProfileView: React.FC = () => {
       </div>
 
       {/* SUB-TAB 1: READ BOOKS */}
+      <div role="tabpanel" id="prf-panel-books" aria-labelledby="prf-tab-books" hidden={activeSubTab !== 'books'}>
       {activeSubTab === 'books' && (
-        <div className="space-y-4" role="tabpanel">
+        <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-sm font-bold text-[#f5f2eb]">
               {t('prfBooksList')}
@@ -308,10 +320,12 @@ export const ProfileView: React.FC = () => {
           )}
         </div>
       )}
+      </div>
 
       {/* SUB-TAB 2: ATTENDED EVENTS */}
+      <div role="tabpanel" id="prf-panel-events" aria-labelledby="prf-tab-events" hidden={activeSubTab !== 'events'}>
       {activeSubTab === 'events' && (
-        <div className="space-y-4" role="tabpanel">
+        <div className="space-y-4">
           <h3 className="text-sm font-bold text-[#f5f2eb]">
             {t('prfActivityHistory')}
           </h3>
@@ -349,10 +363,12 @@ export const ProfileView: React.FC = () => {
           )}
         </div>
       )}
+      </div>
 
       {/* SUB-TAB 3: ACHIEVEMENTS */}
+      <div role="tabpanel" id="prf-panel-achievements" aria-labelledby="prf-tab-achievements" hidden={activeSubTab !== 'achievements'}>
       {activeSubTab === 'achievements' && (
-        <div className="space-y-3" role="tabpanel">
+        <div className="space-y-3">
           {currentUser.achievements.length === 0 ? (
             <p className="p-6 text-center rounded-xl bg-[#23201e] border border-[#352f2c] text-[13px] text-[#9e948c]">{t('achEmptyEarned')}</p>
           ) : (
@@ -378,10 +394,12 @@ export const ProfileView: React.FC = () => {
           </button>
         </div>
       )}
+      </div>
 
       {/* SUB-TAB 4: PEER REVIEWS */}
+      <div role="tabpanel" id="prf-panel-reviews" aria-labelledby="prf-tab-reviews" hidden={activeSubTab !== 'reviews'}>
       {activeSubTab === 'reviews' && (
-        <div className="space-y-4" role="tabpanel">
+        <div className="space-y-4">
           <h3 className="text-sm font-bold text-[#f5f2eb]">
             {t('prfReviewsFromCommunity')}
           </h3>
@@ -397,6 +415,7 @@ export const ProfileView: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
 
       {/* Edit Profile Modal: title and buttons stay in place, the fields scroll between them */}
       {showEditModal && (

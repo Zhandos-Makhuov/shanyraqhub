@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ACHIEVEMENT_ICONS } from './AchievementsView';
 import { TIERS } from '../data/gamification';
-import { X, BookOpen, Award } from 'lucide-react';
+import { X, BookOpen, Award, UserRound } from 'lucide-react';
 import { PeerReview } from '../types';
 import { useDialog } from '../hooks/useDialog';
-import { EquippedAvatar, ProfileRoleBadge, ReviewCard, useDirectionName } from './ProfileParts';
+import { EquippedAvatar, ProfileRoleBadge, ReviewCard, TelegramContact, useDirectionName } from './ProfileParts';
 
 export const MemberProfileModal: React.FC = () => {
   const { selectedUserModal, setSelectedUserModal, addPeerReview, currentUser, t, ln, lf } = useApp();
@@ -102,7 +102,12 @@ export const MemberProfileModal: React.FC = () => {
               {member.bio && <p className="text-xs text-[#a39b94] leading-relaxed break-words">{member.bio}</p>}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8c8279] pt-1">
                 {member.city && <span>{member.city}</span>}
-                <span className="font-mono text-[#dfcfb3] break-all">{member.handle}</span>
+                <span className="flex items-center gap-1 min-w-0" title={t('prfHandleLabel')} data-contact="handle">
+                  <UserRound className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" aria-hidden="true" />
+                  <span className="sr-only">{t('prfHandleLabel')}: </span>
+                  <span className="font-mono text-[#dfcfb3] break-all">{member.handle}</span>
+                </span>
+                <TelegramContact value={member.telegram} />
                 <span>{member.xp} XP</span>
               </div>
             </div>
