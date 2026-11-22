@@ -18,7 +18,16 @@ import {
 import { DirectionId } from '../types';
 import { isDemoData } from '../config/runtime';
 import { MembershipApplications } from './MembershipApplications';
-import { AvatarWithFallback, EquippedAvatar, ProfileRoleBadge, ReviewCard, TelegramContact, useDirectionName } from './ProfileParts';
+import {
+  AvatarWithFallback,
+  EquippedAvatar,
+  ProfileRoleBadge,
+  RecentAchievements,
+  ReviewCard,
+  TelegramContact,
+  TierProgressPanel,
+  useDirectionName,
+} from './ProfileParts';
 import { useDialog } from '../hooks/useDialog';
 
 type SubTab = 'books' | 'events' | 'achievements' | 'reviews';
@@ -195,8 +204,8 @@ export const ProfileView: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Stats & Edit Button */}
-          <div className="flex flex-col items-center sm:items-end gap-3 shrink-0">
+          {/* Edit button (own profile only) */}
+          <div className="flex justify-center sm:justify-end shrink-0">
             <button
               onClick={openEdit}
               className="px-4 py-2 min-h-10 rounded-lg bg-[#2c2624] hover:bg-[#38302d] border border-[#443c37] text-xs font-semibold text-[#f5f2eb] flex items-center gap-1.5 transition-colors"
@@ -204,23 +213,27 @@ export const ProfileView: React.FC = () => {
               <Edit3 className="w-3.5 h-3.5 text-[#dfcfb3]" aria-hidden="true" />
               <span>{t('editProfile')}</span>
             </button>
-
-            <div className="flex items-center gap-2 bg-[#191615] px-4 py-2.5 rounded-xl border border-[#38312d]">
-              <div className="text-right">
-                <span className="text-[10px] text-[#8c8279] block">{t('prfCoins')}</span>
-                <span className="font-mono-numbers font-bold text-amber-400 text-sm">
-                  {currentUser.coins} 🪙
-                </span>
-              </div>
-              <div className="w-px h-6 bg-[#302a28]" />
-              <div className="text-right">
-                <span className="text-[10px] text-[#8c8279] block">{t('prfXp')}</span>
-                <span className="font-mono-numbers font-bold text-[#dfcfb3] text-sm">
-                  {currentUser.xp} XP
-                </span>
-              </div>
-            </div>
           </div>
+        </div>
+
+        {/* Profile overview: level progress (with own coins) and the latest achievements */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 md:items-start gap-3" data-profile-overview>
+          <TierProgressPanel user={currentUser} showCoins idPrefix="own" />
+          <RecentAchievements
+            user={currentUser}
+            isOwn
+            idPrefix="own"
+            action={
+              <button
+                type="button"
+                onClick={() => setActiveTab('achievements')}
+                className="shrink-0 min-h-8 text-[12px] font-medium text-[#dfcfb3] hover:text-[#ecd9bf] hover:underline"
+                data-recent-all
+              >
+                {t('achOpenAll')} →
+              </button>
+            }
+          />
         </div>
       </div>
 

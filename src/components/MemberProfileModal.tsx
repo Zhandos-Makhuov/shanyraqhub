@@ -5,7 +5,17 @@ import { TIERS } from '../data/gamification';
 import { X, BookOpen, Award, UserRound } from 'lucide-react';
 import { PeerReview } from '../types';
 import { useDialog } from '../hooks/useDialog';
-import { EquippedAvatar, ProfileRoleBadge, ReviewCard, TelegramContact, useDirectionName } from './ProfileParts';
+import {
+  EquippedAvatar,
+  ProfileRoleBadge,
+  RecentAchievements,
+  ReviewCard,
+  TelegramContact,
+  TierProgressPanel,
+  useDirectionName,
+} from './ProfileParts';
+import { activeAchievementCount } from '../utils/profileProgress';
+import { formatClubDate } from '../utils/eventTime';
 
 export const MemberProfileModal: React.FC = () => {
   const { selectedUserModal, setSelectedUserModal, addPeerReview, currentUser, t, ln, lf } = useApp();
@@ -18,6 +28,7 @@ export const MemberProfileModal: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [reviewError, setReviewError] = useState('');
   const [reviewSent, setReviewSent] = useState(false);
+  const [showAllAchievements, setShowAllAchievements] = useState(false);
 
   const open = !!selectedUserModal;
   const close = () => setSelectedUserModal(null);
@@ -30,6 +41,7 @@ export const MemberProfileModal: React.FC = () => {
     setReviewComment('');
     setReviewError('');
     setReviewSent(false);
+    setShowAllAchievements(false);
   }, [memberId]);
 
   if (!selectedUserModal) return null;
@@ -108,7 +120,7 @@ export const MemberProfileModal: React.FC = () => {
                   <span className="font-mono text-[#dfcfb3] break-all">{member.handle}</span>
                 </span>
                 <TelegramContact value={member.telegram} />
-                <span>{member.xp} XP</span>
+                <span data-member-joined>{t('joinedSince')} {formatClubDate(member.joinedDate, t)}</span>
               </div>
             </div>
           </div>
@@ -124,6 +136,53 @@ export const MemberProfileModal: React.FC = () => {
                   {directionName(dirId)}
                 </span>
               ))}
+            </div>
+          )}
+
+          {/* Profile overview: public level progress (no coins) and the latest achievements */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 sm:items-start gap-3" data-profile-overview>
+            <TierProgressPanel user={member} idPrefix="member" />
+            <RecentAchievements
+              user={member}
+              isOwn={member.id === currentUser.id}
+              idPrefix="member"
+              action={
+                activeAchievementCount(member) > 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllAchievements(v => !v)}
+                    aria-expanded={showAllAchievements}
+                    aria-controls="member-all-achievements"
+                    className="shrink-0 min-h-8 text-[12px] font-medium text-[#dfcfb3] hover:text-[#ecd9bf] hover:underline"
+                    data-recent-all
+                  >
+                    {showAllAchievements
+                      ? t('prfHideAchievements')
+                      : t('prfShowAllAchievements').replace('{n}', String(activeAchievementCount(member)))}
+                  </button>
+                ) : undefined
+              }
+            />
+          </div>
+
+          {/* All achievements of this member (the existing list), opened from the block above */}
+          {showAllAchievements && (
+            <div id="member-all-achievements" className="space-y-2" data-member-all-achievements>
+              <h3 className="text-xs font-bold text-[#dfcfb3] flex items-center gap-1.5">
+                <Award className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>{t('mpAchievements')} ({member.achievements.length}):</span>
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {member.achievements.map(ach => (
+                  <span
+                    key={ach.id}
+                    className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-[#1c1918] border border-[#38312d] text-[#f5f2eb]"
+                  >
+                    {React.createElement(ACHIEVEMENT_ICONS[ach.icon] || Award, { className: 'w-3.5 h-3.5 text-[#dfcfb3] shrink-0' })}
+                    {lf(ach, 'title')}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
 
@@ -158,25 +217,6 @@ export const MemberProfileModal: React.FC = () => {
                   );
                 })
               )}
-            </div>
-          </div>
-
-          {/* Achievements */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold text-[#dfcfb3] flex items-center gap-1.5">
-              <Award className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{t('mpAchievements')} ({member.achievements.length}):</span>
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {member.achievements.map(ach => (
-                <span
-                  key={ach.id}
-                  className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-[#1c1918] border border-[#38312d] text-[#f5f2eb]"
-                >
-                  {React.createElement(ACHIEVEMENT_ICONS[ach.icon] || Award, { className: 'w-3.5 h-3.5 text-[#dfcfb3] shrink-0' })}
-                  {lf(ach, 'title')}
-                </span>
-              ))}
             </div>
           </div>
 

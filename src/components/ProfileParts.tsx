@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Send, Star } from 'lucide-react';
+import { Award, Coins, Send, Star } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SHOP_ITEMS } from '../data/gamification';
 import { COMMUNITY_DIRECTIONS } from '../data/directions';
 import { formatClubDate } from '../utils/eventTime';
+import { recentAchievements, tierProgress } from '../utils/profileProgress';
+import { ACHIEVEMENT_ICONS } from './AchievementsView';
 import { PeerReview, ShopItem, UserProfile, UserRole } from '../types';
 
 /** "Алихан Берік" → "АБ"; one word → its first letter. */
@@ -189,5 +191,97 @@ export const TelegramContact: React.FC<{ value?: string; className?: string }> =
     <span title={t('prfTelegramLabel')} data-contact="telegram" className={`flex items-center gap-1 min-w-0 ${className}`}>
       {inner}
     </span>
+  );
+};
+
+/**
+ * Level progress: current tier, XP, a bar to the next tier and how much XP is left.
+ * Coins are shown only when `showCoins` (own profile) — other members never see someone's balance here.
+ */
+export const TierProgressPanel: React.FC<{ user: UserProfile; showCoins?: boolean; idPrefix: string }> = ({ user, showCoins, idPrefix }) => {
+  const { t, ln } = useApp();
+  const p = tierProgress(user.xp, user.tier);
+  const titleId = `${idPrefix}-progress-title`;
+  return (
+    <div role="group" aria-labelledby={titleId} data-tier-progress className="rounded-xl bg-[#191615] border border-[#38312d] p-4 min-w-0">
+      <div className="flex items-center justify-between gap-3">
+        <p id={titleId} className="text-[11px] font-semibold uppercase tracking-wide text-[#8c8279]">{t('prfLevelProgress')}</p>
+        {showCoins && (
+          <span className="inline-flex items-center gap-1 text-xs font-mono-numbers font-bold text-amber-400" data-own-coins title={t('prfCoins')}>
+            <Coins className="w-3.5 h-3.5" aria-hidden="true" />
+            <span className="sr-only">{t('prfCoins')}: </span>
+            {user.coins}
+          </span>
+        )}
+      </div>
+      <div className="mt-2 flex items-baseline justify-between gap-3 flex-wrap">
+        <span className={`text-sm font-semibold ${p.current.textColor}`} data-tier-name>{ln(p.current)}</span>
+        <span className="font-mono-numbers text-xs text-[#dfcfb3]" data-tier-xp>
+          {user.xp}
+          {p.next ? ` / ${p.next.minXp}` : ''} XP
+        </span>
+      </div>
+      <div
+        className="mt-2 w-full h-2 rounded-full bg-[#141211] border border-[#3b3430] overflow-hidden"
+        role="progressbar"
+        aria-label={t('prfProgressAria')}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={p.percent}
+        aria-valuetext={`${p.percent}%`}
+        data-tier-bar={p.percent}
+      >
+        <div className="h-full rounded-full bg-[#dfcfb3] transition-[width] duration-500" style={{ width: `${p.percent}%` }} />
+      </div>
+      <p className="mt-1.5 text-[11px] text-[#a39b94]" data-tier-next>
+        {p.next
+          ? t('homeXpToNext').replace('{n}', String(p.toNext)).replace('{tier}', ln(p.next))
+          : t(showCoins ? 'dashMaxTier' : 'prfMaxTierMember')}
+      </p>
+    </div>
+  );
+};
+
+/**
+ * Up to 3 latest earned achievements (newest first; revoked ones never shown), with icon, title and date.
+ * `action` is the existing way to see all of them (a link to the Achievements screen, or "show all" in the member window).
+ */
+export const RecentAchievements: React.FC<{
+  user: UserProfile;
+  isOwn: boolean;
+  idPrefix: string;
+  action?: React.ReactNode;
+}> = ({ user, isOwn, idPrefix, action }) => {
+  const { t, lf } = useApp();
+  const recent = recentAchievements(user, 3);
+  const titleId = `${idPrefix}-recent-title`;
+  return (
+    <div role="group" aria-labelledby={titleId} data-recent-achievements className="rounded-xl bg-[#191615] border border-[#38312d] p-4 min-w-0">
+      <div className="flex items-center justify-between gap-3">
+        <p id={titleId} className="text-[11px] font-semibold uppercase tracking-wide text-[#8c8279]">{t('prfRecentAchievements')}</p>
+        {action}
+      </div>
+      {recent.length === 0 ? (
+        <p className="mt-2 text-[12px] text-[#9e948c]" data-recent-empty>
+          {t(isOwn ? 'achEmptyEarned' : 'prfNoAchievementsMember')}
+        </p>
+      ) : (
+        <ul className="mt-2 space-y-2">
+          {recent.map(ach => (
+            <li key={ach.id} className="flex items-center gap-2.5 min-w-0" data-recent-item={ach.id}>
+              <span className="w-8 h-8 shrink-0 rounded-lg bg-[#dfcfb3]/15 border border-[#dfcfb3]/60 text-[#ecd9bf] flex items-center justify-center" aria-hidden="true">
+                {React.createElement(ACHIEVEMENT_ICONS[ach.icon] || Award, { className: 'w-4 h-4' })}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[13px] font-semibold text-[#f5f2eb] leading-snug break-words">{lf(ach, 'title')}</span>
+                {ach.unlockedAt && (
+                  <span className="block text-[11px] text-[#c8b393]">{t('achEarnedOn').replace('{date}', formatClubDate(ach.unlockedAt, t))}</span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 };

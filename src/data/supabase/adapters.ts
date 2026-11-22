@@ -213,7 +213,9 @@ export const profileFromRows = (p: ProfileRow, rel: ProfileRelations = {}): User
     reputationPoints: Math.round(xp / 2) + received.reduce((s, r) => s + r.rating * 3, 0),
     readBooks: byUser(rel.userBooks, p.id).map(ub => readBookFromRow(ub, rel.books?.find(b => b.id === ub.book_id))),
     attendedEvents: attendedRecordsFor(p.id, rel.events ?? [], rel.registrations, rel.attendance, rel.feedback),
+    // In the order they were earned (oldest first, like the demo data), so "latest" is exact even within one day.
     achievements: ALL_ACHIEVEMENTS.filter(a => unlocked.has(a.id))
+      .sort((a, b) => Date.parse(unlocked.get(a.id)!) - Date.parse(unlocked.get(b.id)!))
       .map(a => ({ ...a, isUnlocked: true, unlockedAt: toClubDateTime(unlocked.get(a.id)!).date })),
     peerReviews: received.map(r => peerReviewFromRow(r, rel.names ?? {})),
     inventory: inventoryFromRows(p.id, rel.inventory, rel.equipment),
