@@ -194,6 +194,33 @@ test.describe('overview details', () => {
     await noHorizontalOverflow(page);
   });
 
+  test('member window: with a revoked achievement among 5, short list, counter and full list show only the 4 in force', async ({ page }) => {
+    await openApp(page);
+    await patchUser(page, 'user-new-member', {
+      achievements: [
+        ach('ach-speaking-pro', '2026-10-01'),
+        ach('ach-first-event', '2026-11-18'),
+        ach('ach-first-book', '2026-11-19'),
+        ach('ach-kind-word', '2026-11-21'),
+        ach('ach-knowledge-seeker', '2026-11-22'), // newest, but revoked
+      ],
+      revokedAchievementIds: ['ach-knowledge-seeker'],
+    });
+    await openMember(page, 'Новый участник', false);
+    const dlg = memberDialog(page);
+    const shortIds = await dlg.locator('[data-recent-item]').evaluateAll(els => els.map(e => e.getAttribute('data-recent-item')));
+    expect(shortIds).toEqual(['ach-kind-word', 'ach-first-book', 'ach-first-event']);
+    const toggle = dlg.locator('[data-recent-all]');
+    await expect(toggle).toHaveText('Барлығы (4)');
+    await toggle.click();
+    const full = dlg.locator('[data-member-all-achievements]');
+    const fullIds = await full.locator('[data-member-achievement]').evaluateAll(els => els.map(e => e.getAttribute('data-member-achievement')));
+    expect(fullIds.sort()).toEqual(['ach-first-book', 'ach-first-event', 'ach-kind-word', 'ach-speaking-pro']);
+    await expect(full.locator('h3')).toContainText('(4)');
+    await expect(dlg.locator('[data-member-achievement="ach-knowledge-seeker"], [data-recent-item="ach-knowledge-seeker"]')).toHaveCount(0);
+    await noHorizontalOverflow(page);
+  });
+
   test('long name and long bio do not break the card or the window', async ({ page }) => {
     await openApp(page);
     const name = 'Ақжарқынбекова-Сұлтанмахмұтқызы Әлиманұр Жанкелдіқызы Тарбағатайлық';

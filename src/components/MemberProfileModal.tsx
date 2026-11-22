@@ -170,12 +170,15 @@ export const MemberProfileModal: React.FC = () => {
             <div id="member-all-achievements" className="space-y-2" data-member-all-achievements>
               <h3 className="text-xs font-bold text-[#dfcfb3] flex items-center gap-1.5">
                 <Award className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{t('mpAchievements')} ({member.achievements.length}):</span>
+                <span>{t('mpAchievements')} ({activeAchievementCount(member)}):</span>
               </h3>
               <div className="flex flex-wrap gap-2">
-                {member.achievements.map(ach => (
+                {member.achievements
+                  .filter(ach => !(member.revokedAchievementIds ?? []).includes(ach.id)) // revoked ones are never shown as earned
+                  .map(ach => (
                   <span
                     key={ach.id}
+                    data-member-achievement={ach.id}
                     className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-[#1c1918] border border-[#38312d] text-[#f5f2eb]"
                   >
                     {React.createElement(ACHIEVEMENT_ICONS[ach.icon] || Award, { className: 'w-3.5 h-3.5 text-[#dfcfb3] shrink-0' })}
