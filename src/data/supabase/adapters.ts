@@ -214,7 +214,7 @@ export const profileFromRows = (p: ProfileRow, rel: ProfileRelations = {}): User
     readBooks: byUser(rel.userBooks, p.id).map(ub => readBookFromRow(ub, rel.books?.find(b => b.id === ub.book_id))),
     attendedEvents: attendedRecordsFor(p.id, rel.events ?? [], rel.registrations, rel.attendance, rel.feedback),
     achievements: ALL_ACHIEVEMENTS.filter(a => unlocked.has(a.id))
-      .map(a => ({ ...a, isUnlocked: true, unlockedAt: unlocked.get(a.id)!.slice(0, 10) })),
+      .map(a => ({ ...a, isUnlocked: true, unlockedAt: toClubDateTime(unlocked.get(a.id)!).date })),
     peerReviews: received.map(r => peerReviewFromRow(r, rel.names ?? {})),
     inventory: inventoryFromRows(p.id, rel.inventory, rel.equipment),
     preferredLanguage: p.preferred_language,

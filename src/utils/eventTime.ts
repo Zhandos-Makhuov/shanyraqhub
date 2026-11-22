@@ -74,3 +74,22 @@ export const formatShortDate = (value: string | undefined, t: (key: string) => s
   if (!y || !m || !d || months.length !== 12) return value;
   return `${d} ${months[m - 1]} ${y}`;
 };
+
+/**
+ * Club-local calendar day (YYYY-MM-DD) for anything the profile shows:
+ * a plain date stays as is; a timestamp ("…T…Z") is moved to Almaty time (UTC+5) first, so a review
+ * written at 23:30 in Almaty is not shown as the previous day; "22.11.2026" (old demo format) is also read.
+ */
+export const toClubDate = (value: string | undefined): string => {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const dmy = value.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) return value;
+  return new Date(ms + 5 * 3600_000).toISOString().slice(0, 10);
+};
+
+/** "22 қар. 2026" for any date or timestamp, on the club's calendar day. */
+export const formatClubDate = (value: string | undefined, t: (key: string) => string): string =>
+  formatShortDate(toClubDate(value), t);

@@ -59,7 +59,8 @@ interface AppContextType {
   /** Live mode: signs this browser out of the member's account. Undefined in demo. */
   signOut?: () => Promise<void>;
   switchCurrentUser: (userId: string) => void;
-  updateProfile: (updated: Partial<UserProfile>) => void;
+  /** Saves the member's own profile; resolves with the first error (if any) so the form can show it. */
+  updateProfile: (updated: Partial<UserProfile>) => Promise<{ ok: boolean; error?: string }>;
 
   selectedUserModal: UserProfile | null;
   setSelectedUserModal: (user: UserProfile | null) => void;
@@ -111,7 +112,7 @@ interface AppContextType {
   adjustUserCoins: (targetUserId: string, amount: number, reason: string) => boolean | Promise<boolean>;
   dispatchBroadcast: (title: string, content: string, channels: ('push' | 'telegram' | 'whatsapp')[], directionTarget?: string) => void;
 
-  addPeerReview: (targetUserId: string, rating: number, comment: string, aspect: PeerReview['aspect']) => void;
+  addPeerReview: (targetUserId: string, rating: number, comment: string, aspect: PeerReview['aspect']) => Promise<{ ok: boolean; error?: string }>;
 
   /** Consecutive days with real activity (attendance, feedback, books, forum, reviews). */
   getActivityStreak: (userId: string) => number;
@@ -209,7 +210,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     }
   });
 
-  const [selectedUserModal, setSelectedUserModal] = useState<UserProfile | null>(null);
+  // The open member profile is kept by id, so the window always shows the member's current data
+  // (e.g. a review appears right after it is sent).
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const setSelectedUserModal = (user: UserProfile | null) => setSelectedUserId(user?.id ?? null);
   const [membershipApplications, setMembershipApplications] = useState<MembershipApplication[]>(
     () => account?.snapshot.membershipApplications ?? [],
   );
@@ -292,6 +296,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   const currentUser = allUsers.find(u => u.id === currentUserId) || allUsers[0];
+  const selectedUserModal = selectedUserId ? allUsers.find(u => u.id === selectedUserId) ?? null : null;
 
   // Test-account switching exists only with demo data (see config/runtime.ts).
   const switchCurrentUser = (userId: string) => {
@@ -481,33 +486,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     return { ok: true };
   };
 
-  const updateProfile = (updated: Partial<UserProfile>) => {
+  const updateProfile = async (updated: Partial<UserProfile>): Promise<{ ok: boolean; error?: string }> => {
     if (live) {
-      void (async () => {
-        const { directions, ...fields } = updated;
-        const r = await live.updateOwnProfile(fields);
-        if (!r.ok) return alert(t(r.error));
-        if (directions) {
-          // Joining needs approval (request_membership); leaving is immediate. profiles.directions is set by the DB.
-          const pending = currentUser.pendingDirections ?? [];
-          const added = directions.filter(d => !currentUser.directions.includes(d) && !pending.includes(d));
-          const removed = [...currentUser.directions, ...pending].filter(d => !directions.includes(d));
-          for (const d of added) {
-            const a = await live.requestMembership(d);
-            if (!a.ok) alert(t(a.error));
-          }
-          for (const d of removed) {
-            const a = await live.leaveMembership(d);
-            if (!a.ok) alert(t(a.error));
-          }
+      const { directions, ...fields } = updated;
+      const r = await live.updateOwnProfile(fields);
+      if (!r.ok) return { ok: false, error: r.error };
+      let firstError: string | undefined;
+      if (directions) {
+        // Joining needs approval (request_membership); leaving is immediate. profiles.directions is set by the DB.
+        const pending = currentUser.pendingDirections ?? [];
+        const added = directions.filter(d => !currentUser.directions.includes(d) && !pending.includes(d));
+        const removed = [...currentUser.directions, ...pending].filter(d => !directions.includes(d));
+        for (const d of added) {
+          const a = await live.requestMembership(d);
+          if (!a.ok) firstError ??= a.error;
         }
-        await refreshLive();
-      })();
-      return;
+        for (const d of removed) {
+          const a = await live.leaveMembership(d);
+          if (!a.ok) firstError ??= a.error;
+        }
+      }
+      await refreshLive();
+      return firstError ? { ok: false, error: firstError } : { ok: true };
     }
     setAllUsers(prev =>
       prev.map(u => (u.id === currentUser.id ? { ...u, ...updated } : u))
     );
+    return { ok: true };
   };
 
   // Event Registrations
@@ -1269,18 +1274,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     rating: number,
     comment: string,
     aspect: PeerReview['aspect']
-  ) => {
-    if (targetUserId === currentUser.id) return; // no self-reviews
+  ): Promise<{ ok: boolean; error?: string }> => {
+    if (targetUserId === currentUser.id) return Promise.resolve({ ok: false, error: 'liveErrSelfAction' }); // no self-reviews
     if (live) {
-      void runLive(live.addPeerReview(targetUserId, rating, comment, aspect));
-      return;
+      // Errors are shown by the review form itself (quiet); a duplicate aspect reads as ctxReviewDuplicate there.
+      return runLive(live.addPeerReview(targetUserId, rating, comment, aspect), true);
     }
     const target = allUsers.find(u => u.id === targetUserId);
-    if (!target) return;
+    if (!target) return Promise.resolve({ ok: false, error: 'authErrorGeneric' });
     // One review per author, target and aspect.
     if (target.peerReviews.some(r => r.authorId === currentUser.id && r.aspect === aspect)) {
-      alert(t('ctxReviewDuplicate'));
-      return;
+      return Promise.resolve({ ok: false, error: 'ctxReviewDuplicate' });
     }
 
     const review: PeerReview = {
@@ -1337,6 +1341,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       },
       ...prev,
     ]);
+    return Promise.resolve({ ok: true });
   };
 
   // ---------------------------------------------------------------------------
