@@ -392,7 +392,7 @@ export const ReadingLibraryView: React.FC = () => {
             </button>
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-5">
               <div className="flex gap-4 pr-10">
-                <BookCover book={open} className="w-20 min-[360px]:w-24 sm:w-28 shrink-0" />
+                <BookCover book={open} className="w-20 min-[360px]:w-24 sm:w-28 shrink-0 self-start" />
                 <div className="min-w-0 space-y-1.5">
                   {open.genre && <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#c8b393]">{genreLabel(open.genre, t)}</span>}
                   <h2 className="font-display text-base min-[360px]:text-lg sm:text-xl font-bold leading-snug text-[#f5f2eb] break-words">{open.title}</h2>

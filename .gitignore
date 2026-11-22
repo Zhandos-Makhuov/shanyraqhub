@@ -9,3 +9,8 @@ coverage/
 
 # Local design-review screenshots
 design-review/
+
+# Browser checks (Playwright): demo build and reports
+dist-e2e/
+test-results/
+playwright-report/

@@ -32,3 +32,26 @@ jobs:
           done
           if ls dist-live/assets | grep -q '^mockData'; then echo "::error::mockData chunk in the live build"; exit 1; fi
           echo "Live build is clean"
+
+  # Browser checks in DEMO mode (made-up data; the build has no database address or key).
+  # A red mark here means a screen or a user flow broke; the report is attached to the run.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Install Chromium for Playwright
+        run: bunx playwright install --with-deps chromium
+      - name: Browser checks (e2e)
+        run: bun run test:e2e
+      - name: Upload report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
