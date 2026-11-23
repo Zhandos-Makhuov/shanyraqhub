@@ -88,6 +88,8 @@ interface NotificationRow {
   link_tab: string | null;
   read_at: string | null;
   created_at: string;
+  /** Extra data written by the server (e.g. { topic_id } for a forum reply). */
+  meta?: Record<string, unknown> | null;
   user_id: string;
 }
 
@@ -116,7 +118,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       rows<AchievementRevocationRow>(c.from('achievement_revocations').select('*')),
       rows<PeerReviewRow>(c.from('peer_reviews').select('*')),
       rows<NotificationRow>(
-        c.from('notifications').select('id, type, title, body, link_tab, read_at, created_at, user_id')
+        c.from('notifications').select('id, type, title, body, link_tab, read_at, created_at, user_id, meta')
           .order('created_at', { ascending: false }).limit(50),
       ),
       rows<BookRow>(c.from('books').select('id, title, author, genre, cover_color, cover_url')),
@@ -264,6 +266,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       timestamp: formatWhen(n.created_at),
       read: n.read_at !== null,
       linkTab: (n.link_tab ?? undefined) as AppNotification['linkTab'],
+      topicId: typeof n.meta?.topic_id === 'string' ? n.meta.topic_id : undefined,
     })),
   };
 };

@@ -322,6 +322,8 @@ export interface AppNotification {
   read: boolean;
   linkTab?: 'events' | 'forum' | 'profile' | 'members' | 'achievements' | 'library' | 'attendance' | 'leaderboard' | 'shop';
   actionMeta?: string;
+  /** Forum topic this notification is about (a reply in your topic): opens that topic. */
+  topicId?: string;
 }
 
 export interface BroadcastLog {

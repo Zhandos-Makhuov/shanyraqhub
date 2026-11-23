@@ -21,3 +21,23 @@ export const takeEventsIntent = (): EventsIntent => {
   pending = null;
   return intent;
 };
+
+/** Forum: open this topic (e.g. from a "new reply in your topic" notification). */
+export interface ForumIntent {
+  topicId: string;
+}
+
+let pendingForum: ForumIntent | null = null;
+export const FORUM_INTENT_EVENT = 'shq-forum-intent';
+
+/** Hands a topic to the forum screen; if it is already open, it is told through an event. */
+export const setForumIntent = (intent: ForumIntent) => {
+  pendingForum = intent;
+  window.dispatchEvent(new Event(FORUM_INTENT_EVENT));
+};
+
+export const takeForumIntent = (): ForumIntent | null => {
+  const intent = pendingForum;
+  pendingForum = null;
+  return intent;
+};

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { setForumIntent } from '../utils/navIntent';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
 import { Bell, Globe, Sparkles, ChevronDown, Coins, Database, LogOut } from 'lucide-react';
@@ -193,8 +194,12 @@ export const Header: React.FC = () => {
                         <div
                           key={notif.id}
                           onClick={() => {
+                            // A reply in your topic opens that topic (Phase 2.4.2, F-16); other notifications open their section.
+                            if (notif.topicId) setForumIntent({ topicId: notif.topicId });
                             if (notif.linkTab && notif.linkTab !== 'members') {
                               setActiveTab(notif.linkTab as any);
+                            } else if (notif.topicId) {
+                              setActiveTab('forum');
                             }
                             setShowNotifDropdown(false);
                           }}

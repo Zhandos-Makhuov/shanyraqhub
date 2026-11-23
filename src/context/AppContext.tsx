@@ -29,7 +29,7 @@ import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 import { getAchievementMetric } from '../utils/achievementProgress';
 import { sendLocalPushNotification, requestWebPushPermission } from '../utils/notifications';
 import { canAccessRoom, canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
-import { hasEventStarted } from '../utils/eventTime';
+import { formatClubDateTime, hasEventStarted } from '../utils/eventTime';
 import { STORAGE_KEY, canSwitchTestAccounts } from '../config/runtime';
 import { hasQualifyingReview, isWeekFreeForCredit } from '../utils/bookCredit';
 import { computeDayStreak, computeWeekStreak, toLocalDay } from '../utils/streak';
@@ -973,6 +973,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       })
     );
 
+    // Same as the server trigger: the topic's author is told about a reply (not about their own).
+    if (topic.authorId !== currentUser.id) {
+      setNotifications(prev => [
+        {
+          id: `notif-reply-${newReply.id}`,
+          userId: topic.authorId,
+          type: 'forum_reply',
+          title: t('frmNotifReplyTitle'),
+          message: content.slice(0, 140),
+          timestamp: formatClubDateTime(new Date().toISOString(), t),
+          read: false,
+          linkTab: 'forum',
+          topicId,
+        },
+        ...prev,
+      ]);
+    }
     recordActivity(currentUser.id);
     grantRewardOnce(`forum_reply:${newReply.id}:${currentUser.id}`, currentUser.id, 20, 10, 'Ответ в обсуждении форума', {
       group: 'forum_reply',

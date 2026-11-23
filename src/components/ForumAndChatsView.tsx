@@ -4,12 +4,30 @@ import { canAccessRoom } from '../utils/permissions';
 import { clubDayTime, formatClubDateTime, formatShortDate } from '../utils/eventTime';
 import { FORUM_LIMITS } from '../data/forumCategories';
 import { useDialog } from '../hooks/useDialog';
+import { FORUM_INTENT_EVENT, takeForumIntent } from '../utils/navIntent';
 import { AvatarWithFallback, ProfileRoleBadge } from './ProfileParts';
-import { MessageSquare, Lock, ShieldCheck, ThumbsUp, Send, Plus, Key, X, ArrowLeft } from 'lucide-react';
+import { MessageSquare, Lock, ShieldCheck, ThumbsUp, Send, Plus, Key, X, ArrowLeft, Search } from 'lucide-react';
+import { ForumTopic } from '../types';
 
 /** User text: line breaks and paragraphs kept, long words and links wrap inside the card (never rendered as HTML). */
 const USER_TEXT = 'whitespace-pre-line break-words [overflow-wrap:anywhere]';
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfcfb3] focus-visible:ring-offset-2 focus-visible:ring-offset-[#191615]';
+
+/** Lower-case, "ё" as "е": the same word matches however it was typed. */
+const norm = (text: string) => text.toLocaleLowerCase().replace(/ё/g, 'е');
+
+/**
+ * Client-side search over topics that are already loaded (title, topic text and replies) — no extra database queries.
+ * Every word of the query must appear somewhere in the topic.
+ */
+const topicMatches = (topic: ForumTopic, words: string[]) => {
+  if (words.length === 0) return true;
+  const haystack = norm([topic.title, topic.content, ...topic.replies.map(r => r.content)].join('\n'));
+  return words.every(w => haystack.includes(w));
+};
+
+/** The reply field grows up to this height (≈ 8 lines), then scrolls. */
+const REPLY_MAX_HEIGHT = 168;
 
 export const ForumAndChatsView: React.FC = () => {
   const {
@@ -34,8 +52,23 @@ export const ForumAndChatsView: React.FC = () => {
     () => [...forumTopics].sort((a, b) => Number(!!b.isPinned) - Number(!!a.isPinned)),
     [forumTopics],
   );
+  // Search and section filter (F-15): kept while switching to the rooms and back.
+  const [query, setQuery] = useState('');
+  const [sectionFilter, setSectionFilter] = useState<string>('all');
+  const queryWords = useMemo(() => norm(query).split(/\s+/).filter(Boolean), [query]);
+  const filtering = queryWords.length > 0 || sectionFilter !== 'all';
+  const filteredTopics = useMemo(
+    () => sortedTopics.filter(tp => (sectionFilter === 'all' || tp.categoryId === sectionFilter) && topicMatches(tp, queryWords)),
+    [sortedTopics, sectionFilter, queryWords],
+  );
+  const resetFilters = () => {
+    setQuery('');
+    setSectionFilter('all');
+  };
   const [selectedTopicId, setSelectedTopicId] = useState<string>('');
-  const activeTopic = sortedTopics.find(tp => tp.id === selectedTopicId) || sortedTopics[0];
+  const activeTopic = filteredTopics.find(tp => tp.id === selectedTopicId) || filteredTopics[0];
+  // A notification pointed to a topic that is not available (deleted, or hidden by a moderator).
+  const [topicNotFound, setTopicNotFound] = useState(false);
 
   // Only rooms the current role may enter are listed (moderator rooms are hidden from members).
   const visibleRooms = chatRooms.filter(r => canAccessRoom(r, currentUser.role));
@@ -51,12 +84,25 @@ export const ForumAndChatsView: React.FC = () => {
   const [replyError, setReplyError] = useState('');
   useEffect(() => setReplyError(''), [activeTopic?.id]);
 
+  // A ref blocks a second submit before React re-renders (fast double tap).
+  const replyBusy = useRef(false);
+  const replyFormRef = useRef<HTMLFormElement>(null);
+  const replyFieldRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = replyFieldRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, REPLY_MAX_HEIGHT)}px`;
+  }, [replyText, activeTopic?.id]);
+
   const handleReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeTopic || replySending || !replyText.trim()) return;
+    if (!activeTopic || replyBusy.current || !replyText.trim()) return;
+    replyBusy.current = true;
     setReplySending(true);
     setReplyError('');
     const r = await replyToForumTopic(activeTopic.id, replyText.trim());
+    replyBusy.current = false;
     setReplySending(false);
     if (r.ok) setReplyText('');
     else setReplyError(t(r.error || 'authErrorGeneric'));
@@ -86,12 +132,15 @@ export const ForumAndChatsView: React.FC = () => {
   };
   const titleOk = newTopicTitle.trim().length >= FORUM_LIMITS.titleMin && newTopicTitle.length <= FORUM_LIMITS.titleMax;
 
+  const topicBusy = useRef(false);
   const handleCreateTopicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (topicSending || !titleOk || !newTopicContent.trim()) return;
+    if (topicBusy.current || !titleOk || !newTopicContent.trim()) return;
+    topicBusy.current = true;
     setTopicSending(true);
     setTopicError('');
     const r = await createForumTopic(newTopicTitle.trim(), newTopicContent.trim(), newTopicCategory);
+    topicBusy.current = false;
     setTopicSending(false);
     if (r.ok) {
       setShowCreateTopicModal(false);
@@ -99,6 +148,7 @@ export const ForumAndChatsView: React.FC = () => {
       setNewTopicContent('');
       setSelectedTopicId('');
       setMobileForumView('list');
+      resetFilters(); // the new topic must be visible in the list
     } else {
       setTopicError(t(r.error || 'authErrorGeneric'));
     }
@@ -121,6 +171,29 @@ export const ForumAndChatsView: React.FC = () => {
     });
   };
 
+  // --- From a notification (F-16): open that topic; if it is not available, say so ----------
+  const topicsRef = useRef(forumTopics);
+  topicsRef.current = forumTopics;
+  useEffect(() => {
+    const consume = () => {
+      const intent = takeForumIntent();
+      if (!intent) return;
+      setActiveSection('forum');
+      resetFilters();
+      if (topicsRef.current.some(tp => tp.id === intent.topicId)) {
+        setTopicNotFound(false);
+        openTopic(intent.topicId);
+      } else {
+        setTopicNotFound(true);
+        setMobileForumView('list');
+      }
+    };
+    consume();
+    window.addEventListener(FORUM_INTENT_EVENT, consume);
+    return () => window.removeEventListener(FORUM_INTENT_EVENT, consume);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // --- Chat: show the latest message; follow new ones only if the reader is at the bottom ----
   const messagesRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
@@ -138,12 +211,15 @@ export const ForumAndChatsView: React.FC = () => {
     if (atBottomRef.current) scrollChatToEnd();
   }, [messageCount]);
 
+  const chatBusy = useRef(false);
   const handleSendChat = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeRoom || chatSending || !chatMessageText.trim()) return;
+    if (!activeRoom || chatBusy.current || !chatMessageText.trim()) return;
+    chatBusy.current = true;
     setChatSending(true);
     setChatError('');
     const r = await sendChatMessage(activeRoom.id, chatMessageText.trim());
+    chatBusy.current = false;
     setChatSending(false);
     if (r.ok) {
       setChatMessageText('');
@@ -160,7 +236,7 @@ export const ForumAndChatsView: React.FC = () => {
       aria-pressed={activeSection === id}
       onClick={() => setActiveSection(id)}
       className={`flex items-center justify-center gap-1.5 px-3 min-h-10 rounded-lg text-xs font-semibold transition-all ${FOCUS_RING} ${
-        activeSection === id ? 'bg-[#dfcfb3] text-[#1e1b1a] shadow-sm' : 'text-[#8c8279] hover:text-[#f5f2eb]'
+        activeSection === id ? 'bg-[#dfcfb3] text-[#1e1b1a] shadow-sm' : 'text-[#9e948c] hover:text-[#f5f2eb]'
       }`}
     >
       {icon}
@@ -214,7 +290,7 @@ export const ForumAndChatsView: React.FC = () => {
           {/* Topics list (5 cols) */}
           <div className={`lg:col-span-5 space-y-3 min-w-0 ${mobileForumView === 'thread' ? 'hidden lg:block' : 'block'}`}>
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-xs font-semibold text-[#8c8279] uppercase tracking-wider">
+              <h2 className="text-xs font-semibold text-[#9e948c] uppercase tracking-wider">
                 {t('frmDiscussions')} ({sortedTopics.length})
               </h2>
               <button
@@ -228,9 +304,71 @@ export const ForumAndChatsView: React.FC = () => {
               </button>
             </div>
 
+            {topicNotFound && (
+              <div role="status" className="flex items-start gap-2 rounded-xl border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-xs text-amber-200" data-topic-not-found>
+                <span className="flex-1">{t('frmTopicNotFound')}</span>
+                <button
+                  type="button"
+                  onClick={() => setTopicNotFound(false)}
+                  aria-label={t('actionClose')}
+                  className={`shrink-0 -my-1 w-10 h-10 inline-flex items-center justify-center rounded-lg text-amber-200/80 hover:text-amber-100 ${FOCUS_RING}`}
+                >
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </div>
+            )}
+
+            {sortedTopics.length > 0 && (
+              <div className="space-y-2" data-forum-filters>
+                <div className="flex flex-col min-[400px]:flex-row gap-2">
+                  <div className="relative flex-1 min-w-0">
+                    <label htmlFor="forum-search" className="sr-only">{t('frmSearchLabel')}</label>
+                    <Search className="w-3.5 h-3.5 text-[#9e948c] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
+                    <input
+                      id="forum-search"
+                      type="search"
+                      value={query}
+                      onChange={e => setQuery(e.target.value)}
+                      placeholder={t('frmSearchPlaceholder')}
+                      autoComplete="off"
+                      enterKeyHint="search"
+                      className="w-full min-h-10 pl-8 pr-3 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+                    />
+                  </div>
+                  <label htmlFor="forum-section-filter" className="sr-only">{t('frmFilterSection')}</label>
+                  <select
+                    id="forum-section-filter"
+                    value={sectionFilter}
+                    onChange={e => setSectionFilter(e.target.value)}
+                    className="min-h-10 min-[400px]:max-w-[45%] px-2 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
+                  >
+                    <option value="all">{t('frmAllSections')}</option>
+                    {forumCategories.map(c => (
+                      <option key={c.id} value={c.id}>{ln(c)}</option>
+                    ))}
+                  </select>
+                </div>
+                {filtering && (
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-[#9e948c]">
+                    <span aria-live="polite" data-found-count>
+                      {t('frmFoundCount').replace('{n}', String(filteredTopics.length)).replace('{total}', String(sortedTopics.length))}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className={`min-h-10 px-2 rounded-lg text-[#dfcfb3] hover:text-white font-medium ${FOCUS_RING}`}
+                      data-reset-filters
+                    >
+                      {t('frmResetFilters')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {sortedTopics.length === 0 ? (
               <div className="rounded-xl bg-[#23201e] border border-[#352f2c] p-6 text-center space-y-2" data-forum-empty>
-                <MessageSquare className="w-6 h-6 text-[#8c8279] mx-auto" aria-hidden="true" />
+                <MessageSquare className="w-6 h-6 text-[#9e948c] mx-auto" aria-hidden="true" />
                 <p className="text-sm font-semibold text-[#f5f2eb]">{t('frmEmptyTitle')}</p>
                 <p className="text-xs text-[#9e948c]">{t('frmEmptyText')}</p>
                 <button
@@ -242,9 +380,22 @@ export const ForumAndChatsView: React.FC = () => {
                   {t('createTopic')}
                 </button>
               </div>
+            ) : filteredTopics.length === 0 ? (
+              <div className="rounded-xl bg-[#23201e] border border-[#352f2c] p-6 text-center space-y-2" data-forum-no-results>
+                <Search className="w-6 h-6 text-[#9e948c] mx-auto" aria-hidden="true" />
+                <p className="text-sm font-semibold text-[#f5f2eb]">{t('frmNoResults')}</p>
+                <p className="text-xs text-[#9e948c]">{t('frmNoResultsText')}</p>
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className={`mt-2 inline-flex items-center px-4 min-h-10 rounded-lg bg-[#2c2624] hover:bg-[#38302d] border border-[#443c37] text-xs font-semibold text-[#f5f2eb] ${FOCUS_RING}`}
+                >
+                  {t('frmResetFilters')}
+                </button>
+              </div>
             ) : (
               <ul className="space-y-2 lg:max-h-[650px] lg:overflow-y-auto lg:pr-1">
-                {sortedTopics.map(topic => {
+                {filteredTopics.map(topic => {
                   const isSelected = activeTopic?.id === topic.id;
                   return (
                     <li key={topic.id}>
@@ -278,7 +429,7 @@ export const ForumAndChatsView: React.FC = () => {
                           {topic.title}
                         </span>
 
-                        <span className="flex items-center justify-between gap-3 mt-3 pt-2 border-t border-[#302a28] text-[11px] text-[#8c8279]">
+                        <span className="flex items-center justify-between gap-3 mt-3 pt-2 border-t border-[#302a28] text-[11px] text-[#9e948c]">
                           <span className="truncate min-w-0">{topic.authorName}</span>
                           <span className="flex items-center gap-2 font-mono shrink-0">
                             <span aria-hidden="true">💬 {topic.replies.length}</span>
@@ -339,7 +490,7 @@ export const ForumAndChatsView: React.FC = () => {
                       {activeTopic.title}
                     </h2>
 
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#8c8279]">
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#9e948c]">
                       <AvatarWithFallback src={activeTopic.authorAvatar} name={activeTopic.authorName} className="w-6 h-6" textClassName="text-[10px]" />
                       <span className="font-semibold text-[#f5f2eb]">{activeTopic.authorName}</span>
                       <ProfileRoleBadge role={activeTopic.authorRole} compact />
@@ -363,12 +514,12 @@ export const ForumAndChatsView: React.FC = () => {
 
                   {/* Replies */}
                   <section className="space-y-4" aria-labelledby="forum-replies-title">
-                    <h3 id="forum-replies-title" className="text-xs font-bold text-[#8c8279] uppercase tracking-wider">
+                    <h3 id="forum-replies-title" className="text-xs font-bold text-[#9e948c] uppercase tracking-wider">
                       {t('frmReplies')} ({activeTopic.replies.length})
                     </h3>
 
                     {activeTopic.replies.length === 0 ? (
-                      <div className="py-8 text-center text-xs text-[#8c8279]">{t('frmNoReplies')}</div>
+                      <div className="py-8 text-center text-xs text-[#9e948c]">{t('frmNoReplies')}</div>
                     ) : (
                       <ul className="space-y-4">
                         {activeTopic.replies.map(reply => (
@@ -378,7 +529,7 @@ export const ForumAndChatsView: React.FC = () => {
                                 <AvatarWithFallback src={reply.authorAvatar} name={reply.authorName} className="w-5 h-5" textClassName="text-[9px]" />
                                 <span className="font-bold text-[#f5f2eb] break-words min-w-0">{reply.authorName}</span>
                                 <ProfileRoleBadge role={reply.authorRole} compact />
-                                <span className="text-[11px] text-[#8c8279]" data-reply-date>{formatClubDateTime(reply.createdAt, t)}</span>
+                                <span className="text-[11px] text-[#9e948c]" data-reply-date>{formatClubDateTime(reply.createdAt, t)}</span>
                               </div>
                               {voteButton({
                                 own: reply.authorId === currentUser.id,
@@ -401,23 +552,32 @@ export const ForumAndChatsView: React.FC = () => {
                 {/* Reply composer — or why there is none (closed topic) */}
                 {activeTopic.isClosed ? (
                   <div className="p-4 bg-[#1e1b1a] border-t border-[#302a28] flex items-start gap-2 text-xs text-[#a39b94]" role="note" data-closed-notice>
-                    <Lock className="w-4 h-4 shrink-0 mt-px text-[#8c8279]" aria-hidden="true" />
+                    <Lock className="w-4 h-4 shrink-0 mt-px text-[#9e948c]" aria-hidden="true" />
                     <span>{t('frmClosedNotice')}</span>
                   </div>
                 ) : (
-                  <form onSubmit={handleReplySubmit} className="p-4 bg-[#1e1b1a] border-t border-[#302a28] space-y-2" data-reply-form>
-                    <div className="flex gap-2 min-w-0">
-                      <label htmlFor="forum-reply" className="sr-only">{t('frmReplyPlaceholder')}</label>
-                      <input
+                  <form ref={replyFormRef} onSubmit={handleReplySubmit} className="p-4 bg-[#1e1b1a] border-t border-[#302a28] space-y-2" data-reply-form>
+                    <div className="flex items-end gap-2 min-w-0">
+                      <label htmlFor="forum-reply" className="sr-only">{t('frmReplyLabel')}</label>
+                      {/* Multi-line (F-18): Enter = new line, Ctrl/⌘+Enter = send; grows up to ~8 lines, then scrolls */}
+                      <textarea
                         id="forum-reply"
-                        type="text"
+                        ref={replyFieldRef}
+                        rows={1}
                         placeholder={t('frmReplyPlaceholder')}
                         value={replyText}
                         maxLength={FORUM_LIMITS.replyMax}
                         onChange={e => setReplyText(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                            e.preventDefault();
+                            replyFormRef.current?.requestSubmit();
+                          }
+                        }}
                         aria-describedby="forum-reply-hint"
                         aria-invalid={replyError ? true : undefined}
-                        className="flex-1 min-w-0 px-3 min-h-10 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+                        style={{ maxHeight: REPLY_MAX_HEIGHT }}
+                        className="flex-1 min-w-0 px-3 py-2.5 min-h-10 resize-none overflow-y-auto rounded-lg bg-[#24201e] border border-[#3d3632] text-[13px] leading-snug text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
                       />
                       <button
                         type="submit"
@@ -433,13 +593,19 @@ export const ForumAndChatsView: React.FC = () => {
                         {replyError}
                       </p>
                     )}
-                    <p id="forum-reply-hint" className="text-[11px] text-[#8c8279]">{t('frmReplyRewardHint')}</p>
+                    <p id="forum-reply-hint" className="text-[11px] text-[#9e948c] flex flex-wrap justify-between gap-x-3 gap-y-0.5">
+                      <span>{t('frmReplyRewardHint')}</span>
+                      <span className="hidden md:inline">{t('frmReplyShortcut')}</span>
+                      {replyText.length >= FORUM_LIMITS.replyMax * 0.8 && (
+                        <span className="font-mono" data-reply-counter>{replyText.length}/{FORUM_LIMITS.replyMax}</span>
+                      )}
+                    </p>
                   </form>
                 )}
               </>
             ) : (
-              <div className="hidden lg:flex flex-1 items-center justify-center p-8 text-center text-xs text-[#8c8279]" data-thread-empty>
-                {t('frmEmptyText')}
+              <div className="hidden lg:flex flex-1 items-center justify-center p-8 text-center text-xs text-[#9e948c]" data-thread-empty>
+                {t(sortedTopics.length ? 'frmNoResultsText' : 'frmEmptyText')}
               </div>
             )}
           </div>
@@ -450,15 +616,15 @@ export const ForumAndChatsView: React.FC = () => {
       {activeSection === 'encrypted_rooms' && (
         visibleRooms.length === 0 ? (
           <div className="rounded-2xl bg-[#23201e] border border-[#352f2c] p-8 text-center space-y-2">
-            <Lock className="w-6 h-6 text-[#8c8279] mx-auto" aria-hidden="true" />
+            <Lock className="w-6 h-6 text-[#9e948c] mx-auto" aria-hidden="true" />
             <p className="text-sm font-semibold text-[#f5f2eb]">{t('frmNoRooms')}</p>
-            <p className="text-xs text-[#8c8279]">{t('frmNoRoomsText')}</p>
+            <p className="text-xs text-[#9e948c]">{t('frmNoRoomsText')}</p>
           </div>
         ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Room selector (4 cols) */}
           <div className={`lg:col-span-4 space-y-3 min-w-0 ${mobileChatView === 'chat' ? 'hidden lg:block' : 'block'}`}>
-            <h2 className="text-xs font-semibold text-[#8c8279] uppercase tracking-wider">{t('frmRooms')}</h2>
+            <h2 className="text-xs font-semibold text-[#9e948c] uppercase tracking-wider">{t('frmRooms')}</h2>
 
             <ul className="space-y-2">
               {visibleRooms.map(room => {
@@ -483,7 +649,7 @@ export const ForumAndChatsView: React.FC = () => {
                         <span className="min-w-0 break-words">{lf(room, 'title')}</span>
                       </span>
                       <span className="block text-[11px] text-[#9e948c] line-clamp-2 mt-1">{lf(room, 'description')}</span>
-                      <span className="mt-3 pt-2 border-t border-[#302a28] flex items-center justify-between gap-2 text-[10px] text-[#8c8279]">
+                      <span className="mt-3 pt-2 border-t border-[#302a28] flex items-center justify-between gap-2 text-[10px] text-[#9e948c]">
                         <span className="font-mono text-[#dfcfb3]">
                           {room.accessLevel === 'moderators' ? t('frmModCouncil') : t('frmResidents')}
                         </span>
@@ -520,7 +686,7 @@ export const ForumAndChatsView: React.FC = () => {
                   <h3 className="font-display text-sm font-bold text-[#f5f2eb] break-words">{lf(activeRoom, 'title')}</h3>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800">{t('frmPrivateChat')}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#8c8279] mt-0.5">
+                <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#9e948c] mt-0.5">
                   <Key className="w-3 h-3 text-[#dfcfb3]" aria-hidden="true" />
                   <span>{t('frmAccess')}: {activeRoom.accessLevel === 'moderators' ? t('frmModCouncil') : t('frmResidents')}</span>
                 </div>
@@ -547,7 +713,7 @@ export const ForumAndChatsView: React.FC = () => {
                   return (
                     <React.Fragment key={msg.id}>
                       {showDay && (
-                        <div className="flex items-center gap-2 text-[10px] text-[#8c8279] py-1" data-chat-day>
+                        <div className="flex items-center gap-2 text-[10px] text-[#9e948c] py-1" data-chat-day>
                           <span className="flex-1 h-px bg-[#302a28]" />
                           <span>{formatShortDate(day, t)}</span>
                           <span className="flex-1 h-px bg-[#302a28]" />
@@ -646,7 +812,7 @@ export const ForumAndChatsView: React.FC = () => {
                     aria-describedby="topic-title-hint"
                     className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
                   />
-                  <p id="topic-title-hint" className="mt-1 flex justify-between gap-2 text-[11px] text-[#8c8279]">
+                  <p id="topic-title-hint" className="mt-1 flex justify-between gap-2 text-[11px] text-[#9e948c]">
                     <span>{t('frmTitleHint')}</span>
                     <span className="font-mono" aria-hidden="true">{newTopicTitle.length}/{FORUM_LIMITS.titleMax}</span>
                   </p>
@@ -695,7 +861,7 @@ export const ForumAndChatsView: React.FC = () => {
                     type="button"
                     onClick={closeCreate}
                     disabled={topicSending}
-                    className={`px-3 min-h-10 rounded-lg text-xs text-[#8c8279] hover:text-[#f5f2eb] disabled:opacity-50 ${FOCUS_RING}`}
+                    className={`px-3 min-h-10 rounded-lg text-xs text-[#9e948c] hover:text-[#f5f2eb] disabled:opacity-50 ${FOCUS_RING}`}
                   >
                     {t('actionClose')}
                   </button>
