@@ -73,10 +73,13 @@ export const DashboardView: React.FC = () => {
   // --- Events ----------------------------------------------------------------
   const me = currentUser.id;
   const upcoming = useMemo(
-    () => events.filter(e => !hasEventStarted(e)).sort((a, b) => getEventStart(a).getTime() - getEventStart(b).getTime()),
+    // Cancelled events are not offered on the home page (the events page shows them with a mark).
+    () => events.filter(e => !hasEventStarted(e) && e.status !== 'cancelled').sort((a, b) => getEventStart(a).getTime() - getEventStart(b).getTime()),
     [events],
   );
 
+  const [regBusy, setRegBusy] = useState(false);
+  const [regError, setRegError] = useState('');
   const nextStep: NextStep = useMemo(() => {
     const now = Date.now();
     const qr = issueCheckInCode
@@ -254,10 +257,22 @@ export const DashboardView: React.FC = () => {
                 </button>
               )}
               {nextStep.kind === 'suggest' && (
-                <button onClick={() => registerForEvent(nextStep.event.id)} className="btn-primary">
-                  {t('actionRegister')}
+                <button
+                  onClick={async () => {
+                    if (regBusy) return;
+                    setRegBusy(true); setRegError('');
+                    const r = await registerForEvent(nextStep.event.id);
+                    setRegBusy(false);
+                    if (!r.ok) setRegError(t(r.error || 'authErrorGeneric'));
+                  }}
+                  disabled={regBusy}
+                  aria-busy={regBusy}
+                  className="btn-primary disabled:opacity-60"
+                >
+                  {regBusy ? t('evWorking') : t('actionRegister')}
                 </button>
               )}
+              {regError && <p role="alert" className="basis-full text-[12px] text-red-300" data-event-error>{regError}</p>}
               {nextStep.kind === 'neutral' ? (
                 <button onClick={() => openEvents()} className="btn-primary">
                   <Calendar className="w-4 h-4" />

@@ -11,9 +11,12 @@ export interface EventsIntent {
 }
 
 let pending: EventsIntent | null = null;
+export const EVENTS_INTENT_EVENT = 'shq-events-intent';
 
+/** If the events page is already open it is told through an event (e.g. a notification about an event). */
 export const setEventsIntent = (intent: EventsIntent) => {
   pending = intent;
+  window.dispatchEvent(new Event(EVENTS_INTENT_EVENT));
 };
 
 export const takeEventsIntent = (): EventsIntent => {

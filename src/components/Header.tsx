@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { setForumIntent } from '../utils/navIntent';
+import { setEventsIntent, setForumIntent } from '../utils/navIntent';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
 import { Bell, Globe, Sparkles, ChevronDown, Coins, Database, LogOut } from 'lucide-react';
@@ -199,6 +199,9 @@ export const Header: React.FC = () => {
                           onClick={() => {
                             // A reply in your topic opens that topic (Phase 2.4.2, F-16); other notifications open their section.
                             if (notif.topicId) setForumIntent({ topicId: notif.topicId });
+                            // A registration or a reminder opens that event (Phase 3).
+                            // Only when the notification leads to the events page (e.g. "attendance confirmed" leads elsewhere).
+                            if (notif.eventId && (notif.linkTab ?? 'events') === 'events') setEventsIntent({ openEventId: notif.eventId });
                             if (notif.linkTab && notif.linkTab !== 'members') {
                               setActiveTab(notif.linkTab as any);
                             } else if (notif.topicId) {

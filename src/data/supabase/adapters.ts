@@ -105,6 +105,7 @@ export const eventFromRow = (row: EventRow, rel: EventRelations = {}): Community
     hostId: row.created_by ?? undefined,
     feedbacks: byEvent(rel.feedback, row.id).map(f => feedbackFromRow(f, names)),
     isCompleted: row.status === 'completed',
+    status: row.status,
   };
 };
 

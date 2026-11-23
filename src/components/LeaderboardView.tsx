@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
+import { AvatarWithFallback } from './ProfileParts';
 import {
   Trophy,
   Crown,
@@ -18,9 +19,11 @@ export const LeaderboardView: React.FC = () => {
   const [sortKey, setSortKey] = useState<'xp' | 'books' | 'events' | 'coins'>('xp');
   const [searchMember, setSearchMember] = useState('');
 
+  // "Books" = finished books (a "reading" entry is not a read book).
+  const booksRead = (u: { readBooks: { status: string }[] }) => u.readBooks.filter(b => b.status === 'completed').length;
   const sortedUsers = [...allUsers].sort((a, b) => {
     if (sortKey === 'books') {
-      return b.readBooks.length - a.readBooks.length;
+      return booksRead(b) - booksRead(a);
     }
     if (sortKey === 'events') {
       return (
@@ -34,10 +37,10 @@ export const LeaderboardView: React.FC = () => {
     return b.xp - a.xp;
   });
 
-  const filteredUsers = sortedUsers.filter(u => {
-    if (!searchMember.trim()) return true;
-    return u.name.toLowerCase().includes(searchMember.toLowerCase());
-  });
+  // Search keeps each member's real place (a found member is not "#1" just because the list got shorter).
+  const rankOf = new Map(sortedUsers.map((u, i) => [u.id, i + 1]));
+  const q = searchMember.trim().toLocaleLowerCase();
+  const filteredUsers = sortedUsers.filter(u => !q || u.name.toLocaleLowerCase().includes(q) || (u.handle ?? '').toLocaleLowerCase().includes(q));
 
   const myRankIndex = sortedUsers.findIndex(u => u.id === currentUser.id);
   const myRank = myRankIndex !== -1 ? myRankIndex + 1 : 1;
@@ -69,7 +72,7 @@ export const LeaderboardView: React.FC = () => {
               </span>
             </div>
             <p className="text-[11px] sm:text-xs text-[#a39b94] truncate">
-              {currentUser.xp} XP · {currentUser.coins} {t('lbCoins')} · {currentUser.readBooks.length} {t('lbBooks')}
+              {currentUser.xp} XP · {currentUser.coins} {t('lbCoins')} · {booksRead(currentUser)} {t('lbBooks')}
             </p>
           </div>
         </div>
@@ -88,17 +91,15 @@ export const LeaderboardView: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4 pt-1 sm:pt-4">
         {/* 2nd Place */}
         {sortedUsers[1] && (
-          <div
+          <button
+            type="button"
             onClick={() => setSelectedUserModal(sortedUsers[1])}
+            aria-label={`#${2} ${sortedUsers[1].name}`}
             className="rounded-2xl p-4 sm:p-5 bg-[#23201e] border border-stone-600/50 flex flex-col items-center text-center cursor-pointer hover:border-stone-400 transition-all md:order-1 order-2"
           >
             <div className="relative mb-2.5">
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden ring-4 ring-stone-400/80 p-0.5">
-                <img
-                  src={sortedUsers[1].avatar}
-                  alt=""
-                  className="w-full h-full object-cover rounded-full"
-                />
+                <AvatarWithFallback src={sortedUsers[1].avatar} name={sortedUsers[1].name} className="w-full h-full" textClassName="text-lg" />
               </div>
               <div className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-stone-300 text-stone-900 font-bold text-xs flex items-center justify-center shadow">
                 2
@@ -112,26 +113,24 @@ export const LeaderboardView: React.FC = () => {
             </span>
             <div className="flex items-center gap-2 sm:gap-3 mt-2.5 pt-2.5 border-t border-[#302a28] text-xs">
               <span className="font-mono-numbers font-bold text-[#dfcfb3]">{sortedUsers[1].xp} XP</span>
-              <span className="text-[#8c8279]">·</span>
-              <span className="text-[#a39b94]">{sortedUsers[1].readBooks.length} {t('lbBooks')}</span>
+              <span className="text-[#9e948c]">·</span>
+              <span className="text-[#a39b94]">{booksRead(sortedUsers[1])} {t('lbBooks')}</span>
             </div>
-          </div>
+          </button>
         )}
 
         {/* 1st Place Champion */}
         {sortedUsers[0] && (
-          <div
+          <button
+            type="button"
             onClick={() => setSelectedUserModal(sortedUsers[0])}
+            aria-label={`#${1} ${sortedUsers[0].name}`}
             className="rounded-2xl p-5 sm:p-6 bg-gradient-to-b from-[#2e2621] via-[#24201e] to-[#1c1917] border-2 border-[#dfcfb3] flex flex-col items-center text-center cursor-pointer shadow-[0_0_30px_rgba(223,207,179,0.2)] md:order-2 order-1 transform md:-translate-y-2 transition-all"
           >
             <Crown className="w-6 h-6 sm:w-7 sm:h-7 text-[#f5d77f] animate-bounce mb-1" />
             <div className="relative mb-2.5">
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden ring-4 ring-[#dfcfb3] p-1 shadow-lg">
-                <img
-                  src={sortedUsers[0].avatar}
-                  alt=""
-                  className="w-full h-full object-cover rounded-full"
-                />
+                <AvatarWithFallback src={sortedUsers[0].avatar} name={sortedUsers[0].name} className="w-full h-full" textClassName="text-lg" />
               </div>
               <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#dfcfb3] text-[#1e1b1a] font-bold text-xs flex items-center justify-center shadow-lg">
                 1
@@ -145,27 +144,25 @@ export const LeaderboardView: React.FC = () => {
             </span>
             <div className="flex items-center gap-2 sm:gap-3 mt-2.5 pt-2.5 border-t border-[#3a332f] text-xs">
               <span className="font-mono-numbers font-bold text-[#f5d77f] text-sm">{sortedUsers[0].xp} XP</span>
-              <span className="text-[#8c8279]">·</span>
-              <span className="text-[#a39b94]">{sortedUsers[0].readBooks.length} {t('lbBooks')}</span>
-              <span className="text-[#8c8279]">·</span>
+              <span className="text-[#9e948c]">·</span>
+              <span className="text-[#a39b94]">{booksRead(sortedUsers[0])} {t('lbBooks')}</span>
+              <span className="text-[#9e948c]">·</span>
               <span className="text-[#f5d77f]">{sortedUsers[0].coins} 🪙</span>
             </div>
-          </div>
+          </button>
         )}
 
         {/* 3rd Place */}
         {sortedUsers[2] && (
-          <div
+          <button
+            type="button"
             onClick={() => setSelectedUserModal(sortedUsers[2])}
+            aria-label={`#${3} ${sortedUsers[2].name}`}
             className="rounded-2xl p-4 sm:p-5 bg-[#23201e] border border-amber-800/50 flex flex-col items-center text-center cursor-pointer hover:border-amber-700 transition-all md:order-3 order-3"
           >
             <div className="relative mb-2.5">
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden ring-4 ring-amber-700/80 p-0.5">
-                <img
-                  src={sortedUsers[2].avatar}
-                  alt=""
-                  className="w-full h-full object-cover rounded-full"
-                />
+                <AvatarWithFallback src={sortedUsers[2].avatar} name={sortedUsers[2].name} className="w-full h-full" textClassName="text-lg" />
               </div>
               <div className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-700 text-white font-bold text-xs flex items-center justify-center shadow">
                 3
@@ -179,10 +176,10 @@ export const LeaderboardView: React.FC = () => {
             </span>
             <div className="flex items-center gap-2 sm:gap-3 mt-2.5 pt-2.5 border-t border-[#302a28] text-xs">
               <span className="font-mono-numbers font-bold text-[#dfcfb3]">{sortedUsers[2].xp} XP</span>
-              <span className="text-[#8c8279]">·</span>
-              <span className="text-[#a39b94]">{sortedUsers[2].readBooks.length} {t('lbBooks')}</span>
+              <span className="text-[#9e948c]">·</span>
+              <span className="text-[#a39b94]">{booksRead(sortedUsers[2])} {t('lbBooks')}</span>
             </div>
-          </div>
+          </button>
         )}
       </div>
 
@@ -190,8 +187,10 @@ export const LeaderboardView: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 p-2.5 sm:p-3 bg-[#23201e] border border-[#352f2c] rounded-xl">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 sm:pb-0">
           <button
+            type="button"
+            aria-pressed={sortKey === 'xp'}
             onClick={() => setSortKey('xp')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 min-h-9 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               sortKey === 'xp'
                 ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'
@@ -200,8 +199,10 @@ export const LeaderboardView: React.FC = () => {
             {t('lbByXp')}
           </button>
           <button
+            type="button"
+            aria-pressed={sortKey === 'books'}
             onClick={() => setSortKey('books')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 min-h-9 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               sortKey === 'books'
                 ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'
@@ -210,8 +211,10 @@ export const LeaderboardView: React.FC = () => {
             {t('lbByBooks')}
           </button>
           <button
+            type="button"
+            aria-pressed={sortKey === 'events'}
             onClick={() => setSortKey('events')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 min-h-9 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               sortKey === 'events'
                 ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'
@@ -220,8 +223,10 @@ export const LeaderboardView: React.FC = () => {
             {t('lbByVisits')}
           </button>
           <button
+            type="button"
+            aria-pressed={sortKey === 'coins'}
             onClick={() => setSortKey('coins')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 min-h-9 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               sortKey === 'coins'
                 ? 'bg-[#dfcfb3] text-[#1e1b1a] font-semibold'
                 : 'text-[#9e948c] hover:text-[#f5f2eb]'
@@ -232,30 +237,33 @@ export const LeaderboardView: React.FC = () => {
         </div>
 
         <div className="relative">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8c8279]" />
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9e948c]" />
           <input
-            type="text"
+            type="search"
+            aria-label={t('lbSearch')}
             placeholder={t('lbSearch')}
             value={searchMember}
             onChange={e => setSearchMember(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+            className="w-full min-h-10 pl-8 pr-3 py-1.5 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
           />
         </div>
       </div>
 
       {/* Leaderboard Cards on Mobile (< sm) */}
       <div className="sm:hidden space-y-2.5">
-        {filteredUsers.map((user, idx) => {
-          const rank = idx + 1;
+        {filteredUsers.map(user => {
+          const rank = rankOf.get(user.id) ?? 0;
           const isMe = user.id === currentUser.id;
           const tierInfo = TIERS[user.tier];
           const attendedCount = user.attendedEvents.filter(e => e.status === 'attended').length;
 
           return (
-            <div
+            <button
+              type="button"
               key={user.id}
               onClick={() => setSelectedUserModal(user)}
-              className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+              data-member-row={user.id}
+              className={`block w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfcfb3]/60 ${
                 isMe
                   ? 'bg-[#dfcfb3]/10 border-[#dfcfb3]/50'
                   : 'bg-[#23201e] border-[#352f2c] hover:border-[#4d443f]'
@@ -266,11 +274,7 @@ export const LeaderboardView: React.FC = () => {
                   <span className="font-display font-bold text-xs w-7 shrink-0 text-[#dfcfb3]">
                     {rank === 1 ? '🥇 #1' : rank === 2 ? '🥈 #2' : rank === 3 ? '🥉 #3' : `#${rank}`}
                   </span>
-                  <img
-                    src={user.avatar}
-                    alt=""
-                    className="w-8 h-8 rounded-full object-cover ring-1 ring-[#dfcfb3]/40 shrink-0"
-                  />
+                  <AvatarWithFallback src={user.avatar} name={user.name} className="w-8 h-8 rounded-full object-cover ring-1 ring-[#dfcfb3]/40 shrink-0" textClassName="text-[10px]" />
                   <div className="min-w-0">
                     <span className="font-bold text-xs text-[#f5f2eb] truncate block">
                       {user.name} {isMe && <span className="text-[10px] text-[#dfcfb3] font-normal">({t('lbYou')})</span>}
@@ -291,11 +295,11 @@ export const LeaderboardView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-2.5 pt-2 border-t border-[#302a28] flex items-center justify-between text-[11px] text-[#8c8279]">
-                <span>{t('lbBooksRead').replace('{n}', String(user.readBooks.length))}</span>
+              <div className="mt-2.5 pt-2 border-t border-[#302a28] flex items-center justify-between text-[11px] text-[#9e948c]">
+                <span>{t('lbBooksRead').replace('{n}', String(booksRead(user)))}</span>
                 <span>{t('lbEventsAttended').replace('{n}', String(attendedCount))}</span>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -304,7 +308,7 @@ export const LeaderboardView: React.FC = () => {
       <div className="hidden sm:block rounded-2xl bg-[#23201e] border border-[#352f2c] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#1a1716] text-[#8c8279] uppercase text-[10px] tracking-wider border-b border-[#302a28]">
+            <thead className="bg-[#1a1716] text-[#9e948c] uppercase text-[10px] tracking-wider border-b border-[#302a28]">
               <tr>
                 <th className="px-4 py-3">{t('rank')}</th>
                 <th className="px-4 py-3">{t('member')}</th>
@@ -316,8 +320,8 @@ export const LeaderboardView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2d2725]">
-              {filteredUsers.map((user, idx) => {
-                const rank = idx + 1;
+              {filteredUsers.map(user => {
+                const rank = rankOf.get(user.id) ?? 0;
                 const isMe = user.id === currentUser.id;
                 const tierInfo = TIERS[user.tier];
                 const attendedCount = user.attendedEvents.filter(e => e.status === 'attended').length;
@@ -337,19 +341,16 @@ export const LeaderboardView: React.FC = () => {
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <img
-                          src={user.avatar}
-                          alt=""
-                          className="w-8 h-8 rounded-full object-cover ring-1 ring-[#dfcfb3]/50 shrink-0"
-                        />
+                        <AvatarWithFallback src={user.avatar} name={user.name} className="w-8 h-8 rounded-full object-cover ring-1 ring-[#dfcfb3]/50 shrink-0" textClassName="text-[10px]" />
                         <div className="min-w-0">
-                          <span className="font-bold text-[#f5f2eb] flex items-center gap-1.5 truncate">
+                          <button type="button" onClick={e => { e.stopPropagation(); setSelectedUserModal(user); }} data-member-row={user.id}
+                                  className="font-bold text-[#f5f2eb] flex items-center gap-1.5 truncate text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfcfb3]/60">
                             {user.name}
                             {isMe && (
                               <span className="text-[10px] text-[#dfcfb3] font-normal">({t('lbYou')})</span>
                             )}
-                          </span>
-                          <span className="text-[10px] text-[#8c8279] block truncate">
+                          </button>
+                          <span className="text-[10px] text-[#b0a79d] block truncate">
                             {user.handle}
                           </span>
                         </div>
@@ -361,7 +362,7 @@ export const LeaderboardView: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3.5 font-mono text-[#d6cebf]">
-                      {user.readBooks.length}
+                      {booksRead(user)}
                     </td>
                     <td className="px-4 py-3.5 font-mono text-[#d6cebf]">
                       {attendedCount}

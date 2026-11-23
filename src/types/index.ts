@@ -242,7 +242,12 @@ export interface CommunityEvent {
   hostId?: string;
   feedbacks: EventFeedback[];
   isCompleted?: boolean;
+  /** public.events.status; "cancelled" events stay visible with a mark (no registration). */
+  status?: 'draft' | 'published' | 'completed' | 'cancelled';
 }
+
+/** What an organizer can change in an existing event (Phase 3). */
+export type EventPatch = Pick<CommunityEvent, 'title' | 'description' | 'date' | 'time' | 'durationMinutes' | 'format' | 'locationAddress' | 'maxCapacity' | 'requiredMaterials'>;
 
 export interface ForumReply {
   id: string;
@@ -330,6 +335,8 @@ export interface AppNotification {
   actionMeta?: string;
   /** Forum topic this notification is about (a reply in your topic): opens that topic. */
   topicId?: string;
+  /** Event this notification is about (registration, reminder): opens that event. */
+  eventId?: string;
 }
 
 export interface BroadcastLog {

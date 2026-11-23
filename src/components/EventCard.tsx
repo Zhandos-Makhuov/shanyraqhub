@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { COMMUNITY_DIRECTIONS, eventImage } from '../data/directions';
 import { exportEventToIcs } from '../utils/calendar';
@@ -29,7 +29,21 @@ export const EventCard: React.FC<{
   const directionName = direction
     ? language === 'kz' ? direction.shortNameKz : language === 'en' ? direction.shortNameEn : direction.shortNameRu
     : '';
-  const isPast = status === 'ended' || status === 'attended';
+  const isPast = status === 'ended' || status === 'attended' || status === 'cancelled';
+  // Register / cancel: "…" while the server answers, a second tap is ignored, the error stays under the card.
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const busyRef = useRef(false);
+  const act = async (fn: (id: string) => Promise<{ ok: boolean; error?: string }>) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setError('');
+    const r = await fn(event.id);
+    busyRef.current = false;
+    setBusy(false);
+    if (!r.ok) setError(t(r.error || 'authErrorGeneric'));
+  };
   const canShowQr = !!onQr && !!issueCheckInCode && event.registeredUserIds.includes(currentUser.id)
     && status !== 'attended' && isCheckInWindowOpen(event);
   // Same "already given" rule as submitEventFeedback.
@@ -42,6 +56,7 @@ export const EventCard: React.FC<{
     attended: { label: t('evStatusAttended'), cls: 'bg-emerald-900/80 text-emerald-200' },
     inProgress: { label: t('evStatusInProgress'), cls: 'bg-amber-900/80 text-amber-200' },
     full: { label: t('eventFull'), cls: 'bg-black/70 text-[#d6cebf]' },
+    cancelled: { label: t('evStatusCancelled'), cls: 'bg-red-950/90 text-red-200' },
     ended: { label: t('evStatusEnded'), cls: 'bg-black/70 text-[#b0a79d]' },
   };
   const badge = statusBadge[status];
@@ -63,14 +78,14 @@ export const EventCard: React.FC<{
     );
   } else if (status === 'registered') {
     primary = (
-      <button onClick={() => cancelEventRegistration(event.id)} className="btn-secondary">
-        {t('evCancelRegistration')}
+      <button onClick={() => act(cancelEventRegistration)} disabled={busy} aria-busy={busy} className="btn-secondary disabled:opacity-60" data-event-action="cancel">
+        {busy ? t('evWorking') : t('evCancelRegistration')}
       </button>
     );
   } else if (status === 'open') {
     primary = (
-      <button onClick={() => registerForEvent(event.id)} className="btn-primary">
-        {t('actionRegister')}
+      <button onClick={() => act(registerForEvent)} disabled={busy} aria-busy={busy} className="btn-primary disabled:opacity-60" data-event-action="register">
+        {busy ? t('evWorking') : t('actionRegister')}
       </button>
     );
   } else {
@@ -133,19 +148,22 @@ export const EventCard: React.FC<{
             <span className="truncate">
               <span className="font-medium text-[#e6dfd3]">{formatEventDay(event, t)}</span>
               {' · '}{event.time}
-              <span className="text-[#8c8279]"> · {event.durationMinutes} {t('evMin')}</span>
+              <span className="text-[#9e948c]"> · {event.durationMinutes} {t('evMin')}</span>
             </span>
           </div>
           <div className="flex items-center gap-2 min-w-0">
             <MapPin className="w-3.5 h-3.5 text-[#c8b393] shrink-0" />
             <span className="truncate">{event.locationAddress}</span>
           </div>
+          {status === 'cancelled' && (
+            <p className="text-[12px] text-red-200/90" data-event-cancelled-note>{t('evCancelledNote')}</p>
+          )}
           {!isPast && (
             <div className="flex items-center gap-2 min-w-0">
               <Users className="w-3.5 h-3.5 text-[#c8b393] shrink-0" />
               <span className="truncate">
                 <span className="font-mono-numbers">{registered}/{event.maxCapacity}</span>
-                <span className="text-[#8c8279]">
+                <span className="text-[#9e948c]">
                   {' · '}{seatsLeft > 0 ? t('dashSeatsLeft').replace('{n}', String(seatsLeft)) : t('eventFull')}
                 </span>
               </span>
@@ -154,6 +172,11 @@ export const EventCard: React.FC<{
         </div>
       </div>
 
+      {error && (
+        <p role="alert" className="mx-4 mb-2 text-[12px] text-red-300 bg-red-950/40 border border-red-900/60 rounded-lg px-3 py-2" data-event-error>
+          {error}
+        </p>
+      )}
       <div className="px-4 pb-4 flex items-center gap-2">
         <div className="flex-1 min-w-0 [&>button]:w-full">{primary}</div>
         {variant === 'full' && !isPast && (

@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserProfile, UserRole } from '../types';
 import { canAssignRole, hasRole } from '../utils/permissions';
 import { computeCommunityStats, computeDirectionReach } from '../utils/communityStats';
 import { hasQualifyingReview } from '../utils/bookCredit';
 import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
+import { TIERS } from '../data/gamification';
+import { AvatarWithFallback } from './ProfileParts';
+import { ConfirmDialog } from './ForumPostTools';
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'member', label: 'Member' },
@@ -52,6 +55,45 @@ export const AdminView: React.FC = () => {
     ROLE_OPTIONS.some(opt => opt.value !== user.role && canAssignRole(currentUser.role, currentUser.id, user.id, user.role, opt.value));
 
   const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'broadcast' | 'audit'>('analytics');
+  const roleLabel = (r: UserRole) => t(`role_${r}`);
+
+  // Results of admin actions are shown here (not in a browser alert); errors from the server still come as before.
+  const [notice, setNotice] = useState('');
+  useEffect(() => {
+    if (!notice) return;
+    const id = window.setTimeout(() => setNotice(''), 6000);
+    return () => window.clearTimeout(id);
+  }, [notice]);
+
+  // Role changes, coin adjustments and revocations need a confirmation: a select changed by mistake must not change rights.
+  type Pending =
+    | { kind: 'role'; user: UserProfile; role: UserRole }
+    | { kind: 'coins'; user: UserProfile; amount: number; reason: string }
+    | { kind: 'revoke'; user: UserProfile; achId: string; achTitle: string; reason: string };
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [pendingBusy, setPendingBusy] = useState(false);
+  const runPending = async () => {
+    if (!pending || pendingBusy) return;
+    setPendingBusy(true);
+    let ok = false;
+    if (pending.kind === 'role') ok = await updateUserRole(pending.user.id, pending.role);
+    if (pending.kind === 'coins') ok = !!(await adjustUserCoins(pending.user.id, pending.amount, pending.reason));
+    if (pending.kind === 'revoke') ok = !!(await revokeAchievement(pending.user.id, pending.achId, pending.reason));
+    setPendingBusy(false);
+    const done = pending;
+    setPending(null);
+    if (!ok) return;
+    if (done.kind === 'role') setNotice(t('admRoleChanged').replace('{name}', done.user.name).replace('{role}', roleLabel(done.role)));
+    if (done.kind === 'coins') { setNotice(t('admCoinsAdjusted').replace('{n}', `${done.amount > 0 ? '+' : ''}${done.amount}`) + ` — ${done.user.name}`); setAdjustReason(''); }
+    if (done.kind === 'revoke') { setNotice(t('admRevokedDone').replace('{ach}', done.achTitle).replace('{name}', done.user.name)); setRevokeReason(''); }
+  };
+
+  // Members list: search by name / handle and filter by role (many members).
+  const [userQuery, setUserQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
+  const uq = userQuery.trim().toLocaleLowerCase();
+  const listedUsers = allUsers.filter(u => (roleFilter === 'all' || u.role === roleFilter)
+    && (!uq || u.name.toLocaleLowerCase().includes(uq) || (u.handle ?? '').toLocaleLowerCase().includes(uq)));
 
   // Broadcast state
   const [broadcastTitle, setBroadcastTitle] = useState('');
@@ -112,9 +154,8 @@ export const AdminView: React.FC = () => {
     if (!selectedRevokeId) return;
     const ach = revokeUserAchievements.find(a => a.id === selectedRevokeId);
     const user = allUsers.find(u => u.id === revokeUserId);
-    if (!window.confirm(t('admRevokeConfirm').replace('{ach}', lf(ach, 'title')).replace('{name}', user?.name ?? ''))) return;
-    if (!(await revokeAchievement(revokeUserId, selectedRevokeId, revokeReason))) return;
-    setRevokeReason('');
+    if (!user) return;
+    setPending({ kind: 'revoke', user, achId: selectedRevokeId, achTitle: lf(ach, 'title'), reason: revokeReason });
   };
 
   const handleAwardAchievement = async (e: React.FormEvent) => {
@@ -123,17 +164,41 @@ export const AdminView: React.FC = () => {
     const ach = manualAchievements.find(a => a.id === awardAchievementId);
     const user = allUsers.find(u => u.id === awardUserId);
     setAwardNote('');
-    alert(t('admAwarded').replace('{ach}', lf(ach, 'title')).replace('{name}', user?.name ?? ''));
+    setNotice(t('admAwarded').replace('{ach}', lf(ach, 'title')).replace('{name}', user?.name ?? ''));
   };
 
-  const handleCoinAdjust = async (e: React.FormEvent) => {
+  const handleCoinAdjust = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!(await adjustUserCoins(adjustTargetUserId, Number(adjustAmount), adjustReason.trim()))) return;
-    alert(t('admCoinsAdjusted').replace('{n}', `${adjustAmount > 0 ? '+' : ''}${adjustAmount}`));
+    const user = allUsers.find(u => u.id === adjustTargetUserId);
+    if (!user || !Number(adjustAmount) || !adjustReason.trim()) return;
+    setPending({ kind: 'coins', user, amount: Number(adjustAmount), reason: adjustReason.trim() });
   };
+
+  const pendingText = !pending ? '' : pending.kind === 'role'
+    ? t('admRoleConfirmText').replace('{name}', pending.user.name).replace('{from}', roleLabel(pending.user.role)).replace('{to}', roleLabel(pending.role))
+    : pending.kind === 'coins'
+      ? t('admCoinsConfirmText').replace('{name}', pending.user.name).replace('{n}', `${pending.amount > 0 ? '+' : ''}${pending.amount}`).replace('{reason}', pending.reason)
+      : t('admRevokeConfirm').replace('{ach}', pending.achTitle).replace('{name}', pending.user.name);
 
   return (
     <div className="space-y-6 pb-12">
+      <ConfirmDialog
+        open={!!pending}
+        title={pending?.kind === 'role' ? t('admRoleConfirmQ') : pending?.kind === 'coins' ? t('admCoinsConfirmQ') : t('admRevokeConfirmQ')}
+        text={pendingText}
+        confirmLabel={t('admConfirmApply')}
+        busyLabel={t('evWorking')}
+        cancelLabel={t('frmCancel')}
+        busy={pendingBusy}
+        onConfirm={() => void runPending()}
+        onCancel={() => setPending(null)}
+      />
+      {notice && (
+        <div role="status" className="flex items-center gap-2 p-3 rounded-xl border bg-emerald-950/30 border-emerald-900/60 text-[13px] text-emerald-200" data-admin-notice>
+          <CheckCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <span className="flex-1">{notice}</span>
+        </div>
+      )}
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-[#29221e] to-[#1c1917] border border-[#3f3834]">
         <div className="space-y-1">
@@ -174,6 +239,7 @@ export const AdminView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('users')}
+          data-admin-tab="users"
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
             activeTab === 'users'
               ? 'bg-[#dfcfb3] text-[#1e1b1a]'
@@ -215,39 +281,39 @@ export const AdminView: React.FC = () => {
           {/* Key Metrics */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-              <span className="text-xs text-[#8c8279] block">{t('admTotalMembers')}</span>
+              <span className="text-xs text-[#9e948c] block">{t('admTotalMembers')}</span>
               <span className="text-2xl font-bold font-mono-numbers text-[#f5f2eb] mt-1 block">
                 {stats.members}
               </span>
-              <span className={`text-[11px] mt-1 block ${stats.newMembersLast30Days > 0 ? 'text-emerald-400' : 'text-[#8c8279]'}`}>
+              <span className={`text-[11px] mt-1 block ${stats.newMembersLast30Days > 0 ? 'text-emerald-400' : 'text-[#9e948c]'}`}>
                 {stats.newMembersLast30Days > 0 ? t('admNew30').replace('{n}', String(stats.newMembersLast30Days)) : t('admNoNew30')}
               </span>
             </div>
 
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-              <span className="text-xs text-[#8c8279] block">{t('admMeetupsHeld')}</span>
+              <span className="text-xs text-[#9e948c] block">{t('admMeetupsHeld')}</span>
               <span className="text-2xl font-bold font-mono-numbers text-[#dfcfb3] mt-1 block">
                 {stats.eventsHeld}
               </span>
-              <span className="text-[11px] text-[#8c8279] mt-1 block">{t('admInCalendar')}: {events.length}</span>
+              <span className="text-[11px] text-[#9e948c] mt-1 block">{t('admInCalendar')}: {events.length}</span>
             </div>
 
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-              <span className="text-xs text-[#8c8279] block">{t('admTotalVisits')}</span>
+              <span className="text-xs text-[#9e948c] block">{t('admTotalVisits')}</span>
               <span className="text-2xl font-bold font-mono-numbers text-[#f5d77f] mt-1 block">
                 {stats.verifiedVisits}
               </span>
-              <span className="text-[11px] text-[#8c8279] mt-1 block">
+              <span className="text-[11px] text-[#9e948c] mt-1 block">
                 {stats.attendanceRate !== null ? t('admTurnout').replace('{n}', String(stats.attendanceRate)) : t('attNoEntries')}
               </span>
             </div>
 
             <div className="p-4 rounded-xl bg-[#23201e] border border-[#352f2c]">
-              <span className="text-xs text-[#8c8279] block">{t('admBooksReviewed')}</span>
+              <span className="text-xs text-[#9e948c] block">{t('admBooksReviewed')}</span>
               <span className="text-2xl font-bold font-mono-numbers text-cyan-300 mt-1 block">
                 {stats.reviewedBooks}
               </span>
-              <span className="text-[11px] text-[#8c8279] mt-1 block">
+              <span className="text-[11px] text-[#9e948c] mt-1 block">
                 {avgBookRating !== null ? `${t('admAvgRating')}: ${avgBookRating.toFixed(1)}★` : t('admNoRatings')}
               </span>
             </div>
@@ -291,31 +357,47 @@ export const AdminView: React.FC = () => {
               <h3 className="font-display text-sm font-bold text-[#f5f2eb]">
                 {t('admRolesTitle')}
               </h3>
-              <span className="text-xs text-[#8c8279]">
-                {t('admTotalMembers')}: {allUsers.length}
+              <span className="text-xs text-[#9e948c]" aria-live="polite">
+                {t('admTotalMembers')}: {listedUsers.length === allUsers.length ? allUsers.length : `${listedUsers.length} / ${allUsers.length}`}
               </span>
             </div>
+            <div className="p-3 border-b border-[#302a28] flex flex-col min-[420px]:flex-row gap-2" data-admin-user-filters>
+              <input
+                type="search"
+                value={userQuery}
+                onChange={e => setUserQuery(e.target.value)}
+                aria-label={t('admSearchMembers')}
+                placeholder={t('admSearchMembers')}
+                className="flex-1 min-w-0 min-h-10 px-3 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+              />
+              <select
+                value={roleFilter}
+                onChange={e => setRoleFilter(e.target.value as 'all' | UserRole)}
+                aria-label={t('admFilterRole')}
+                className="min-h-10 px-2 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb]"
+              >
+                <option value="all">{t('admAllRoles')}</option>
+                {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{roleLabel(o.value)}</option>)}
+              </select>
+            </div>
+            {listedUsers.length === 0 && <p className="p-6 text-center text-xs text-[#9e948c]" data-admin-users-empty>{t('admNoMembersFound')}</p>}
 
             {/* Mobile Cards List (< sm) */}
             <div className="sm:hidden divide-y divide-[#2d2725]">
-              {allUsers.map(user => (
+              {listedUsers.map(user => (
                 <div key={`mobile-user-${user.id}`} className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <img
-                        src={user.avatar}
-                        alt=""
-                        className="w-9 h-9 rounded-full object-cover ring-1 ring-[#dfcfb3]/40"
-                      />
+                      <AvatarWithFallback src={user.avatar} name={user.name} className="w-9 h-9 ring-1 ring-[#dfcfb3]/40" textClassName="text-[10px]" />
                       <div>
                         <span className="font-bold text-xs text-[#f5f2eb] block">{user.name}</span>
-                        <span className="text-[10px] text-[#8c8279] font-mono">{user.handle}</span>
+                        <span className="text-[10px] text-[#9e948c] font-mono">{user.handle}</span>
                       </div>
                     </div>
 
                     <div className="text-right">
                       <span className="text-xs font-semibold text-[#dfcfb3] block">
-                        {user.tier.toUpperCase()}
+                        {ln(TIERS[user.tier])}
                       </span>
                       <span className="text-[11px] font-mono text-amber-400">
                         {user.coins} 🪙
@@ -324,11 +406,12 @@ export const AdminView: React.FC = () => {
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] text-[#8c8279]">{t('admAssignRole')}:</span>
+                    <span className="text-[11px] text-[#9e948c]">{t('admAssignRole')}:</span>
                     <select
                       value={user.role}
                       disabled={!canManageRolesOf(user)}
-                      onChange={e => updateUserRole(user.id, e.target.value as UserRole)}
+                      onChange={e => setPending({ kind: 'role', user, role: e.target.value as UserRole })}
+                      aria-label={`${t('admAssignRole')}: ${user.name}`}
                       className="px-2 py-1 rounded bg-[#191615] border border-[#3b3430] text-xs text-[#dfcfb3] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {ROLE_OPTIONS.map(opt => (
@@ -337,7 +420,7 @@ export const AdminView: React.FC = () => {
                           value={opt.value}
                           disabled={opt.value !== user.role && !canAssignRole(currentUser.role, currentUser.id, user.id, user.role, opt.value)}
                         >
-                          {opt.label}
+                          {roleLabel(opt.value)}
                         </option>
                       ))}
                     </select>
@@ -349,7 +432,7 @@ export const AdminView: React.FC = () => {
             {/* Desktop Table (>= sm) */}
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#1a1716] text-[#8c8279] uppercase text-[10px] tracking-wider border-b border-[#302a28]">
+                <thead className="bg-[#1a1716] text-[#9e948c] uppercase text-[10px] tracking-wider border-b border-[#302a28]">
                   <tr>
                     <th className="px-4 py-3">{t('attMember')}</th>
                     <th className="px-4 py-3">{t('admTier')}</th>
@@ -359,37 +442,34 @@ export const AdminView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#2d2725]">
-                  {allUsers.map(user => (
+                  {listedUsers.map(user => (
                     <tr key={user.id} className="hover:bg-[#282321] transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <img
-                            src={user.avatar}
-                            alt=""
-                            className="w-7 h-7 rounded-full object-cover ring-1 ring-[#dfcfb3]/40"
-                          />
+                          <AvatarWithFallback src={user.avatar} name={user.name} className="w-7 h-7 ring-1 ring-[#dfcfb3]/40" textClassName="text-[10px]" />
                           <div>
                             <span className="font-bold text-[#f5f2eb] block">{user.name}</span>
-                            <span className="text-[10px] text-[#8c8279] font-mono">{user.handle}</span>
+                            <span className="text-[10px] text-[#9e948c] font-mono">{user.handle}</span>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 font-semibold text-[#dfcfb3]">
-                        {user.tier.toUpperCase()}
+                        {ln(TIERS[user.tier])}
                       </td>
                       <td className="px-4 py-3 font-mono text-amber-400">
                         {user.coins} 🪙
                       </td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded text-[10px] uppercase font-mono bg-[#191615] text-[#d6cebf] border border-[#3b3430]">
-                          {user.role}
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-[#191615] text-[#d6cebf] border border-[#3b3430]">
+                          {roleLabel(user.role)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <select
                           value={user.role}
                           disabled={!canManageRolesOf(user)}
-                          onChange={e => updateUserRole(user.id, e.target.value as UserRole)}
+                          onChange={e => setPending({ kind: 'role', user, role: e.target.value as UserRole })}
+                      aria-label={`${t('admAssignRole')}: ${user.name}`}
                           className="p-1 rounded bg-[#191615] border border-[#3b3430] text-[11px] text-[#dfcfb3] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {ROLE_OPTIONS.map(opt => (
@@ -398,7 +478,7 @@ export const AdminView: React.FC = () => {
                               value={opt.value}
                               disabled={opt.value !== user.role && !canAssignRole(currentUser.role, currentUser.id, user.id, user.role, opt.value)}
                             >
-                              {opt.label}
+                              {roleLabel(opt.value)}
                             </option>
                           ))}
                         </select>
@@ -419,8 +499,9 @@ export const AdminView: React.FC = () => {
 
             <form onSubmit={handleCoinAdjust} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <label className="text-[#8c8279] block mb-1">{t('attMember')}</label>
+                <label htmlFor="adm-field-1" className="text-[#9e948c] block mb-1">{t('attMember')}</label>
                 <select
+                  id="adm-field-1"
                   value={adjustTargetUserId}
                   onChange={e => setAdjustTargetUserId(e.target.value)}
                   className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
@@ -432,8 +513,9 @@ export const AdminView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-[#8c8279] block mb-1">{t('admCoinAmount')}</label>
+                <label htmlFor="adm-field-2" className="text-[#9e948c] block mb-1">{t('admCoinAmount')}</label>
                 <input
+                  id="adm-field-2"
                   type="number"
                   required
                   value={adjustAmount}
@@ -443,8 +525,9 @@ export const AdminView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-[#8c8279] block mb-1">{t('admReason')}</label>
+                <label htmlFor="adm-field-3" className="text-[#9e948c] block mb-1">{t('admReason')}</label>
                 <input
+                  id="adm-field-3"
                   type="text"
                   required
                   value={adjustReason}
@@ -471,14 +554,15 @@ export const AdminView: React.FC = () => {
                 <Award className="w-4 h-4 text-amber-500" />
                 <span>{t('admRevokeTitle')}</span>
               </h3>
-              <p className="text-[11px] text-[#8c8279]">
+              <p className="text-[11px] text-[#9e948c]">
                 {t('admRevokeText')}
               </p>
 
               <form onSubmit={handleRevokeAchievement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <label className="text-[#8c8279] block mb-1">{t('attMember')}</label>
+                  <label htmlFor="adm-field-4" className="text-[#9e948c] block mb-1">{t('attMember')}</label>
                   <select
+                    id="adm-field-4"
                     value={revokeUserId}
                     onChange={e => setRevokeUserId(e.target.value)}
                     className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
@@ -490,8 +574,9 @@ export const AdminView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-[#8c8279] block mb-1">{t('admAchievement')}</label>
+                  <label htmlFor="adm-field-5" className="text-[#9e948c] block mb-1">{t('admAchievement')}</label>
                   <select
+                    id="adm-field-5"
                     value={selectedRevokeId}
                     onChange={e => setRevokeAchievementId(e.target.value)}
                     disabled={revokeUserAchievements.length === 0}
@@ -508,8 +593,9 @@ export const AdminView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-[#8c8279] block mb-1">{t('admReasonRequired')}</label>
+                  <label htmlFor="adm-field-6" className="text-[#9e948c] block mb-1">{t('admReasonRequired')}</label>
                   <input
+                    id="adm-field-6"
                     type="text"
                     required
                     value={revokeReason}
@@ -539,14 +625,15 @@ export const AdminView: React.FC = () => {
                 <Award className="w-4 h-4 text-[#dfcfb3]" />
                 <span>{t('admAwardTitle')}</span>
               </h3>
-              <p className="text-[11px] text-[#8c8279]">
+              <p className="text-[11px] text-[#9e948c]">
                 {t('admAwardText')}
               </p>
 
               <form onSubmit={handleAwardAchievement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                 <div>
-                  <label className="text-[#8c8279] block mb-1">{t('attMember')}</label>
+                  <label htmlFor="adm-field-7" className="text-[#9e948c] block mb-1">{t('attMember')}</label>
                   <select
+                    id="adm-field-7"
                     value={awardUserId}
                     onChange={e => setAwardUserId(e.target.value)}
                     className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
@@ -558,8 +645,9 @@ export const AdminView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-[#8c8279] block mb-1">{t('admAchievement')}</label>
+                  <label htmlFor="adm-field-8" className="text-[#9e948c] block mb-1">{t('admAchievement')}</label>
                   <select
+                    id="adm-field-8"
                     value={awardAchievementId}
                     onChange={e => setAwardAchievementId(e.target.value)}
                     className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
@@ -576,8 +664,9 @@ export const AdminView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-[#8c8279] block mb-1">{t('admProof')}</label>
+                  <label htmlFor="adm-field-9" className="text-[#9e948c] block mb-1">{t('admProof')}</label>
                   <input
+                    id="adm-field-9"
                     type="text"
                     value={awardNote}
                     placeholder={t('admProofPlaceholder')}
@@ -611,10 +700,11 @@ export const AdminView: React.FC = () => {
 
             <form onSubmit={handleBroadcastSubmit} className="space-y-4 text-xs">
               <div>
-                <label className="font-medium text-[#d6cebf] block mb-1">
+                <label htmlFor="adm-bc-title" className="font-medium text-[#d6cebf] block mb-1">
                   {t('admBroadcastHeading')} *
                 </label>
                 <input
+                  id="adm-bc-title"
                   type="text"
                   required
                   value={broadcastTitle}
@@ -625,10 +715,11 @@ export const AdminView: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-medium text-[#d6cebf] block mb-1">
+                <label htmlFor="adm-bc-text" className="font-medium text-[#d6cebf] block mb-1">
                   {t('admBroadcastText')} *
                 </label>
                 <textarea
+                  id="adm-bc-text"
                   rows={4}
                   required
                   value={broadcastContent}
@@ -640,8 +731,9 @@ export const AdminView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-medium text-[#d6cebf] block mb-1">{t('admAudience')}</label>
+                  <label htmlFor="adm-field-10" className="font-medium text-[#d6cebf] block mb-1">{t('admAudience')}</label>
                   <select
+                    id="adm-field-10"
                     value={broadcastTarget}
                     onChange={e => setBroadcastTarget(e.target.value)}
                     className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
@@ -701,7 +793,7 @@ export const AdminView: React.FC = () => {
 
           {/* Live Preview for Telegram / WhatsApp */}
           <div className="lg:col-span-5 p-6 rounded-2xl bg-[#1a1716] border border-[#352f2c] space-y-4">
-            <span className="text-[10px] uppercase font-bold text-[#8c8279] tracking-wider block">
+            <span className="text-[10px] uppercase font-bold text-[#9e948c] tracking-wider block">
               {t('admTgPreview')}
             </span>
 
@@ -743,7 +835,7 @@ export const AdminView: React.FC = () => {
                     </span>
                     <span className="text-[#a39b94] font-medium">{log.target}</span>
                   </div>
-                  <p className="text-[11px] text-[#8c8279]">{log.details}</p>
+                  <p className="text-[11px] text-[#9e948c]">{log.details}</p>
                 </div>
                 <span className="text-[10px] text-[#736a62] font-mono whitespace-nowrap">
                   {log.timestamp}

@@ -13,7 +13,7 @@ import type {
   AchievementRevocationRow, BookRow, UserBookRow, EventAttendanceRow, EventFeedbackRow, EventRegistrationRow, EventRow,
   PeerReviewRow, ProfileRow, UserAchievementRow, UserBalanceRow, UserRoleRow,
 } from './rows';
-import type { AppNotification, AuditLog, ChatMessage, CoinTransaction, CommunityEvent, DirectionId, ItemCategory, PeerReview, EncryptedChatRoom, ForumCategory, ForumTopic, ReadBook, UserProfile, UserRole } from '../../types';
+import type { EventPatch, AppNotification, AuditLog, ChatMessage, CoinTransaction, CommunityEvent, DirectionId, ItemCategory, PeerReview, EncryptedChatRoom, ForumCategory, ForumTopic, ReadBook, UserProfile, UserRole } from '../../types';
 import { hasRole } from '../../utils/permissions';
 import { roleFromDb, roleToDb } from './adapters';
 import { TRANSLATIONS } from '../translations';
@@ -271,6 +271,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       read: n.read_at !== null,
       linkTab: (n.link_tab ?? undefined) as AppNotification['linkTab'],
       topicId: typeof n.meta?.topic_id === 'string' ? n.meta.topic_id : undefined,
+      eventId: typeof n.meta?.event_id === 'string' ? n.meta.event_id : undefined,
     })),
   };
 };
@@ -360,6 +361,22 @@ export const createEvent = async (ev: Partial<CommunityEvent> & { date: string; 
     return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
   }
 };
+
+/** Organizer of the event or moderator+ (RLS events_update); "0 rows" = no access. */
+export const updateEvent = (eventId: string, p: EventPatch) =>
+  changeRows(db().from('events').update({
+    title: p.title.trim(),
+    description: p.description,
+    starts_at: clubDateTimeToIso(p.date, p.time),
+    duration_minutes: p.durationMinutes,
+    format: p.format,
+    location_address: p.format === 'online' ? null : p.locationAddress || null,
+    online_url: p.format === 'online' ? p.locationAddress || null : null,
+    capacity: p.maxCapacity,
+    required_materials: p.requiredMaterials,
+  }).eq('id', eventId).select('id'));
+export const setEventStatus = (eventId: string, status: 'published' | 'cancelled') =>
+  changeRows(db().from('events').update({ status }).eq('id', eventId).select('id'));
 
 export const markAllNotificationsRead = async (): Promise<ActionResult> => {
   try {

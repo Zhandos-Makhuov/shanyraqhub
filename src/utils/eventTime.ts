@@ -51,14 +51,15 @@ export const formatEventDay = (event: Pick<CommunityEvent, 'date'>, t: (key: str
 };
 
 /** What a member sees on an event card; the order of checks matches the registration rules. */
-export type EventStatus = 'attended' | 'ended' | 'inProgress' | 'registered' | 'full' | 'open';
+export type EventStatus = 'attended' | 'cancelled' | 'ended' | 'inProgress' | 'registered' | 'full' | 'open';
 
 export const getEventStatus = (
-  event: Pick<CommunityEvent, 'date' | 'time' | 'durationMinutes' | 'maxCapacity' | 'registeredUserIds' | 'attendedUserIds'>,
+  event: Pick<CommunityEvent, 'date' | 'time' | 'durationMinutes' | 'maxCapacity' | 'registeredUserIds' | 'attendedUserIds'> & { status?: CommunityEvent['status'] },
   userId: string,
   now = new Date(),
 ): EventStatus => {
   if (event.attendedUserIds.includes(userId)) return 'attended';
+  if (event.status === 'cancelled') return 'cancelled';
   if (hasEventEnded(event, now)) return 'ended';
   if (hasEventStarted(event, now)) return 'inProgress';
   if (event.registeredUserIds.includes(userId)) return 'registered';

@@ -5,6 +5,7 @@ import {
   UserProfile,
   UserRole,
   CommunityEvent,
+  EventPatch,
   ForumTopic,
   ForumCategory,
   EncryptedChatRoom,
@@ -30,7 +31,7 @@ import { getAchievementMetric } from '../utils/achievementProgress';
 import { sendLocalPushNotification, requestWebPushPermission } from '../utils/notifications';
 import { canAccessRoom, canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
 import { canDeleteReply, canDeleteTopic, canEditReply, canEditTopic, canModerateForum, othersReplied } from '../utils/forumPermissions';
-import { formatClubDateTime, hasEventStarted } from '../utils/eventTime';
+import { formatClubDateTime, getEventStart, hasEventEnded, hasEventStarted } from '../utils/eventTime';
 import { STORAGE_KEY, canSwitchTestAccounts } from '../config/runtime';
 import { hasQualifyingReview, isWeekFreeForCredit } from '../utils/bookCredit';
 import { computeDayStreak, computeWeekStreak, toLocalDay } from '../utils/streak';
@@ -70,8 +71,12 @@ interface AppContextType {
   setSelectedUserModal: (user: UserProfile | null) => void;
 
   events: CommunityEvent[];
-  registerForEvent: (eventId: string) => void;
-  cancelEventRegistration: (eventId: string) => void;
+  /** Resolve with the result: the button shows "…" while waiting and the error next to it (no alert). */
+  registerForEvent: (eventId: string) => Promise<{ ok: boolean; error?: string }>;
+  cancelEventRegistration: (eventId: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Organizer of the event (organizer+) or moderator+: change details / cancel or restore (RLS events_update). */
+  updateEvent: (eventId: string, patch: EventPatch) => Promise<{ ok: boolean; error?: string }>;
+  setEventCancelled: (eventId: string, cancelled: boolean) => Promise<{ ok: boolean; error?: string }>;
   /** Staff confirm another member's visit. Live: server RPC (event organizer or moderator+). */
   checkInAttendance: (eventId: string, userId: string) => Promise<{ ok: boolean; error?: string }>;
   /** Live only: the member's one-time QR code for an event (undefined in demo). */
@@ -82,8 +87,8 @@ interface AppContextType {
   uploadAvatar?: (file: File) => Promise<boolean>;
   /** Live only: reload server data (e.g. while a member shows their QR code). */
   refreshData?: () => Promise<void>;
-  submitEventFeedback: (eventId: string, satisfaction: number, usefulness: number, comment: string) => void;
-  createEvent: (newEventData: Partial<CommunityEvent>, coverFile?: File) => void;
+  submitEventFeedback: (eventId: string, satisfaction: number, usefulness: number, comment: string) => Promise<{ ok: boolean; error?: string }>;
+  createEvent: (newEventData: Partial<CommunityEvent>, coverFile?: File) => Promise<{ ok: boolean; error?: string }>;
 
   allReadBooks: (ReadBook & { readerName: string; readerAvatar: string; readerId: string })[];
   /** True if the book was credited (reward + book achievements). Live: decided by the server (async). */
@@ -126,7 +131,7 @@ interface AppContextType {
   /** Live only: runs a server action, then reloads the server data (translated alert on failure). */
   runLiveAction: (action: Promise<{ ok: true } | { ok: false; error: string }>, quiet?: boolean) => Promise<{ ok: boolean; error?: string }>;
 
-  updateUserRole: (targetUserId: string, newRole: UserRole) => void;
+  updateUserRole: (targetUserId: string, newRole: UserRole) => Promise<boolean>;
   adjustUserCoins: (targetUserId: string, amount: number, reason: string) => boolean | Promise<boolean>;
   dispatchBroadcast: (title: string, content: string, channels: ('push' | 'telegram' | 'whatsapp')[], directionTarget?: string) => void;
 
@@ -539,21 +544,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   };
 
   // Event Registrations
-  const registerForEvent = (eventId: string) => {
+  const registerForEvent = async (eventId: string): Promise<{ ok: boolean; error?: string }> => {
     if (live) {
-      void runLive(live.registerForEvent(eventId)).then(r => {
-        if (r.ok) try { confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } }); } catch {}
-      });
-      return;
+      const r = await runLive(live.registerForEvent(eventId), true);
+      if (r.ok) try { confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } }); } catch {}
+      return r;
     }
     const target = events.find(e => e.id === eventId);
-    if (!target) return;
-    if (target.registeredUserIds.includes(currentUser.id)) return; // no duplicate registration
-    if (hasEventStarted(target)) return; // registration closes when the event starts
-    if (target.registeredUserIds.length >= target.maxCapacity) {
-      alert(t('dashAllTaken'));
-      return;
-    }
+    if (!target || target.status === 'cancelled') return { ok: false, error: 'liveErrEventNotAvailable' };
+    if (target.registeredUserIds.includes(currentUser.id)) return { ok: true }; // no duplicate registration
+    if (hasEventStarted(target)) return { ok: false, error: 'liveErrEventStarted' }; // registration closes when the event starts
+    if (target.registeredUserIds.length >= target.maxCapacity) return { ok: false, error: 'liveErrEventFull' };
 
     setEvents(prev =>
       prev.map(ev => {
@@ -610,18 +611,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         timestamp: 'Только что',
         read: false,
         linkTab: 'events',
+        eventId,
       },
       ...prev,
     ]);
+    return { ok: true };
   };
 
-  const cancelEventRegistration = (eventId: string) => {
-    if (live) {
-      void runLive(live.cancelEventRegistration(eventId));
-      return;
-    }
+  const cancelEventRegistration = async (eventId: string): Promise<{ ok: boolean; error?: string }> => {
+    if (live) return runLive(live.cancelEventRegistration(eventId), true);
     const target = events.find(e => e.id === eventId);
-    if (!target || hasEventStarted(target) || target.attendedUserIds.includes(currentUser.id)) return;
+    if (!target) return { ok: false, error: 'liveErrEventNotAvailable' };
+    if (hasEventStarted(target) || target.attendedUserIds.includes(currentUser.id)) return { ok: false, error: 'liveErrEventStarted' };
 
     setEvents(prev =>
       prev.map(ev => {
@@ -644,6 +645,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         };
       })
     );
+    return { ok: true };
+  };
+
+  // --- Event management (Phase 3): same rules as RLS events_update -----------------------
+  const canManageEvent = (ev: CommunityEvent) =>
+    hasRole(currentUser.role, 'moderator') || (ev.hostId === currentUser.id && hasRole(currentUser.role, 'organizer'));
+
+  const updateEvent = async (eventId: string, patch: EventPatch): Promise<{ ok: boolean; error?: string }> => {
+    const ev = events.find(e => e.id === eventId);
+    if (!ev) return { ok: false, error: 'liveErrEventNotAvailable' };
+    if (!canManageEvent(ev)) return { ok: false, error: 'liveErrForbidden' };
+    const title = patch.title.trim();
+    if (title.length < 3 || title.length > 200) return { ok: false, error: 'evErrTitle' };
+    if (patch.durationMinutes < 15 || patch.durationMinutes > 1440) return { ok: false, error: 'liveErrInvalid' };
+    if (patch.maxCapacity < Math.max(1, ev.registeredUserIds.length)) return { ok: false, error: 'evErrCapacityBelow' };
+    const movedStart = patch.date !== ev.date || patch.time !== ev.time;
+    if (movedStart && getEventStart({ date: patch.date, time: patch.time } as CommunityEvent).getTime() <= Date.now()) {
+      return { ok: false, error: 'evErrPast' };
+    }
+    if (live) return runLive(live.updateEvent(eventId, patch), true);
+    setEvents(prev => prev.map(e => (e.id === eventId ? { ...e, ...patch, title } : e)));
+    return { ok: true };
+  };
+
+  const setEventCancelled = async (eventId: string, cancelled: boolean): Promise<{ ok: boolean; error?: string }> => {
+    const ev = events.find(e => e.id === eventId);
+    if (!ev) return { ok: false, error: 'liveErrEventNotAvailable' };
+    if (!canManageEvent(ev)) return { ok: false, error: 'liveErrForbidden' };
+    if (hasEventEnded(ev)) return { ok: false, error: 'evErrEnded' };
+    if (live) return runLive(live.setEventStatus(eventId, cancelled ? 'cancelled' : 'published'), true);
+    setEvents(prev => prev.map(e => (e.id === eventId ? { ...e, status: cancelled ? 'cancelled' : 'published' } : e)));
+    return { ok: true };
   };
 
   // Only staff (organizer+) can confirm attendance, and never their own.
@@ -677,7 +710,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       prev.map(u => {
         if (u.id !== uid) return u;
         const attendedRecord = u.attendedEvents.find(a => a.eventId === eventId);
-        const checkTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const checkTime = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Almaty' });
         const updatedAttended = attendedRecord
           ? u.attendedEvents.map(a =>
               a.eventId === eventId ? { ...a, status: 'attended' as const, checkInTime: checkTime } : a
@@ -720,12 +753,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       }
     : undefined;
 
-  const submitEventFeedback = (
+  const submitEventFeedback = async (
     eventId: string,
     satisfactionRating: number,
     usefulnessRating: number,
     comment: string
-  ) => {
+  ): Promise<{ ok: boolean; error?: string }> => {
     const feedbackItem = {
       id: `fb-${Date.now()}`,
       eventId,
@@ -738,16 +771,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       createdAt: new Date().toLocaleDateString('ru-RU'),
     };
 
-    if (live) {
-      void runLive(live.submitEventFeedback(eventId, satisfactionRating, usefulnessRating, comment));
-      return;
-    }
+    if (live) return runLive(live.submitEventFeedback(eventId, satisfactionRating, usefulnessRating, comment), true);
     const targetEvent = events.find(e => e.id === eventId);
-    if (!targetEvent || !targetEvent.attendedUserIds.includes(currentUser.id)) return; // only attendees
+    if (!targetEvent || !targetEvent.attendedUserIds.includes(currentUser.id)) return { ok: false, error: 'liveErrFeedbackAttendance' }; // only attendees
     const alreadyGiven =
       targetEvent.feedbacks.some(f => f.userId === currentUser.id) ||
       currentUser.attendedEvents.some(a => a.eventId === eventId && a.feedbackGiven);
-    if (alreadyGiven) return;
+    if (alreadyGiven) return { ok: false, error: 'liveErrDuplicate' };
 
     setEvents(prev =>
       prev.map(ev => {
@@ -773,17 +803,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
     grantRewardOnce(`feedback:${eventId}:${currentUser.id}`, currentUser.id, 30, 20, 'Обратная связь по мероприятию');
     recordActivity(currentUser.id);
+    return { ok: true };
   };
 
-  const createEvent = (newEventData: Partial<CommunityEvent>, coverFile?: File) => {
+  const createEvent = async (newEventData: Partial<CommunityEvent>, coverFile?: File): Promise<{ ok: boolean; error?: string }> => {
+    if (!isStaffRole(currentUser.role)) return { ok: false, error: 'liveErrForbidden' };
+    const title = (newEventData.title ?? '').trim();
+    if (title.length < 3 || title.length > 200) return { ok: false, error: 'evErrTitle' };
+    if (newEventData.date && newEventData.time
+        && getEventStart({ date: newEventData.date, time: newEventData.time } as CommunityEvent).getTime() <= Date.now()) {
+      return { ok: false, error: 'evErrPast' };
+    }
     if (live) {
-      void runLive(live.createEvent({
+      return runLive(live.createEvent({
         ...newEventData,
         date: newEventData.date || new Date().toISOString().split('T')[0],
         time: newEventData.time || '19:00',
         speaker: newEventData.speaker || { name: currentUser.name, role: t('evHostRole'), avatar: currentUser.avatar },
-      }, coverFile));
-      return;
+      }, coverFile), true);
     }
     const newEvent: CommunityEvent = {
       id: `event-${Date.now()}`,
@@ -842,6 +879,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     try {
       confetti({ particleCount: 40, spread: 60 });
     } catch {}
+    return { ok: true };
   };
 
   // Reading Library
@@ -1299,20 +1337,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     return granted;
   };
 
-  const updateUserRole = (targetUserId: string, newRole: UserRole) => {
+  const updateUserRole = async (targetUserId: string, newRole: UserRole): Promise<boolean> => {
     const target = allUsers.find(u => u.id === targetUserId);
-    if (!target || target.role === newRole) return;
-    if (live) {
-      void runLive(live.setUserRole(targetUserId, newRole));
-      return;
-    }
+    if (!target || target.role === newRole) return false;
+    if (live) return (await runLive(live.setUserRole(targetUserId, newRole))).ok;
     if (!canAssignRole(currentUser.role, currentUser.id, targetUserId, target.role, newRole)) {
       alert(t('ctxNoRightsRole'));
-      return;
+      return false;
     }
     if (target.role === 'super_admin' && allUsers.filter(u => u.role === 'super_admin').length <= 1) {
       alert(t('ctxLastSuperAdmin'));
-      return;
+      return false;
     }
     setAllUsers(prev =>
       prev.map(u => (u.id === targetUserId ? { ...u, role: newRole } : u))
@@ -1329,6 +1364,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       },
       ...prev,
     ]);
+    return true;
   };
 
   const adjustUserCoins = (targetUserId: string, amount: number, reason: string): boolean | Promise<boolean> => {
@@ -1694,6 +1730,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         events,
         registerForEvent,
         cancelEventRegistration,
+        updateEvent,
+        setEventCancelled,
         checkInAttendance,
         issueCheckInCode,
         checkInWithCode,
