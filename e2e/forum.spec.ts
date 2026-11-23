@@ -91,7 +91,7 @@ test.describe('forum (phone)', () => {
     await expect(dlg.locator('[data-topic-reward-hint]')).toContainText('тәулігіне алғашқы 3 тақырып');
     await expect(dlg.getByRole('button', { name: 'Жариялау', exact: true })).toBeDisabled(); // empty form
     await dlg.getByLabel(/Талқылау тақырыбы/).fill('Жаңа тақырып: қыстың кітаптары');
-    await dlg.getByLabel(/Бөлім/).selectOption('general');
+    await dlg.getByLabel('Форум бөлімі', { exact: true }).selectOption('general'); // N-1/F-25: label names a forum section
     await dlg.getByLabel(/Жарияланым мәтіні/).fill('Бірінші жол.\nЕкінші жол.');
     await dlg.getByRole('button', { name: 'Жариялау', exact: true }).click();
     await expect(dlg).toHaveCount(0);

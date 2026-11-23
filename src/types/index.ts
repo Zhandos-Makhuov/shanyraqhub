@@ -253,6 +253,10 @@ export interface ForumReply {
   content: string;
   createdAt: string;
   upvotes: string[];
+  /** Changed after it was posted (the text, or a moderator hid/showed it): ISO time. */
+  editedAt?: string;
+  /** Hidden by a moderator: only its author and moderators see it. */
+  isHidden?: boolean;
 }
 
 /** A forum section (public.forum_categories). */
@@ -282,6 +286,8 @@ export interface ForumTopic {
   replies: ForumReply[];
   isPinned?: boolean;
   isClosed?: boolean;
+  /** Hidden by a moderator: only its author and moderators see it. */
+  isHidden?: boolean;
 }
 
 export interface ChatMessage {

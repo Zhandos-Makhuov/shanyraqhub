@@ -191,8 +191,11 @@ export const Header: React.FC = () => {
                       </div>
                     ) : (
                       myNotifs.slice(0, 8).map(notif => (
-                        <div
+                        // A real button (N-6): reachable with Tab, opens with Enter/Space, announced as a button.
+                        <button
+                          type="button"
                           key={notif.id}
+                          data-notif-item={notif.id}
                           onClick={() => {
                             // A reply in your topic opens that topic (Phase 2.4.2, F-16); other notifications open their section.
                             if (notif.topicId) setForumIntent({ topicId: notif.topicId });
@@ -203,22 +206,22 @@ export const Header: React.FC = () => {
                             }
                             setShowNotifDropdown(false);
                           }}
-                          className={`py-2 px-1 text-xs cursor-pointer hover:bg-[#2d2825] rounded transition-colors ${
+                          className={`block w-full text-left py-2 px-1 text-xs cursor-pointer hover:bg-[#2d2825] rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfcfb3] ${
                             !notif.read ? 'bg-[#dfcfb3]/5 font-medium' : 'text-[#a39b94]'
                           }`}
                         >
-                          <div className="flex items-start justify-between gap-1">
+                          <span className="flex items-start justify-between gap-1">
                             <span className="text-[#f5f2eb] font-semibold text-[11px] truncate">
                               {notif.title}
                             </span>
-                            <span className="text-[9px] text-[#857b73] whitespace-nowrap">
+                            <span className="text-[9px] text-[#a39b94] whitespace-nowrap">
                               {notif.timestamp}
                             </span>
-                          </div>
-                          <p className="text-[11px] text-[#c7beaf] mt-0.5 line-clamp-2">
+                          </span>
+                          <span className="block text-[11px] text-[#c7beaf] mt-0.5 line-clamp-2">
                             {notif.message}
-                          </p>
-                        </div>
+                          </span>
+                        </button>
                       ))
                     )}
                   </div>

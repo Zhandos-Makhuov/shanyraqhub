@@ -7,7 +7,9 @@ import { useDialog } from '../hooks/useDialog';
 import { FORUM_INTENT_EVENT, takeForumIntent } from '../utils/navIntent';
 import { AvatarWithFallback, ProfileRoleBadge } from './ProfileParts';
 import { MessageSquare, Lock, ShieldCheck, ThumbsUp, Send, Plus, Key, X, ArrowLeft, Search } from 'lucide-react';
-import { ForumTopic } from '../types';
+import { ForumTopic, ForumReply } from '../types';
+import { canDeleteReply, canDeleteTopic, canEditReply, canEditTopic, canModerateForum, canSeeForumPost, othersReplied } from '../utils/forumPermissions';
+import { ConfirmDialog, PostAction, PostActionsMenu, TopicEditDialog } from './ForumPostTools';
 
 /** User text: line breaks and paragraphs kept, long words and links wrap inside the card (never rendered as HTML). */
 const USER_TEXT = 'whitespace-pre-line break-words [overflow-wrap:anywhere]';
@@ -26,6 +28,11 @@ const topicMatches = (topic: ForumTopic, words: string[]) => {
   return words.every(w => haystack.includes(w));
 };
 
+/** Latest moment something happened in a topic (the topic or its newest reply). */
+const lastActivity = (topic: ForumTopic) =>
+  Math.max(Date.parse(topic.createdAt) || 0, ...topic.replies.map(r => Date.parse(r.createdAt) || 0));
+type TopicSort = 'new' | 'active' | 'popular';
+
 /** The reply field grows up to this height (≈ 8 lines), then scrolls. */
 const REPLY_MAX_HEIGHT = 168;
 
@@ -37,6 +44,12 @@ export const ForumAndChatsView: React.FC = () => {
     replyToForumTopic,
     upvoteReply,
     upvoteTopic,
+    editForumTopic,
+    editForumReply,
+    deleteForumTopic,
+    deleteForumReply,
+    moderateForumTopic,
+    moderateForumReply,
     chatRooms,
     sendChatMessage,
     currentUser,
@@ -47,11 +60,21 @@ export const ForumAndChatsView: React.FC = () => {
 
   const [activeSection, setActiveSection] = useState<'forum' | 'encrypted_rooms'>('forum');
 
-  // Pinned topics first; otherwise the existing order (newest first in live).
-  const sortedTopics = useMemo(
-    () => [...forumTopics].sort((a, b) => Number(!!b.isPinned) - Number(!!a.isPinned)),
-    [forumTopics],
+  const isModerator = canModerateForum(currentUser.role);
+  // Hidden posts: only their author and moderators (the database already filters them in live; demo filters here).
+  const visibleTopics = useMemo(
+    () => forumTopics
+      .filter(tp => canSeeForumPost(tp, currentUser))
+      .map(tp => (tp.replies.some(r => r.isHidden) ? { ...tp, replies: tp.replies.filter(r => canSeeForumPost(r, currentUser)) } : tp)),
+    [forumTopics, currentUser],
   );
+  // Pinned topics first; then the chosen order (F-15): newest, latest activity, or most liked.
+  const [topicSort, setTopicSort] = useState<TopicSort>('new');
+  const sortedTopics = useMemo(() => {
+    const key = (tp: ForumTopic) =>
+      topicSort === 'active' ? lastActivity(tp) : topicSort === 'popular' ? tp.upvotes.length : Date.parse(tp.createdAt) || 0;
+    return [...visibleTopics].sort((a, b) => Number(!!b.isPinned) - Number(!!a.isPinned) || key(b) - key(a));
+  }, [visibleTopics, topicSort]);
   // Search and section filter (F-15): kept while switching to the rooms and back.
   const [query, setQuery] = useState('');
   const [sectionFilter, setSectionFilter] = useState<string>('all');
@@ -69,6 +92,13 @@ export const ForumAndChatsView: React.FC = () => {
   const activeTopic = filteredTopics.find(tp => tp.id === selectedTopicId) || filteredTopics[0];
   // A notification pointed to a topic that is not available (deleted, or hidden by a moderator).
   const [topicNotFound, setTopicNotFound] = useState(false);
+  // Result of an edit/delete/moderation action, announced politely (errors — as an alert).
+  const [forumNotice, setForumNotice] = useState<{ text: string; error?: boolean } | null>(null);
+  useEffect(() => {
+    if (!forumNotice || forumNotice.error) return;
+    const id = window.setTimeout(() => setForumNotice(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [forumNotice]);
 
   // Only rooms the current role may enter are listed (moderator rooms are hidden from members).
   const visibleRooms = chatRooms.filter(r => canAccessRoom(r, currentUser.role));
@@ -172,8 +202,8 @@ export const ForumAndChatsView: React.FC = () => {
   };
 
   // --- From a notification (F-16): open that topic; if it is not available, say so ----------
-  const topicsRef = useRef(forumTopics);
-  topicsRef.current = forumTopics;
+  const topicsRef = useRef(visibleTopics);
+  topicsRef.current = visibleTopics;
   useEffect(() => {
     const consume = () => {
       const intent = takeForumIntent();
@@ -193,6 +223,141 @@ export const ForumAndChatsView: React.FC = () => {
     return () => window.removeEventListener(FORUM_INTENT_EVENT, consume);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // --- Edit / delete / moderate (Phase 2.4) -------------------------------------------------
+  const listHeadingRef = useRef<HTMLHeadingElement>(null);
+  const [editTopicOpen, setEditTopicOpen] = useState(false);
+  const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
+  const [editReplyText, setEditReplyText] = useState('');
+  const [editReplyBusy, setEditReplyBusy] = useState(false);
+  const [editReplyError, setEditReplyError] = useState('');
+  const editReplyBusyRef = useRef(false);
+  useEffect(() => {
+    setEditingReplyId(null);
+    setEditReplyError('');
+  }, [activeTopic?.id]);
+
+  type ConfirmTarget = { kind: 'topic'; topicId: string } | { kind: 'reply'; topicId: string; replyId: string };
+  const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
+  const confirmBusyRef = useRef(false);
+  const askDelete = (target: ConfirmTarget) => {
+    setConfirmError('');
+    setConfirmTarget(target);
+  };
+  const runDelete = async () => {
+    if (!confirmTarget || confirmBusyRef.current) return;
+    confirmBusyRef.current = true;
+    setConfirmBusy(true);
+    setConfirmError('');
+    const target = confirmTarget;
+    const r = target.kind === 'topic'
+      ? await deleteForumTopic(target.topicId)
+      : await deleteForumReply(target.topicId, target.replyId);
+    confirmBusyRef.current = false;
+    setConfirmBusy(false);
+    if (!r.ok) {
+      setConfirmError(t(r.error || 'authErrorGeneric'));
+      return;
+    }
+    setConfirmTarget(null);
+    if (target.kind === 'topic') {
+      setSelectedTopicId('');
+      setMobileForumView('list');
+      setForumNotice({ text: t('frmDoneTopicDeleted') });
+      // The topic (and its "⋯") is gone: continue from the list heading.
+      requestAnimationFrame(() => listHeadingRef.current?.focus());
+    } else {
+      setForumNotice({ text: t('frmDoneReplyDeleted') });
+      requestAnimationFrame(() => document.getElementById('forum-replies-title')?.focus());
+    }
+  };
+
+  const moderate = async (action: Promise<{ ok: boolean; error?: string }>) => {
+    const r = await action;
+    setForumNotice(r.ok ? { text: t('frmDoneSaved') } : { text: t(r.error || 'authErrorGeneric'), error: true });
+  };
+
+  const startEditReply = (reply: ForumReply) => {
+    setEditingReplyId(reply.id);
+    setEditReplyText(reply.content);
+    setEditReplyError('');
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`edit-reply-${reply.id}`) as HTMLTextAreaElement | null;
+      el?.focus();
+      el?.setSelectionRange(el.value.length, el.value.length);
+    });
+  };
+  const cancelEditReply = (replyId: string) => {
+    setEditingReplyId(null);
+    setEditReplyError('');
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-reply-id="${replyId}"] [aria-expanded]`)?.focus());
+  };
+  const saveEditReply = async (e: React.FormEvent, reply: ForumReply) => {
+    e.preventDefault();
+    if (!activeTopic || editReplyBusyRef.current || !editReplyText.trim()) return;
+    if (editReplyText.trim() === reply.content) return cancelEditReply(reply.id);
+    editReplyBusyRef.current = true;
+    setEditReplyBusy(true);
+    setEditReplyError('');
+    const r = await editForumReply(activeTopic.id, reply.id, editReplyText.trim());
+    editReplyBusyRef.current = false;
+    setEditReplyBusy(false);
+    if (!r.ok) {
+      setEditReplyError(t(r.error || 'authErrorGeneric'));
+      return;
+    }
+    setForumNotice({ text: t('frmDoneSaved') });
+    cancelEditReply(reply.id);
+  };
+
+  const topicActions = (topic: ForumTopic) => {
+    const mine = topic.authorId === currentUser.id;
+    const own: PostAction[] = [];
+    if (canEditTopic(topic, currentUser)) own.push({ id: 'edit', label: t('frmEdit'), onSelect: () => setEditTopicOpen(true) });
+    if (mine && !isModerator && canDeleteTopic(topic, currentUser)) {
+      own.push({ id: 'delete', label: t('frmDelete'), danger: true, onSelect: () => askDelete({ kind: 'topic', topicId: topic.id }) });
+    }
+    const mod: PostAction[] = !isModerator ? [] : [
+      { id: 'pin', label: t(topic.isPinned ? 'frmUnpin' : 'frmPin'), onSelect: () => moderate(moderateForumTopic(topic.id, { isPinned: !topic.isPinned })) },
+      { id: 'close', label: t(topic.isClosed ? 'frmReopenTopic' : 'frmCloseTopic'), onSelect: () => moderate(moderateForumTopic(topic.id, { isClosed: !topic.isClosed })) },
+      { id: 'hide', label: t(topic.isHidden ? 'frmUnhide' : 'frmHide'), onSelect: () => moderate(moderateForumTopic(topic.id, { isHidden: !topic.isHidden })) },
+      { id: 'delete', label: t('frmDelete'), danger: true, onSelect: () => askDelete({ kind: 'topic', topicId: topic.id }) },
+    ];
+    const note = mine && !isModerator && own.length === 0 && othersReplied(topic, currentUser.id) && !topic.isClosed
+      ? t('frmLockedAfterReplies')
+      : undefined;
+    return { groups: [{ actions: own }, { title: t('frmModeration'), actions: mod }], note };
+  };
+
+  const replyActions = (topic: ForumTopic, reply: ForumReply) => {
+    const own: PostAction[] = [];
+    if (canEditReply(topic, reply, currentUser)) own.push({ id: 'edit', label: t('frmEdit'), onSelect: () => startEditReply(reply) });
+    if (reply.authorId === currentUser.id && !isModerator && canDeleteReply(topic, reply, currentUser)) {
+      own.push({ id: 'delete', label: t('frmDelete'), danger: true, onSelect: () => askDelete({ kind: 'reply', topicId: topic.id, replyId: reply.id }) });
+    }
+    const mod: PostAction[] = !isModerator ? [] : [
+      { id: 'hide', label: t(reply.isHidden ? 'frmUnhide' : 'frmHide'), onSelect: () => moderate(moderateForumReply(topic.id, reply.id, !reply.isHidden)) },
+      { id: 'delete', label: t('frmDelete'), danger: true, onSelect: () => askDelete({ kind: 'reply', topicId: topic.id, replyId: reply.id }) },
+    ];
+    return [{ actions: own }, { title: t('frmModeration'), actions: mod }];
+  };
+
+  const confirmTopic = confirmTarget ? forumTopics.find(tp => tp.id === confirmTarget.topicId) : undefined;
+  const confirmText = !confirmTarget
+    ? ''
+    : confirmTarget.kind === 'reply'
+      ? t('frmDeleteReplyText')
+      : confirmTopic && confirmTopic.replies.length > 0
+        ? t('frmDeleteTopicModText').replace('{n}', String(confirmTopic.replies.length))
+        : t('frmDeleteTopicText');
+
+  const hiddenBadge = (
+    <span className="text-[10px] px-1.5 py-px rounded bg-red-950/50 text-red-200 border border-red-900/70" data-hidden-badge>
+      {t('frmHiddenBadge')}
+    </span>
+  );
 
   // --- Chat: show the latest message; follow new ones only if the reader is at the bottom ----
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -284,13 +449,36 @@ export const ForumAndChatsView: React.FC = () => {
         </div>
       </div>
 
+      {/* Result of edit / delete / moderation (always mounted, so screen readers hear the change) */}
+      <div aria-live="polite" data-forum-notice-region className={activeSection === 'forum' ? 'empty:hidden' : 'hidden'}>
+        {forumNotice && (
+          <div
+            role={forumNotice.error ? 'alert' : undefined}
+            className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-xs ${
+              forumNotice.error ? 'border-red-900/60 bg-red-950/40 text-red-200' : 'border-emerald-900/60 bg-emerald-950/30 text-emerald-200'
+            }`}
+            data-forum-notice={forumNotice.error ? 'error' : 'ok'}
+          >
+            <span className="flex-1">{forumNotice.text}</span>
+            <button
+              type="button"
+              onClick={() => setForumNotice(null)}
+              aria-label={t('actionClose')}
+              className={`shrink-0 -my-1 w-10 h-10 inline-flex items-center justify-center rounded-lg opacity-80 hover:opacity-100 ${FOCUS_RING}`}
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* SECTION 1: GENERAL FORUM */}
       {activeSection === 'forum' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Topics list (5 cols) */}
           <div className={`lg:col-span-5 space-y-3 min-w-0 ${mobileForumView === 'thread' ? 'hidden lg:block' : 'block'}`}>
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-xs font-semibold text-[#9e948c] uppercase tracking-wider">
+              <h2 ref={listHeadingRef} tabIndex={-1} className="text-xs font-semibold text-[#9e948c] uppercase tracking-wider outline-none" data-list-heading>
                 {t('frmDiscussions')} ({sortedTopics.length})
               </h2>
               <button
@@ -320,8 +508,8 @@ export const ForumAndChatsView: React.FC = () => {
 
             {sortedTopics.length > 0 && (
               <div className="space-y-2" data-forum-filters>
-                <div className="flex flex-col min-[400px]:flex-row gap-2">
-                  <div className="relative flex-1 min-w-0">
+                <div className="flex flex-col gap-2">
+                  <div className="relative min-w-0">
                     <label htmlFor="forum-search" className="sr-only">{t('frmSearchLabel')}</label>
                     <Search className="w-3.5 h-3.5 text-[#9e948c] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true" />
                     <input
@@ -335,18 +523,31 @@ export const ForumAndChatsView: React.FC = () => {
                       className="w-full min-h-10 pl-8 pr-3 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
                     />
                   </div>
-                  <label htmlFor="forum-section-filter" className="sr-only">{t('frmFilterSection')}</label>
-                  <select
-                    id="forum-section-filter"
-                    value={sectionFilter}
-                    onChange={e => setSectionFilter(e.target.value)}
-                    className="min-h-10 min-[400px]:max-w-[45%] px-2 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
-                  >
-                    <option value="all">{t('frmAllSections')}</option>
-                    {forumCategories.map(c => (
-                      <option key={c.id} value={c.id}>{ln(c)}</option>
-                    ))}
-                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label htmlFor="forum-section-filter" className="sr-only">{t('frmFilterSection')}</label>
+                    <select
+                      id="forum-section-filter"
+                      value={sectionFilter}
+                      onChange={e => setSectionFilter(e.target.value)}
+                      className="min-w-0 min-h-10 px-2 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
+                    >
+                      <option value="all">{t('frmAllSections')}</option>
+                      {forumCategories.map(c => (
+                        <option key={c.id} value={c.id}>{ln(c)}</option>
+                      ))}
+                    </select>
+                    <label htmlFor="forum-sort" className="sr-only">{t('frmSortLabel')}</label>
+                    <select
+                      id="forum-sort"
+                      value={topicSort}
+                      onChange={e => setTopicSort(e.target.value as TopicSort)}
+                      className="min-w-0 min-h-10 px-2 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
+                    >
+                      <option value="new">{t('frmSortNew')}</option>
+                      <option value="active">{t('frmSortActive')}</option>
+                      <option value="popular">{t('frmSortPopular')}</option>
+                    </select>
+                  </div>
                 </div>
                 {filtering && (
                   <div className="flex items-center justify-between gap-2 text-[11px] text-[#9e948c]">
@@ -411,6 +612,7 @@ export const ForumAndChatsView: React.FC = () => {
                         <span className="flex items-center justify-between gap-2 text-[11px] mb-1">
                           <span className="font-semibold text-[#dfcfb3] min-w-0 truncate">{lf(topic, 'categoryName')}</span>
                           <span className="flex items-center gap-1 shrink-0">
+                            {topic.isHidden && hiddenBadge}
                             {topic.isPinned && (
                               <span className="text-[10px] px-1.5 py-px rounded bg-amber-950/70 text-amber-300 border border-amber-800">
                                 {t('frmPinned')}
@@ -472,13 +674,19 @@ export const ForumAndChatsView: React.FC = () => {
                   <article className="space-y-3 pb-4 border-b border-[#302a28]" aria-labelledby="forum-topic-title">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs font-semibold text-[#dfcfb3] min-w-0 truncate">{lf(activeTopic, 'categoryName')}</span>
-                      {voteButton({
-                        own: activeTopic.authorId === currentUser.id,
-                        voted: activeTopic.upvotes.includes(currentUser.id),
-                        count: activeTopic.upvotes.length,
-                        onClick: () => upvoteTopic(activeTopic.id),
-                        labelKey: 'frmUpvoteTopic',
-                      })}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {voteButton({
+                          own: activeTopic.authorId === currentUser.id,
+                          voted: activeTopic.upvotes.includes(currentUser.id),
+                          count: activeTopic.upvotes.length,
+                          onClick: () => upvoteTopic(activeTopic.id),
+                          labelKey: 'frmUpvoteTopic',
+                        })}
+                        {(() => {
+                          const a = topicActions(activeTopic);
+                          return <PostActionsMenu label={t('frmActionsTopic')} groups={a.groups} note={a.note} dataAttr="data-topic-actions" />;
+                        })()}
+                      </div>
                     </div>
 
                     <h2
@@ -505,7 +713,14 @@ export const ForumAndChatsView: React.FC = () => {
                           {t('frmClosedBadge')}
                         </span>
                       )}
+                      {activeTopic.isHidden && hiddenBadge}
                     </div>
+
+                    {activeTopic.isHidden && (
+                      <p className="text-[11px] text-red-200/90 bg-red-950/30 border border-red-900/50 rounded-lg px-3 py-2" data-hidden-notice>
+                        {t('frmHiddenNotice')}
+                      </p>
+                    )}
 
                     <p className={`text-[13px] text-[#d6cebf] leading-relaxed pt-2 ${USER_TEXT}`} data-topic-content>
                       {activeTopic.content}
@@ -514,7 +729,7 @@ export const ForumAndChatsView: React.FC = () => {
 
                   {/* Replies */}
                   <section className="space-y-4" aria-labelledby="forum-replies-title">
-                    <h3 id="forum-replies-title" className="text-xs font-bold text-[#9e948c] uppercase tracking-wider">
+                    <h3 id="forum-replies-title" tabIndex={-1} className="text-xs font-bold text-[#9e948c] uppercase tracking-wider outline-none">
                       {t('frmReplies')} ({activeTopic.replies.length})
                     </h3>
 
@@ -523,25 +738,82 @@ export const ForumAndChatsView: React.FC = () => {
                     ) : (
                       <ul className="space-y-4">
                         {activeTopic.replies.map(reply => (
-                          <li key={reply.id} className="p-4 rounded-xl bg-[#1c1918] border border-[#302a28] space-y-2 text-xs" data-reply-id={reply.id}>
+                          <li key={reply.id} className={`p-4 rounded-xl border space-y-2 text-xs ${reply.isHidden ? 'bg-[#1c1716] border-red-950' : 'bg-[#1c1918] border-[#302a28]'}`} data-reply-id={reply.id}>
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
                                 <AvatarWithFallback src={reply.authorAvatar} name={reply.authorName} className="w-5 h-5" textClassName="text-[9px]" />
                                 <span className="font-bold text-[#f5f2eb] break-words min-w-0">{reply.authorName}</span>
                                 <ProfileRoleBadge role={reply.authorRole} compact />
                                 <span className="text-[11px] text-[#9e948c]" data-reply-date>{formatClubDateTime(reply.createdAt, t)}</span>
+                                {reply.editedAt && (
+                                  <span className="text-[11px] text-[#9e948c] italic" title={formatClubDateTime(reply.editedAt, t)} data-reply-edited>
+                                    ({t('frmEdited')})
+                                  </span>
+                                )}
+                                {reply.isHidden && hiddenBadge}
                               </div>
-                              {voteButton({
-                                own: reply.authorId === currentUser.id,
-                                voted: reply.upvotes.includes(currentUser.id),
-                                count: reply.upvotes.length,
-                                onClick: () => upvoteReply(activeTopic.id, reply.id),
-                                labelKey: 'frmUpvoteReply',
-                                small: true,
-                              })}
+                              <div className="flex items-center gap-2 shrink-0">
+                                {voteButton({
+                                  own: reply.authorId === currentUser.id,
+                                  voted: reply.upvotes.includes(currentUser.id),
+                                  count: reply.upvotes.length,
+                                  onClick: () => upvoteReply(activeTopic.id, reply.id),
+                                  labelKey: 'frmUpvoteReply',
+                                  small: true,
+                                })}
+                                {editingReplyId !== reply.id && (
+                                  <PostActionsMenu label={t('frmActionsReply')} groups={replyActions(activeTopic, reply)} dataAttr="data-reply-actions" />
+                                )}
+                              </div>
                             </div>
 
-                            <p className={`text-[13px] text-[#b8afa3] leading-relaxed ${USER_TEXT}`}>{reply.content}</p>
+                            {editingReplyId === reply.id ? (
+                              <form onSubmit={e => saveEditReply(e, reply)} className="space-y-2" data-edit-reply-form>
+                                <label htmlFor={`edit-reply-${reply.id}`} className="sr-only">{t('frmEditReplyLabel')}</label>
+                                <textarea
+                                  id={`edit-reply-${reply.id}`}
+                                  rows={4}
+                                  value={editReplyText}
+                                  maxLength={FORUM_LIMITS.replyMax}
+                                  onChange={e => setEditReplyText(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Escape') {
+                                      e.stopPropagation();
+                                      cancelEditReply(reply.id);
+                                    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                      e.preventDefault();
+                                      e.currentTarget.form?.requestSubmit();
+                                    }
+                                  }}
+                                  aria-invalid={editReplyError ? true : undefined}
+                                  className="w-full min-w-0 px-3 py-2.5 rounded-lg bg-[#24201e] border border-[#3d3632] text-[13px] leading-snug text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
+                                />
+                                {editReplyError && (
+                                  <p role="alert" className="text-[12px] text-red-300 bg-red-950/40 border border-red-900/60 rounded-lg px-3 py-2" data-edit-reply-error>
+                                    {editReplyError}
+                                  </p>
+                                )}
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => cancelEditReply(reply.id)}
+                                    disabled={editReplyBusy}
+                                    className={`px-3 min-h-10 rounded-lg text-xs text-[#d6cebf] hover:text-white bg-[#1a1716] border border-[#3b3430] disabled:opacity-50 ${FOCUS_RING}`}
+                                  >
+                                    {t('frmCancel')}
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    disabled={editReplyBusy || !editReplyText.trim()}
+                                    className={`px-4 min-h-10 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-xs font-semibold text-[#1e1b1a] disabled:opacity-60 ${FOCUS_RING}`}
+                                  >
+                                    {editReplyBusy ? t('frmSaving') : t('frmSave')}
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              <p className={`text-[13px] text-[#b8afa3] leading-relaxed ${USER_TEXT}`}>{reply.content}</p>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -550,10 +822,10 @@ export const ForumAndChatsView: React.FC = () => {
                 </div>
 
                 {/* Reply composer — or why there is none (closed topic) */}
-                {activeTopic.isClosed ? (
+                {activeTopic.isClosed || activeTopic.isHidden ? (
                   <div className="p-4 bg-[#1e1b1a] border-t border-[#302a28] flex items-start gap-2 text-xs text-[#a39b94]" role="note" data-closed-notice>
                     <Lock className="w-4 h-4 shrink-0 mt-px text-[#9e948c]" aria-hidden="true" />
-                    <span>{t('frmClosedNotice')}</span>
+                    <span>{t(activeTopic.isClosed ? 'frmClosedNotice' : 'frmHiddenReplyOff')}</span>
                   </div>
                 ) : (
                   <form ref={replyFormRef} onSubmit={handleReplySubmit} className="p-4 bg-[#1e1b1a] border-t border-[#302a28] space-y-2" data-reply-form>
@@ -878,6 +1150,46 @@ export const ForumAndChatsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {activeTopic && (
+        <TopicEditDialog
+          open={editTopicOpen}
+          initialTitle={activeTopic.title}
+          initialContent={activeTopic.content}
+          limits={FORUM_LIMITS}
+          labels={{
+            heading: t('frmEditTopicTitle'),
+            title: t('frmTopicTitle'),
+            titleHint: t('frmTitleHint'),
+            text: t('frmPostText'),
+            save: t('frmSave'),
+            saving: t('frmSaving'),
+            cancel: t('frmCancel'),
+            close: t('actionClose'),
+          }}
+          onSave={async (title, content) => {
+            const r = await editForumTopic(activeTopic.id, title, content);
+            if (!r.ok) return t(r.error || 'authErrorGeneric');
+            setEditTopicOpen(false);
+            setForumNotice({ text: t('frmDoneSaved') });
+            return null;
+          }}
+          onClose={() => setEditTopicOpen(false)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!confirmTarget}
+        title={t(confirmTarget?.kind === 'reply' ? 'frmDeleteReplyQ' : 'frmDeleteTopicQ')}
+        text={confirmText}
+        confirmLabel={t('frmDelete')}
+        busyLabel={t('frmDeleting')}
+        cancelLabel={t('frmCancel')}
+        busy={confirmBusy}
+        error={confirmError}
+        onConfirm={runDelete}
+        onCancel={() => setConfirmTarget(null)}
+      />
     </div>
   );
 };

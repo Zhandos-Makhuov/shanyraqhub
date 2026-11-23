@@ -48,9 +48,9 @@ interface AuditRow { id: number; actor_id: string | null; action: string; target
 interface ForumCategoryRow { id: string; name_ru: string; name_kz: string; name_en: string; sort_order: number }
 interface ForumTopicRow {
   id: string; category_id: string; direction: DirectionId | null; author_id: string; title: string; content: string;
-  is_pinned: boolean; is_closed: boolean; view_count: number; created_at: string;
+  is_pinned: boolean; is_closed: boolean; is_hidden: boolean; view_count: number; created_at: string;
 }
-interface ForumReplyRow { id: string; topic_id: string; author_id: string; content: string; created_at: string }
+interface ForumReplyRow { id: string; topic_id: string; author_id: string; content: string; is_hidden: boolean; created_at: string; updated_at: string }
 interface TopicVoteRow { topic_id: string; user_id: string }
 interface ReplyVoteRow { reply_id: string; user_id: string }
 interface ChatRoomRow {
@@ -125,9 +125,9 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       rows<UserBookRow & { created_at: string }>(c.from('user_books').select('id, user_id, book_id, status, rating, review, finished_at, created_at').order('updated_at', { ascending: false })),
       rows<ForumCategoryRow>(c.from('forum_categories').select('*')),
       rows<ForumTopicRow>(c.from('forum_topics')
-        .select('id, category_id, direction, author_id, title, content, is_pinned, is_closed, view_count, created_at')
+        .select('id, category_id, direction, author_id, title, content, is_pinned, is_closed, is_hidden, view_count, created_at')
         .order('created_at', { ascending: false })),
-      rows<ForumReplyRow>(c.from('forum_replies').select('id, topic_id, author_id, content, created_at').order('created_at')),
+      rows<ForumReplyRow>(c.from('forum_replies').select('id, topic_id, author_id, content, is_hidden, created_at, updated_at').order('created_at')),
       rows<TopicVoteRow>(c.from('forum_topic_votes').select('topic_id, user_id')),
       rows<ReplyVoteRow>(c.from('forum_reply_votes').select('reply_id, user_id')),
       // RLS returns only the rooms the member's role may enter (the moderators' room stays invisible to members).
@@ -182,11 +182,15 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       views: t.view_count,
       isPinned: t.is_pinned,
       isClosed: t.is_closed,
+      isHidden: t.is_hidden,
       replies: replies.filter(r => r.topic_id === t.id).map(r => {
         const a = nameOf(r.author_id);
         return {
           id: r.id, authorId: r.author_id, authorName: a.name, authorAvatar: a.avatar, authorRole: a.role,
           content: r.content, createdAt: r.created_at,
+          // updated_at equals created_at on insert and moves on any later change (text, or hidden/shown by a moderator)
+          editedAt: Date.parse(r.updated_at) - Date.parse(r.created_at) > 1000 ? r.updated_at : undefined,
+          isHidden: r.is_hidden,
           upvotes: replyVotes.filter(v => v.reply_id === r.id).map(v => v.user_id),
         };
       }),
@@ -460,6 +464,42 @@ export const createForumTopic = async (title: string, content: string, categoryI
   insertOrDelete(db().from('forum_topics').insert({ title, content, category_id: categoryId, direction: direction ?? null, author_id: await myId() }));
 export const replyToForumTopic = async (topicId: string, content: string) =>
   insertOrDelete(db().from('forum_replies').insert({ topic_id: topicId, content, author_id: await myId() }));
+/**
+ * Edit / delete / moderate under RLS (author: own text; moderator+: also pin, close, hide — database trigger
+ * guard_forum_moderation). RLS silently skips rows the user may not change, so "0 rows" is a refusal too.
+ */
+const changeRows = async (op: PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>): Promise<ActionResult> => {
+  try {
+    const { data, error } = await op;
+    if (error) {
+      console.warn('[live] server rejected the action:', error.message);
+      return { ok: false, error: serverErrorKey(error.message) };
+    }
+    if (!data || data.length === 0) {
+      console.warn('[live] nothing changed (no access or already removed)');
+      return { ok: false, error: 'frmErrNotChanged' };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
+};
+export const editForumTopic = (topicId: string, title: string, content: string) =>
+  changeRows(db().from('forum_topics').update({ title, content }).eq('id', topicId).select('id'));
+export const editForumReply = (replyId: string, content: string) =>
+  changeRows(db().from('forum_replies').update({ content }).eq('id', replyId).select('id'));
+export const deleteForumTopic = (topicId: string) =>
+  changeRows(db().from('forum_topics').delete().eq('id', topicId).select('id'));
+export const deleteForumReply = (replyId: string) =>
+  changeRows(db().from('forum_replies').delete().eq('id', replyId).select('id'));
+export const moderateForumTopic = (topicId: string, patch: { isPinned?: boolean; isClosed?: boolean; isHidden?: boolean }) =>
+  changeRows(db().from('forum_topics').update({
+    ...(patch.isPinned !== undefined && { is_pinned: patch.isPinned }),
+    ...(patch.isClosed !== undefined && { is_closed: patch.isClosed }),
+    ...(patch.isHidden !== undefined && { is_hidden: patch.isHidden }),
+  }).eq('id', topicId).select('id'));
+export const moderateForumReply = (replyId: string, isHidden: boolean) =>
+  changeRows(db().from('forum_replies').update({ is_hidden: isHidden }).eq('id', replyId).select('id'));
 export const setReplyVote = async (replyId: string, on: boolean) => {
   const me = await myId();
   return insertOrDelete(on

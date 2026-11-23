@@ -29,6 +29,7 @@ import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 import { getAchievementMetric } from '../utils/achievementProgress';
 import { sendLocalPushNotification, requestWebPushPermission } from '../utils/notifications';
 import { canAccessRoom, canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
+import { canDeleteReply, canDeleteTopic, canEditReply, canEditTopic, canModerateForum, othersReplied } from '../utils/forumPermissions';
 import { formatClubDateTime, hasEventStarted } from '../utils/eventTime';
 import { STORAGE_KEY, canSwitchTestAccounts } from '../config/runtime';
 import { hasQualifyingReview, isWeekFreeForCredit } from '../utils/bookCredit';
@@ -96,6 +97,13 @@ interface AppContextType {
   replyToForumTopic: (topicId: string, content: string) => Promise<{ ok: boolean; error?: string }>;
   upvoteReply: (topicId: string, replyId: string) => void;
   upvoteTopic: (topicId: string) => void;
+  /** Edit / delete own posts and moderate (moderator+); rules in utils/forumPermissions.ts. */
+  editForumTopic: (topicId: string, title: string, content: string) => Promise<{ ok: boolean; error?: string }>;
+  editForumReply: (topicId: string, replyId: string, content: string) => Promise<{ ok: boolean; error?: string }>;
+  deleteForumTopic: (topicId: string) => Promise<{ ok: boolean; error?: string }>;
+  deleteForumReply: (topicId: string, replyId: string) => Promise<{ ok: boolean; error?: string }>;
+  moderateForumTopic: (topicId: string, patch: { isPinned?: boolean; isClosed?: boolean; isHidden?: boolean }) => Promise<{ ok: boolean; error?: string }>;
+  moderateForumReply: (topicId: string, replyId: string, isHidden: boolean) => Promise<{ ok: boolean; error?: string }>;
 
   chatRooms: EncryptedChatRoom[];
   sendChatMessage: (roomId: string, text: string) => Promise<{ ok: boolean; error?: string }>;
@@ -951,7 +959,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     // Demo mirrors the database rule: no replies in a closed (or missing) topic.
     const topic = forumTopics.find(tp => tp.id === topicId);
     if (!topic) return { ok: false, error: 'authErrorGeneric' };
-    if (topic.isClosed) return { ok: false, error: 'frmErrClosed' };
+    if (topic.isClosed || topic.isHidden) return { ok: false, error: 'frmErrClosed' };
     const newReply = {
       id: `reply-${Date.now()}`,
       authorId: currentUser.id,
@@ -1052,6 +1060,75 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         return { ...t, upvotes };
       })
     );
+  };
+
+  // --- Edit, delete, moderate (Phase 2.4): the same rules in demo and live; the database checks again in live ---
+  type ForumResult = { ok: boolean; error?: string };
+  const findTopic = (topicId: string) => forumTopics.find(tp => tp.id === topicId);
+
+  const editForumTopic = async (topicId: string, title: string, content: string): Promise<ForumResult> => {
+    const topic = findTopic(topicId);
+    if (!topic) return { ok: false, error: 'frmTopicNotFound' };
+    if (!canEditTopic(topic, currentUser)) return { ok: false, error: othersReplied(topic, currentUser.id) ? 'frmErrEditAfterReplies' : 'liveErrForbidden' };
+    const invalid = forumTextError(title, FORUM_LIMITS.titleMin, FORUM_LIMITS.titleMax) ?? forumTextError(content, 1, FORUM_LIMITS.contentMax);
+    if (invalid) return { ok: false, error: invalid };
+    if (live) return runLive(live.editForumTopic(topicId, title, content), true);
+    setForumTopics(prev => prev.map(tp => (tp.id === topicId ? { ...tp, title, content } : tp)));
+    return { ok: true };
+  };
+
+  const editForumReply = async (topicId: string, replyId: string, content: string): Promise<ForumResult> => {
+    const topic = findTopic(topicId);
+    const reply = topic?.replies.find(r => r.id === replyId);
+    if (!topic || !reply) return { ok: false, error: 'frmTopicNotFound' };
+    if (!canEditReply(topic, reply, currentUser)) return { ok: false, error: topic.isClosed ? 'frmErrClosed' : 'liveErrForbidden' };
+    const invalid = forumTextError(content, 1, FORUM_LIMITS.replyMax);
+    if (invalid) return { ok: false, error: invalid };
+    if (live) return runLive(live.editForumReply(replyId, content), true);
+    const now = new Date().toISOString();
+    setForumTopics(prev => prev.map(tp => (tp.id !== topicId ? tp : {
+      ...tp,
+      replies: tp.replies.map(r => (r.id === replyId ? { ...r, content, editedAt: now } : r)),
+    })));
+    return { ok: true };
+  };
+
+  const deleteForumTopic = async (topicId: string): Promise<ForumResult> => {
+    const topic = findTopic(topicId);
+    if (!topic) return { ok: false, error: 'frmTopicNotFound' };
+    if (!canDeleteTopic(topic, currentUser)) return { ok: false, error: othersReplied(topic, currentUser.id) ? 'frmErrDeleteAfterReplies' : 'liveErrForbidden' };
+    if (live) return runLive(live.deleteForumTopic(topicId), true);
+    setForumTopics(prev => prev.filter(tp => tp.id !== topicId));
+    return { ok: true };
+  };
+
+  const deleteForumReply = async (topicId: string, replyId: string): Promise<ForumResult> => {
+    const topic = findTopic(topicId);
+    const reply = topic?.replies.find(r => r.id === replyId);
+    if (!topic || !reply) return { ok: false, error: 'frmTopicNotFound' };
+    if (!canDeleteReply(topic, reply, currentUser)) return { ok: false, error: topic.isClosed ? 'frmErrClosed' : 'liveErrForbidden' };
+    if (live) return runLive(live.deleteForumReply(replyId), true);
+    setForumTopics(prev => prev.map(tp => (tp.id !== topicId ? tp : { ...tp, replies: tp.replies.filter(r => r.id !== replyId) })));
+    return { ok: true };
+  };
+
+  const moderateForumTopic = async (topicId: string, patch: { isPinned?: boolean; isClosed?: boolean; isHidden?: boolean }): Promise<ForumResult> => {
+    if (!canModerateForum(currentUser.role)) return { ok: false, error: 'liveErrForbidden' };
+    if (!findTopic(topicId)) return { ok: false, error: 'frmTopicNotFound' };
+    if (live) return runLive(live.moderateForumTopic(topicId, patch), true);
+    setForumTopics(prev => prev.map(tp => (tp.id === topicId ? { ...tp, ...patch } : tp)));
+    return { ok: true };
+  };
+
+  const moderateForumReply = async (topicId: string, replyId: string, isHidden: boolean): Promise<ForumResult> => {
+    if (!canModerateForum(currentUser.role)) return { ok: false, error: 'liveErrForbidden' };
+    if (!findTopic(topicId)?.replies.some(r => r.id === replyId)) return { ok: false, error: 'frmTopicNotFound' };
+    if (live) return runLive(live.moderateForumReply(replyId, isHidden), true);
+    setForumTopics(prev => prev.map(tp => (tp.id !== topicId ? tp : {
+      ...tp,
+      replies: tp.replies.map(r => (r.id === replyId ? { ...r, isHidden } : r)),
+    })));
+    return { ok: true };
   };
 
   // Closed (members-only) chat rooms
@@ -1607,6 +1684,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         replyToForumTopic,
         upvoteReply,
         upvoteTopic,
+        editForumTopic,
+        editForumReply,
+        deleteForumTopic,
+        deleteForumReply,
+        moderateForumTopic,
+        moderateForumReply,
         chatRooms,
         sendChatMessage,
         buyShopItem,
