@@ -1,6 +1,7 @@
 import { CommunityEvent, DirectionId, UserProfile } from '../types';
 import { hasQualifyingReview } from './bookCredit';
 import { hasEventStarted } from './eventTime';
+import { attendedCount, registeredCount } from './counts';
 
 /**
  * Community statistics computed ONLY from real data in the current data source.
@@ -22,9 +23,9 @@ export interface CommunityStats {
 
 export const computeCommunityStats = (users: UserProfile[], events: CommunityEvent[], now = new Date()): CommunityStats => {
   const since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const records = users.flatMap(u => u.attendedEvents);
-  const verifiedVisits = records.filter(r => r.status === 'attended').length;
-  const registrations = records.filter(r => r.status !== 'cancelled').length;
+  // Event counts are public; the lists of who registered / came are private in live (Phase 3, C-21).
+  const verifiedVisits = events.reduce((n, e) => n + attendedCount(e), 0);
+  const registrations = events.reduce((n, e) => n + registeredCount(e), 0);
   const feedbacks = events.flatMap(e => e.feedbacks);
   return {
     members: users.length,

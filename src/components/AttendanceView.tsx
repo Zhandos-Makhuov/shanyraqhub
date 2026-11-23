@@ -3,6 +3,9 @@ import { useApp } from '../context/AppContext';
 import { hasRole, isStaffRole } from '../utils/permissions';
 import { formatShortDate, getEventStart, hasEventEnded } from '../utils/eventTime';
 import { AvatarWithFallback } from './ProfileParts';
+import { ConfirmDialog } from './ForumPostTools';
+import { attendedCount, registeredCount } from '../utils/counts';
+import { computeCommunityStats } from '../utils/communityStats';
 import { CommunityEvent } from '../types';
 import { isDemoData } from '../config/runtime';
 import { QrScanModal } from './CheckInQr';
@@ -22,7 +25,7 @@ import {
 } from 'lucide-react';
 
 export const AttendanceView: React.FC = () => {
-  const { allUsers, events, currentUser, checkInAttendance, checkInWithCode, setSelectedUserModal, getActivityStreak, getWeekStreak, t, language, ln } = useApp();
+  const { allUsers, events, currentUser, checkInAttendance, undoCheckIn, checkInWithCode, setSelectedUserModal, getActivityStreak, getWeekStreak, t, language, ln } = useApp();
   const myStreak = getActivityStreak(currentUser.id);
   const myWeekStreak = getWeekStreak(currentUser.id);
 
@@ -37,7 +40,9 @@ export const AttendanceView: React.FC = () => {
   const checkInEvents = useMemo(() => events
     .filter(e => e.status !== 'cancelled'
       && (hasRole(currentUser.role, 'moderator') || e.hostId === currentUser.id)
-      && getEventStart(e).getTime() - 2 * 3600_000 <= now)
+      && getEventStart(e).getTime() - 2 * 3600_000 <= now
+      // Owner decision C-15: an organizer's manual check-in closes 24 h after the event ends; moderator+ can correct later.
+      && (hasRole(currentUser.role, 'moderator') || now <= getEventStart(e).getTime() + (e.durationMinutes || 90) * 60_000 + 24 * 3600_000))
     // Running/today first, then the most recent ones.
     .sort((a, b) => Number(hasEventEnded(a)) - Number(hasEventEnded(b)) || getEventStart(b).getTime() - getEventStart(a).getTime()),
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,8 +86,26 @@ export const AttendanceView: React.FC = () => {
     setWalkInQuery('');
   };
 
-  // Aggregate attendance data across all users: newest first; "mine" or everyone; shown in pages of 30.
-  const [historyScope, setHistoryScope] = useState<'all' | 'mine'>('all');
+  // Undo a wrong check-in (owner decision C-14): moderator+, with a reason; the server takes the reward back.
+  const canUndo = hasRole(currentUser.role, 'moderator');
+  const [undoUser, setUndoUser] = useState<{ id: string; name: string } | null>(null);
+  const [undoReason, setUndoReason] = useState('');
+  const [undoBusy, setUndoBusy] = useState(false);
+  const [undoError, setUndoError] = useState('');
+  const doUndo = async () => {
+    if (!undoUser || !currentEvent || undoBusy) return;
+    setUndoBusy(true); setUndoError('');
+    const r = await undoCheckIn(currentEvent.id, undoUser.id, undoReason.trim());
+    setUndoBusy(false);
+    if (!r.ok) { setUndoError(t(r.error || 'authErrorGeneric')); return; }
+    setResult({ ok: true, text: t('attUndoDone').replace('{name}', undoUser.name) });
+    setUndoUser(null); setUndoReason('');
+  };
+
+  // Aggregate attendance data: newest first; staff may see everyone they are allowed to (members — only themselves,
+  // other members' visits are private, owner decision C-21); shown in pages of 30.
+  const [historyScopeChoice, setHistoryScope] = useState<'all' | 'mine'>('all');
+  const historyScope = isStaff ? historyScopeChoice : 'mine';
   const [historyLimit, setHistoryLimit] = useState(30);
   const allVisits = allUsers.flatMap(u =>
     u.attendedEvents.map(att => ({
@@ -103,12 +126,10 @@ export const AttendanceView: React.FC = () => {
     if (target) setSelectedUserModal(target);
   };
 
-  const attendedVisits = allVisits.filter(v => v.status === 'attended');
-  const totalRegistrations = allVisits.filter(v => v.status !== 'cancelled').length;
-  // null when there are no registrations yet (shown as "—", never a made-up 100%).
-  const attendanceRate = totalRegistrations > 0
-    ? Math.round((attendedVisits.length / totalRegistrations) * 100)
-    : null;
+  // Club numbers from public counts (live: get_event_counts); null rate when there are no registrations ("—").
+  const clubStats = computeCommunityStats(allUsers, events);
+  const attendedVisits = { length: clubStats.verifiedVisits };
+  const attendanceRate = clubStats.attendanceRate;
 
   return (
     <div className="space-y-6 pb-12">
@@ -205,7 +226,7 @@ export const AttendanceView: React.FC = () => {
                 ))}
               </select>
               <p className="mt-1.5 text-[12px] text-[#d6cebf]" aria-live="polite" data-checkin-counts>
-                {t('attRosterCounts').replace('{reg}', String(currentEvent.registeredUserIds.length)).replace('{came}', String(currentEvent.attendedUserIds.length))}
+                {t('attRosterCounts').replace('{reg}', String(registeredCount(currentEvent))).replace('{came}', String(attendedCount(currentEvent)))}
               </p>
             </div>
 
@@ -228,8 +249,21 @@ export const AttendanceView: React.FC = () => {
                       <AvatarWithFallback src={u.avatar} name={u.name} className="w-8 h-8 shrink-0" textClassName="text-[10px]" />
                       <span className="min-w-0 flex-1 text-xs text-[#f5f2eb] truncate">{u.name}</span>
                       {came ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 min-h-8 rounded-full text-[11px] font-semibold bg-emerald-950/70 text-emerald-400 border border-emerald-800 shrink-0" data-roster-came>
-                          <CheckCircle className="w-3 h-3" aria-hidden="true" />{t('prfAttended')}
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          <span className="inline-flex items-center gap-1 px-2.5 min-h-8 rounded-full text-[11px] font-semibold bg-emerald-950/70 text-emerald-400 border border-emerald-800" data-roster-came>
+                            <CheckCircle className="w-3 h-3" aria-hidden="true" />{t('prfAttended')}
+                          </span>
+                          {canUndo && !self && (
+                            <button
+                              type="button"
+                              onClick={() => { setUndoError(''); setUndoReason(''); setUndoUser({ id: u.id, name: u.name }); }}
+                              aria-label={`${t('attUndo')}: ${u.name}`}
+                              className="min-h-10 px-2.5 rounded-lg text-[11px] text-red-300 border border-red-900/60 hover:bg-red-950/40"
+                              data-roster-undo
+                            >
+                              {t('attUndo')}
+                            </button>
+                          )}
                         </span>
                       ) : self ? (
                         <span className="text-[11px] text-[#9e948c] shrink-0">{t('attNotSelf')}</span>
@@ -301,6 +335,32 @@ export const AttendanceView: React.FC = () => {
       </section>
       )}
 
+      <ConfirmDialog
+        open={!!undoUser}
+        title={t('attUndoQ')}
+        text={t('attUndoText').replace('{name}', undoUser?.name ?? '').replace('{event}', currentEvent?.title ?? '')}
+        confirmLabel={t('attUndo')}
+        busyLabel={t('evWorking')}
+        cancelLabel={t('frmCancel')}
+        busy={undoBusy}
+        error={undoError}
+        confirmDisabled={!undoReason.trim()}
+        onConfirm={() => void doUndo()}
+        onCancel={() => setUndoUser(null)}
+      >
+        <div>
+          <label htmlFor="undo-reason" className="text-[11px] text-[#d6cebf] block mb-1">{t('attUndoReason')} *</label>
+          <input
+            id="undo-reason"
+            type="text"
+            value={undoReason}
+            maxLength={300}
+            onChange={e => setUndoReason(e.target.value)}
+            className="w-full min-h-10 px-3 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
+          />
+        </div>
+      </ConfirmDialog>
+
       {showScanner && <QrScanModal onClose={() => setShowScanner(false)} />}
 
       {/* Attendance History: newest first, mine / everyone, shown in pages */}
@@ -310,14 +370,14 @@ export const AttendanceView: React.FC = () => {
             {t('attHistoryTitle')}
           </h2>
           <div className="flex items-center gap-2">
-            <div className="flex items-center bg-[#1a1716] rounded-lg p-0.5 border border-[#302a28]" role="group" aria-label={t('attHistoryScope')}>
+            {isStaff && <div className="flex items-center bg-[#1a1716] rounded-lg p-0.5 border border-[#302a28]" role="group" aria-label={t('attHistoryScope')}>
               {(['all', 'mine'] as const).map(sc => (
                 <button key={sc} type="button" onClick={() => { setHistoryScope(sc); setHistoryLimit(30); }} aria-pressed={historyScope === sc}
                         className={`min-h-9 px-3 rounded-md text-[11px] font-medium ${historyScope === sc ? 'bg-[#3a3330] text-[#f5f2eb]' : 'text-[#9e948c]'}`}>
                   {sc === 'all' ? t('attHistoryAll') : t('attHistoryMine')}
                 </button>
               ))}
-            </div>
+            </div>}
             <span className="text-xs text-[#9e948c]" aria-live="polite">
               {t('attShown').replace('{n}', String(historyVisits.length))}
             </span>

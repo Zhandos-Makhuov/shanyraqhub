@@ -173,6 +173,8 @@ export interface UserProfile {
   pendingDirections?: DirectionId[];
   /** Live: club days (YYYY-MM-DD, Almaty) with verified activity, from the server — drives the streaks. */
   activityDays?: string[];
+  /** Live: verified visits from get_member_stats (other members' visit lists are private — C-21). */
+  attendedCount?: number;
   name: string;
   email: string;
   handle: string;
@@ -244,6 +246,9 @@ export interface CommunityEvent {
   isCompleted?: boolean;
   /** public.events.status; "cancelled" events stay visible with a mark (no registration). */
   status?: 'draft' | 'published' | 'completed' | 'cancelled';
+  /** Live: numbers from get_event_counts (the lists above hold only rows this person may read — C-21). */
+  registeredCount?: number;
+  attendedCount?: number;
 }
 
 /** What an organizer can change in an existing event (Phase 3). */

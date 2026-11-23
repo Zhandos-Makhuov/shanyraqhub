@@ -126,7 +126,10 @@ export const ConfirmDialog: React.FC<{
   error?: string;
   onConfirm: () => void;
   onCancel: () => void;
-}> = ({ open, title, text, confirmLabel, busyLabel, cancelLabel, busy, error, onConfirm, onCancel }) => {
+  /** Optional extra fields (e.g. a required reason) between the text and the buttons. */
+  children?: React.ReactNode;
+  confirmDisabled?: boolean;
+}> = ({ open, title, text, confirmLabel, busyLabel, cancelLabel, busy, error, onConfirm, onCancel, children, confirmDisabled }) => {
   const ref = useDialog<HTMLDivElement>(open, () => !busy && onCancel());
   const titleId = useId();
   const textId = useId();
@@ -145,6 +148,7 @@ export const ConfirmDialog: React.FC<{
       >
         <h3 id={titleId} className="font-display text-base font-bold text-[#f5f2eb]">{title}</h3>
         <p id={textId} className="text-xs text-[#b8afa3] leading-relaxed">{text}</p>
+        {children}
         {error && (
           <p role="alert" className="text-[12px] text-red-300 bg-red-950/40 border border-red-900/60 rounded-lg px-3 py-2" data-confirm-error>
             {error}
@@ -163,7 +167,7 @@ export const ConfirmDialog: React.FC<{
           <button
             type="button"
             onClick={onConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             className={`px-4 min-h-10 rounded-lg bg-red-800 hover:bg-red-700 text-xs font-semibold text-white disabled:opacity-60 ${FOCUS_RING}`}
             data-confirm-ok
           >

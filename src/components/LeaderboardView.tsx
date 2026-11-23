@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
 import { AvatarWithFallback } from './ProfileParts';
+import { memberVisits } from '../utils/counts';
 import {
   Trophy,
   Crown,
@@ -27,8 +28,7 @@ export const LeaderboardView: React.FC = () => {
     }
     if (sortKey === 'events') {
       return (
-        b.attendedEvents.filter(e => e.status === 'attended').length -
-        a.attendedEvents.filter(e => e.status === 'attended').length
+        memberVisits(b) - memberVisits(a)
       );
     }
     if (sortKey === 'coins') {
@@ -255,7 +255,7 @@ export const LeaderboardView: React.FC = () => {
           const rank = rankOf.get(user.id) ?? 0;
           const isMe = user.id === currentUser.id;
           const tierInfo = TIERS[user.tier];
-          const attendedCount = user.attendedEvents.filter(e => e.status === 'attended').length;
+          const attendedCount = memberVisits(user);
 
           return (
             <button
@@ -324,7 +324,7 @@ export const LeaderboardView: React.FC = () => {
                 const rank = rankOf.get(user.id) ?? 0;
                 const isMe = user.id === currentUser.id;
                 const tierInfo = TIERS[user.tier];
-                const attendedCount = user.attendedEvents.filter(e => e.status === 'attended').length;
+                const attendedCount = memberVisits(user);
 
                 return (
                   <tr

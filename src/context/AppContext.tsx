@@ -32,6 +32,7 @@ import { sendLocalPushNotification, requestWebPushPermission } from '../utils/no
 import { canAccessRoom, canAssignRole, hasRole, isStaffRole } from '../utils/permissions';
 import { canDeleteReply, canDeleteTopic, canEditReply, canEditTopic, canModerateForum, othersReplied } from '../utils/forumPermissions';
 import { formatClubDateTime, getEventStart, hasEventEnded, hasEventStarted } from '../utils/eventTime';
+import { registeredCount } from '../utils/counts';
 import { STORAGE_KEY, canSwitchTestAccounts } from '../config/runtime';
 import { hasQualifyingReview, isWeekFreeForCredit } from '../utils/bookCredit';
 import { computeDayStreak, computeWeekStreak, toLocalDay } from '../utils/streak';
@@ -79,6 +80,8 @@ interface AppContextType {
   setEventCancelled: (eventId: string, cancelled: boolean) => Promise<{ ok: boolean; error?: string }>;
   /** Staff confirm another member's visit. Live: server RPC (event organizer or moderator+). */
   checkInAttendance: (eventId: string, userId: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Phase 3 (C-14): moderator+ removes a wrong check-in with a reason; the reward is taken back (coins never below 0). */
+  undoCheckIn: (eventId: string, userId: string, reason: string) => Promise<{ ok: boolean; error?: string }>;
   /** Live only: the member's one-time QR code for an event (undefined in demo). */
   issueCheckInCode?: (eventId: string) => Promise<{ ok: true; code: string; expiresAt: string } | { ok: false; error: string }>;
   /** Live only: organizer confirms a visit from a scanned code (undefined in demo). */
@@ -554,7 +557,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     if (!target || target.status === 'cancelled') return { ok: false, error: 'liveErrEventNotAvailable' };
     if (target.registeredUserIds.includes(currentUser.id)) return { ok: true }; // no duplicate registration
     if (hasEventStarted(target)) return { ok: false, error: 'liveErrEventStarted' }; // registration closes when the event starts
-    if (target.registeredUserIds.length >= target.maxCapacity) return { ok: false, error: 'liveErrEventFull' };
+    if (registeredCount(target) >= target.maxCapacity) return { ok: false, error: 'liveErrEventFull' };
 
     setEvents(prev =>
       prev.map(ev => {
@@ -659,7 +662,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     const title = patch.title.trim();
     if (title.length < 3 || title.length > 200) return { ok: false, error: 'evErrTitle' };
     if (patch.durationMinutes < 15 || patch.durationMinutes > 1440) return { ok: false, error: 'liveErrInvalid' };
-    if (patch.maxCapacity < Math.max(1, ev.registeredUserIds.length)) return { ok: false, error: 'evErrCapacityBelow' };
+    if (patch.maxCapacity < Math.max(1, registeredCount(ev))) return { ok: false, error: 'evErrCapacityBelow' };
     const movedStart = patch.date !== ev.date || patch.time !== ev.time;
     if (movedStart && getEventStart({ date: patch.date, time: patch.time } as CommunityEvent).getTime() <= Date.now()) {
       return { ok: false, error: 'evErrPast' };
@@ -739,6 +742,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     try {
       confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
     } catch {}
+    return { ok: true };
+  };
+
+  const undoCheckIn = async (eventId: string, userId: string, reason: string): Promise<{ ok: boolean; error?: string }> => {
+    if (!hasRole(currentUser.role, 'moderator') || (userId === currentUser.id && currentUser.role !== 'super_admin')) return { ok: false, error: 'liveErrForbidden' };
+    if (!reason.trim()) return { ok: false, error: 'liveErrReasonRequired' };
+    if (live) return runLive(live.undoCheckIn(eventId, userId, reason.trim()), true);
+    const ev = events.find(e => e.id === eventId);
+    if (!ev || !ev.attendedUserIds.includes(userId)) return { ok: false, error: 'frmErrNotChanged' };
+    const target = allUsers.find(u => u.id === userId);
+    const coinsBack = Math.min(attendanceCoinsForTier(target?.tier ?? 'bronze'), target?.coins ?? 0);
+    setEvents(prev => prev.map(e => (e.id === eventId ? { ...e, attendedUserIds: e.attendedUserIds.filter(id => id !== userId) } : e)));
+    setAllUsers(prev => prev.map(u => (u.id !== userId ? u : {
+      ...u,
+      xp: Math.max(0, u.xp - ATTENDANCE_XP),
+      coins: Math.max(0, u.coins - coinsBack),
+      attendedEvents: u.attendedEvents.map(a => (a.eventId === eventId ? { ...a, status: 'registered', checkInTime: undefined } : a)),
+    })));
     return { ok: true };
   };
 
@@ -1733,6 +1754,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         updateEvent,
         setEventCancelled,
         checkInAttendance,
+        undoCheckIn,
         issueCheckInCode,
         checkInWithCode,
         refreshData: account ? refreshLive : undefined,

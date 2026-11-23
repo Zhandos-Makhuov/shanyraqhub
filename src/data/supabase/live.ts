@@ -143,6 +143,16 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
         .neq('coin_delta', 0).order('created_at', { ascending: false }).limit(300)),
       rows<AuditRow>(c.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200)), // admins only
     ]);
+  // Phase 3 (C-21): who registered / came is readable only by the member, the event's organizer and moderator+;
+  // the numbers come from public aggregate functions. If they are missing (older schema), the lists are used.
+  const [countsRes, statsRes] = await Promise.all([
+    events.length ? c.rpc('get_event_counts', { p_events: events.map(e => e.id) }) : Promise.resolve({ data: [], error: null }),
+    c.rpc('get_member_stats'),
+  ]);
+  const eventCounts = new Map(((countsRes.error ? [] : countsRes.data) as { event_id: string; registered: number; attended: number }[] ?? [])
+    .map(r => [r.event_id, r]));
+  const memberVisits = new Map(((statsRes.error ? [] : statsRes.data) as { user_id: string; attended: number }[] ?? [])
+    .map(r => [r.user_id, r.attended]));
   const names = buildPublicNames(profiles, roles);
   const rel = { roles, balances, events, registrations, attendance, feedback, peerReviews: reviews, names,
     userAchievements: achievements, revocations, books, userBooks, inventory, equipment, memberships, contacts };
@@ -259,8 +269,13 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       ...profileFromRows(p, { ...rel, email: p.id === myId ? email : undefined }),
       pendingDirections: memberships.filter(m => m.user_id === p.id && m.status === 'pending').map(m => m.direction),
       activityDays: [...(activity.get(p.id) ?? [])],
+      ...(memberVisits.has(p.id) ? { attendedCount: memberVisits.get(p.id) } : {}),
     })),
-    events: events.map(e => eventFromRow(e, { registrations, attendance, feedback, names })),
+    events: events.map(e => {
+      const ev = eventFromRow(e, { registrations, attendance, feedback, names });
+      const n = eventCounts.get(e.id);
+      return n ? { ...ev, registeredCount: n.registered, attendedCount: n.attended } : ev;
+    }),
     notifications: notifications.map(n => ({
       id: n.id,
       userId: n.user_id,
@@ -363,6 +378,10 @@ export const createEvent = async (ev: Partial<CommunityEvent> & { date: string; 
 };
 
 /** Organizer of the event or moderator+ (RLS events_update); "0 rows" = no access. */
+/** Phase 3 (C-14): moderator+ removes a wrong check-in (reason required); the server takes the reward back. */
+export const undoCheckIn = (eventId: string, userId: string, reason: string) =>
+  call('undo_check_in', { p_event: eventId, p_user: userId, p_reason: reason });
+
 export const updateEvent = (eventId: string, p: EventPatch) =>
   changeRows(db().from('events').update({
     title: p.title.trim(),

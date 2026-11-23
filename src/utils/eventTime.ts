@@ -54,7 +54,7 @@ export const formatEventDay = (event: Pick<CommunityEvent, 'date'>, t: (key: str
 export type EventStatus = 'attended' | 'cancelled' | 'ended' | 'inProgress' | 'registered' | 'full' | 'open';
 
 export const getEventStatus = (
-  event: Pick<CommunityEvent, 'date' | 'time' | 'durationMinutes' | 'maxCapacity' | 'registeredUserIds' | 'attendedUserIds'> & { status?: CommunityEvent['status'] },
+  event: Pick<CommunityEvent, 'date' | 'time' | 'durationMinutes' | 'maxCapacity' | 'registeredUserIds' | 'attendedUserIds' | 'registeredCount'> & { status?: CommunityEvent['status'] },
   userId: string,
   now = new Date(),
 ): EventStatus => {
@@ -63,7 +63,7 @@ export const getEventStatus = (
   if (hasEventEnded(event, now)) return 'ended';
   if (hasEventStarted(event, now)) return 'inProgress';
   if (event.registeredUserIds.includes(userId)) return 'registered';
-  if (event.registeredUserIds.length >= event.maxCapacity) return 'full';
+  if ((event.registeredCount ?? event.registeredUserIds.length) >= event.maxCapacity) return 'full';
   return 'open';
 };
 

@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { registeredCount } from '../utils/counts';
 import { useApp } from '../context/AppContext';
 import { COMMUNITY_DIRECTIONS, eventImage } from '../data/directions';
 import { exportEventToIcs } from '../utils/calendar';
@@ -23,7 +24,7 @@ export const EventCard: React.FC<{
   const { currentUser, registerForEvent, cancelEventRegistration, issueCheckInCode, language, t } = useApp();
 
   const status: EventStatus = getEventStatus(event, currentUser.id);
-  const registered = event.registeredUserIds.length;
+  const registered = registeredCount(event);
   const seatsLeft = Math.max(0, event.maxCapacity - registered);
   const direction = COMMUNITY_DIRECTIONS.find(d => d.id === event.direction);
   const directionName = direction

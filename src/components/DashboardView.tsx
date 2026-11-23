@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { registeredCount } from '../utils/counts';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
 import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
@@ -98,7 +99,7 @@ export const DashboardView: React.FC = () => {
     const registered = upcoming.find(e => e.registeredUserIds.includes(me));
     if (registered) return { kind: 'registered', event: registered };
 
-    const open = upcoming.filter(e => !e.registeredUserIds.includes(me) && e.registeredUserIds.length < e.maxCapacity);
+    const open = upcoming.filter(e => !e.registeredUserIds.includes(me) && registeredCount(e) < e.maxCapacity);
     const suggestion = open.find(e => currentUser.directions?.includes(e.direction)) ?? open[0];
     if (suggestion) return { kind: 'suggest', event: suggestion };
 

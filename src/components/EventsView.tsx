@@ -10,6 +10,7 @@ import { EventCard } from './EventCard';
 import { MyQrModal } from './CheckInQr';
 import { CommunityEvent, DirectionId } from '../types';
 import { useDialog } from '../hooks/useDialog';
+import { attendedCount, registeredCount } from '../utils/counts';
 import { AvatarWithFallback } from './ProfileParts';
 import { ConfirmDialog } from './ForumPostTools';
 import { toLocalDay } from '../utils/streak';
@@ -527,10 +528,10 @@ export const EventsView: React.FC = () => {
                 <h3 className="text-xs font-semibold text-[#dfcfb3]">{t('evManageTitle')}</h3>
                 <div>
                   <p className="text-[12px] text-[#d6cebf] mb-1.5">
-                    {t('evRegisteredList').replace('{n}', String(openModal.registeredUserIds.length)).replace('{max}', String(openModal.maxCapacity))}
-                    {openModal.attendedUserIds.length > 0 && <> · {t('evAttendedCount').replace('{n}', String(openModal.attendedUserIds.length))}</>}
+                    {t('evRegisteredList').replace('{n}', String(registeredCount(openModal))).replace('{max}', String(openModal.maxCapacity))}
+                    {attendedCount(openModal) > 0 && <> · {t('evAttendedCount').replace('{n}', String(attendedCount(openModal)))}</>}
                   </p>
-                  {openModal.registeredUserIds.length === 0 ? (
+                  {registeredCount(openModal) === 0 ? (
                     <p className="text-[12px] text-[#9e948c]">{t('evNoRegistrations')}</p>
                   ) : (
                     <ul className="flex flex-wrap gap-1.5" data-event-registrants>
@@ -621,7 +622,7 @@ export const EventsView: React.FC = () => {
                     openModal.status === 'cancelled' ||
                     hasEventStarted(openModal) ||
                     (!openModal.registeredUserIds.includes(currentUser.id) &&
-                      openModal.registeredUserIds.length >= openModal.maxCapacity)
+                      registeredCount(openModal) >= openModal.maxCapacity)
                   }
                   aria-busy={detailBusy}
                   className="btn-primary min-w-0 flex-1 sm:flex-none disabled:opacity-60"
@@ -635,7 +636,7 @@ export const EventsView: React.FC = () => {
                         ? t('registrationClosed')
                         : openModal.registeredUserIds.includes(currentUser.id)
                           ? t('evCancelRegistration')
-                          : openModal.registeredUserIds.length >= openModal.maxCapacity
+                          : registeredCount(openModal) >= openModal.maxCapacity
                             ? t('eventFull')
                             : t('actionRegister')}
                 </button>
@@ -649,7 +650,7 @@ export const EventsView: React.FC = () => {
         <ConfirmDialog
           open={confirmCancelEvent}
           title={t('evCancelEventQ')}
-          text={t('evCancelEventText').replace('{title}', openModal.title).replace('{n}', String(openModal.registeredUserIds.length))}
+          text={t('evCancelEventText').replace('{title}', openModal.title).replace('{n}', String(registeredCount(openModal)))}
           confirmLabel={t('evCancelEvent')}
           busyLabel={t('evWorking')}
           cancelLabel={t('evKeepEvent')}
@@ -773,9 +774,9 @@ export const EventsView: React.FC = () => {
 
             <form onSubmit={handleCreateSubmit} className="flex flex-col flex-1 min-h-0 text-xs">
               <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6 py-4 space-y-3">
-              {editingEvent && editingEvent.registeredUserIds.length > 0 && (
+              {editingEvent && registeredCount(editingEvent) > 0 && (
                 <p role="note" className="p-2.5 rounded-lg bg-amber-950/30 border border-amber-900/60 text-[12px] text-amber-200" data-event-edit-warning>
-                  {t('evEditWarning').replace('{n}', String(editingEvent.registeredUserIds.length))}
+                  {t('evEditWarning').replace('{n}', String(registeredCount(editingEvent)))}
                 </p>
               )}
               <div>
@@ -868,7 +869,7 @@ export const EventsView: React.FC = () => {
                   <input
                     id="ev-capacity"
                     type="number"
-                    min={Math.max(5, editingEvent?.registeredUserIds.length ?? 0)}
+                    min={Math.max(5, editingEvent ? registeredCount(editingEvent) : 0)}
                     max={100}
                     value={newCapacity}
                     onChange={e => setNewCapacity(Number(e.target.value))}

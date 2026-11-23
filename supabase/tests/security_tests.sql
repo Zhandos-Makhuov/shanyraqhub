@@ -611,4 +611,70 @@ select t.expect_fail($$select public.admin_adjust_coins('00000000-0000-0000-0000
 select t.expect_fail($$select public.revoke_achievement('00000000-0000-0000-0000-00000000000b', 'ach-first-book', 'me')$$, '%own achievement%');
 reset role;
 
+
+-- Phase 3 owner decisions (2026-11-23): C-5 new-event notice, C-13 change notices + reminders, C-21 private lists,
+-- C-14 undo a check-in, C-15 organizer's manual check-in window.
+update public.user_preferences set notify_new_events = false where user_id = '00000000-0000-0000-0000-000000000002';
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', false);
+insert into public.events (title, direction, starts_at, capacity, status) values ('Ops Meetup', 'books', now() + interval '3 days', 10, 'published');
+select id as ops from public.events where title = 'Ops Meetup' \gset
+reset role;
+select t.ok(exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-000000000001' and type = 'new_event' and (meta->>'event_id')::uuid = :'ops' and title = 'Клубта жаңа кездесу'), 'C-5: members are told about a new event (in their language)');
+select t.ok(not exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-000000000002' and type = 'new_event' and (meta->>'event_id')::uuid = :'ops'), 'C-5: not a member who switched new-event notices off');
+select t.ok(not exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-00000000000c' and type = 'new_event' and (meta->>'event_id')::uuid = :'ops'), 'C-5: not the organizer of the event');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select public.register_for_event(:'ops');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select public.register_for_event(:'ops');
+select t.ok((select count(*) from public.event_registrations where event_id = :'ops') = 1, 'C-21: a member sees only own registration');
+select t.ok((select registered from public.get_event_counts(array[:'ops'::uuid])) = 2, 'C-21: registration counts stay public');
+select t.ok((select attended from public.get_member_stats() where user_id = '00000000-0000-0000-0000-000000000002') >= 1, 'C-21: per-member visit numbers stay public');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.ok((select count(*) from public.event_attendance where user_id = '00000000-0000-0000-0000-000000000002') = 0, 'C-21: a member does not see who else came');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', false);
+select t.ok((select count(*) from public.event_registrations where event_id = :'ops') = 2, 'C-21: the event organizer sees its registrations');
+select t.ok((select count(*) from public.event_attendance where event_id = :'ev') >= 1, 'C-21: and who came to own events');
+update public.events set starts_at = now() + interval '5 days' where id = :'ops';
+reset role;
+select t.ok((select count(*) from public.notifications where (meta->>'event_id')::uuid = :'ops' and type = 'system' and user_id in ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002')) = 2, 'C-13: registered members are told the meetup moved');
+select t.ok((select min(send_at) from public.scheduled_notifications where event_id = :'ops') > now() + interval '3 days', 'C-13: reminders follow the new time');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', false);
+update public.events set status = 'cancelled' where id = :'ops';
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.expect_fail($$select public.register_for_event('$$ || :'ops' || $$')$$, '%event_not_available%');
+reset role;
+select t.ok(exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-000000000001' and (meta->>'event_id')::uuid = :'ops' and title = 'Кездесу тоқтатылды'), 'C-13: registered members are told it is cancelled');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', false);
+update public.events set status = 'published' where id = :'ops';
+reset role;
+select t.ok(exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-000000000001' and (meta->>'event_id')::uuid = :'ops' and title = 'Кездесу қайта кестеде'), 'C-13: and that it is back');
+select t.ok((select count(*) from public.scheduled_notifications where event_id = :'ops' and sent_at is null) = 4, 'C-13: a restored meetup gets its reminders back');
+select t.ok((select count(*) from public.notifications where type = 'new_event' and (meta->>'event_id')::uuid = :'ops' and user_id = '00000000-0000-0000-0000-000000000001') = 1, 'C-5: restoring is not announced as a new meetup');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', false);
+insert into public.events (title, direction, starts_at, capacity, status) values ('Past Meetup', 'books', now() - interval '3 days', 10, 'published');
+select id as past from public.events where title = 'Past Meetup' \gset
+select t.expect_fail($$select public.manual_check_in('$$ || :'past' || $$', '00000000-0000-0000-0000-000000000001', 'late')$$, '%checkin_window_closed%');
+select t.expect_fail($$select public.undo_check_in('$$ || :'ev' || $$', '00000000-0000-0000-0000-000000000002', 'mistake')$$, '%forbidden%');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+select t.ok(public.manual_check_in(:'past', '00000000-0000-0000-0000-000000000001', 'late fix by staff'), 'C-15: a moderator+ can still correct it later');
+select t.expect_fail($$select public.undo_check_in('$$ || :'past' || $$', '00000000-0000-0000-0000-000000000001', '  ')$$, '%reason_required%');
+select t.ok(public.undo_check_in(:'past', '00000000-0000-0000-0000-000000000001', 'marked by mistake'), 'C-14: moderator+ removes a wrong check-in');
+select t.ok(not public.undo_check_in(:'past', '00000000-0000-0000-0000-000000000001', 'again'), 'C-14: removing it twice is a no-op');
+reset role;
+select t.ok(not exists (select 1 from public.event_attendance where event_id = :'past' and user_id = '00000000-0000-0000-0000-000000000001'), 'C-14: the visit is gone');
+select t.ok((select xp_delta from public.reward_ledger where idempotency_key = 'attendance-undo:' || :'past' || ':00000000-0000-0000-0000-000000000001:1') = -60, 'C-14: its XP is taken back');
+select t.ok(exists (select 1 from public.audit_logs where action = 'CHECKIN_UNDO' and target_id = :'past'::text), 'C-14: audited');
+select t.ok(exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-000000000001' and title = 'Қатысу белгісі алынды'), 'C-14: the member is told (in their language)');
+select t.ok((select coins >= 0 from public.user_balances where user_id = '00000000-0000-0000-0000-000000000001'), 'C-14: coins never below zero');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+select t.ok(public.manual_check_in(:'past', '00000000-0000-0000-0000-000000000001', 'came after all'), 'C-14: a new check-in after an undo counts');
+reset role;
+select t.ok(exists (select 1 from public.reward_ledger where idempotency_key = 'attendance:' || :'past' || ':00000000-0000-0000-0000-000000000001:r1' and xp_delta = 60), 'C-14: and is rewarded again');
+
 \echo ALL_TESTS_PASSED

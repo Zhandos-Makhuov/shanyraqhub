@@ -240,6 +240,53 @@ test.describe('check-in desk (phone)', () => {
     await expect(page.locator('main [data-checkin-desk]')).toHaveCount(0);
   });
 
+  test('moderator removes a wrong check-in with a reason (owner decision C-14); an organizer cannot', async ({ page }) => {
+    await openApp(page);
+    await planEvents(page, { 'event-5': { inMin: 60, host: 'user-member-2' } });
+    await switchTo(page, MOD);
+    await openAttendance(page);
+    const desk = page.locator('main [data-checkin-desk]');
+    await desk.locator('[data-roster-user="user-member-1"] [data-roster-checkin]').click();
+    await desk.locator('[data-roster-user="user-member-1"] [data-roster-undo]').click();
+    const dlg = page.getByRole('alertdialog', { name: 'Қатысу белгісін алу керек пе?' });
+    await expect(dlg).toContainText('Айзере Мұрат');
+    await expect(dlg.getByRole('button', { name: 'Белгіні алу' })).toBeDisabled(); // reason required
+    await dlg.getByLabel('Себебі *').fill('Қате белгіленді');
+    await dlg.getByRole('button', { name: 'Белгіні алу' }).click();
+    await expect(dlg).toHaveCount(0);
+    await expect(desk.locator('[data-checkin-result="ok"]')).toContainText('Белгі алынды');
+    await expect(desk.locator('[data-roster-user="user-member-1"] [data-roster-checkin]')).toBeVisible();
+    await expect(desk.locator('[data-checkin-counts]')).toHaveText('Тіркелгендер: 3 · келгендер: 0');
+    // the organizer of this event marks, but has no "remove"
+    await desk.locator('[data-roster-user="user-member-3"] [data-roster-checkin]').click();
+    await switchTo(page, ORG);
+    await openAttendance(page);
+    await expect(page.locator('main [data-roster-user="user-member-3"] [data-roster-came]')).toBeVisible();
+    await expect(page.locator('main [data-roster-undo]')).toHaveCount(0);
+  });
+
+  test('organizer: manual check-in closes 24 h after the event ended (owner decision C-15)', async ({ page }) => {
+    await openApp(page);
+    await planEvents(page, { 'event-4': { inMin: -60 * 30, host: 'user-member-2' }, 'event-5': { inMin: -60 * 3, host: 'user-member-2' } });
+    await switchTo(page, ORG);
+    await openAttendance(page);
+    const options = await page.locator('#checkin-event option').allInnerTexts();
+    expect(options.some(o => o.includes('Zerde'))).toBe(true);     // ended 1 h ago
+    expect(options.some(o => o.includes('Tarlan'))).toBe(false);   // ended > 24 h ago
+    await switchTo(page, MOD);                                      // a moderator can still correct it
+    await openAttendance(page);
+    expect((await page.locator('#checkin-event option').allInnerTexts()).some(o => o.includes('Tarlan'))).toBe(true);
+  });
+
+  test('a member sees only own visits (owner decision C-21): no "everyone" switch', async ({ page }) => {
+    await openApp(page, 'Айзере Мұрат');
+    await openAttendance(page);
+    await expect(page.locator('main [data-att-history] button[aria-pressed]')).toHaveCount(0);
+    const names = await page.locator('main [data-visit-name]').allInnerTexts();
+    expect(names.length).toBeGreaterThan(0);
+    expect(new Set(names)).toEqual(new Set(['Айзере Мұрат']));
+  });
+
   test('organizer without an event in the window gets an explanation', async ({ page }) => {
     await openApp(page);
     await planEvents(page, { 'event-4': { inMin: -60 * 24 * 3, host: 'user-mod-1' } });
