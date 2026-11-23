@@ -484,6 +484,9 @@ const changeRows = async (op: PromiseLike<{ data: unknown[] | null; error: { mes
     return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
   }
 };
+/** Own shelf entry (RLS user_books_delete_own); the site offers it only for "reading" entries. */
+export const removeUserBook = async (entryId: string) =>
+  changeRows(db().from('user_books').delete().eq('id', entryId).eq('user_id', await myId()).eq('status', 'reading').select('id'));
 export const editForumTopic = (topicId: string, title: string, content: string) =>
   changeRows(db().from('forum_topics').update({ title, content }).eq('id', topicId).select('id'));
 export const editForumReply = (replyId: string, content: string) =>

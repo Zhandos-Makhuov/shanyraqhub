@@ -6,7 +6,7 @@ import { FORUM_LIMITS } from '../data/forumCategories';
 import { useDialog } from '../hooks/useDialog';
 import { FORUM_INTENT_EVENT, takeForumIntent } from '../utils/navIntent';
 import { AvatarWithFallback, ProfileRoleBadge } from './ProfileParts';
-import { MessageSquare, Lock, ShieldCheck, ThumbsUp, Send, Plus, Key, X, ArrowLeft, Search } from 'lucide-react';
+import { MessageSquare, Lock, ShieldCheck, ThumbsUp, Send, Plus, Key, X, ArrowLeft, Search, BookOpen } from 'lucide-react';
 import { ForumTopic, ForumReply } from '../types';
 import { canDeleteReply, canDeleteTopic, canEditReply, canEditTopic, canModerateForum, canSeeForumPost, othersReplied } from '../utils/forumPermissions';
 import { ConfirmDialog, PostAction, PostActionsMenu, TopicEditDialog } from './ForumPostTools';
@@ -87,11 +87,14 @@ export const ForumAndChatsView: React.FC = () => {
   const resetFilters = () => {
     setQuery('');
     setSectionFilter('all');
+    setBookContext(null);
   };
   const [selectedTopicId, setSelectedTopicId] = useState<string>('');
   const activeTopic = filteredTopics.find(tp => tp.id === selectedTopicId) || filteredTopics[0];
   // A notification pointed to a topic that is not available (deleted, or hidden by a moderator).
   const [topicNotFound, setTopicNotFound] = useState(false);
+  // Came from a book: "discussions of «title»" with a button to start one (prefilled, section "books").
+  const [bookContext, setBookContext] = useState<{ title: string; author: string } | null>(null);
   // Result of an edit/delete/moderation action, announced politely (errors — as an alert).
   const [forumNotice, setForumNotice] = useState<{ text: string; error?: boolean } | null>(null);
   useEffect(() => {
@@ -154,9 +157,14 @@ export const ForumAndChatsView: React.FC = () => {
     if (!topicSending) setShowCreateTopicModal(false);
   };
   const createRef = useDialog<HTMLDivElement>(showCreateTopicModal, closeCreate);
-  const openCreate = () => {
+  const openCreate = (prefill?: { title: string; categoryId: string }) => {
+    if (prefill) {
+      // From a book: the title names the book; what was typed before is kept if it was about the same book.
+      if (!newTopicTitle.trim()) setNewTopicTitle(prefill.title);
+      if (forumCategories.some(c => c.id === prefill.categoryId)) setNewTopicCategory(prefill.categoryId);
+    }
     // Keep what was typed before (a failed or cancelled attempt); only make sure the section exists.
-    if (!forumCategories.some(c => c.id === newTopicCategory)) setNewTopicCategory(forumCategories[0]?.id ?? '');
+    else if (!forumCategories.some(c => c.id === newTopicCategory)) setNewTopicCategory(forumCategories[0]?.id ?? '');
     setTopicError('');
     setShowCreateTopicModal(true);
   };
@@ -210,6 +218,17 @@ export const ForumAndChatsView: React.FC = () => {
       if (!intent) return;
       setActiveSection('forum');
       resetFilters();
+      if ('book' in intent) {
+        // From a book (Phase 2.5): its discussions are the topics that mention the title; a new one can be opened from here.
+        setTopicNotFound(false);
+        setBookContext(intent.book);
+        setQuery(intent.book.title);
+        setSelectedTopicId('');
+        setMobileForumView('list');
+        requestAnimationFrame(() => listHeadingRef.current?.focus());
+        return;
+      }
+      setBookContext(null);
       if (topicsRef.current.some(tp => tp.id === intent.topicId)) {
         setTopicNotFound(false);
         openTopic(intent.topicId);
@@ -483,7 +502,7 @@ export const ForumAndChatsView: React.FC = () => {
               </h2>
               <button
                 type="button"
-                onClick={openCreate}
+                onClick={() => openCreate()}
                 className={`px-3 min-h-10 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-[#1e1b1a] text-xs font-semibold flex items-center gap-1 shrink-0 ${FOCUS_RING}`}
                 data-create-topic
               >
@@ -502,6 +521,34 @@ export const ForumAndChatsView: React.FC = () => {
                   className={`shrink-0 -my-1 w-10 h-10 inline-flex items-center justify-center rounded-lg text-amber-200/80 hover:text-amber-100 ${FOCUS_RING}`}
                 >
                   <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </div>
+            )}
+
+            {bookContext && (
+              <div className="rounded-xl border border-[#4a413b] bg-[#23201e] px-3 py-2.5 space-y-2 text-xs" data-book-context>
+                <div className="flex items-start gap-2">
+                  <BookOpen className="w-4 h-4 shrink-0 mt-px text-[#dfcfb3]" aria-hidden="true" />
+                  <p className="flex-1 min-w-0 text-[#d6cebf] break-words">
+                    {t('frmBookContext').replace('{title}', bookContext.title).replace('{author}', bookContext.author)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    aria-label={t('actionClose')}
+                    className={`shrink-0 -my-1 w-10 h-10 inline-flex items-center justify-center rounded-lg text-[#9e948c] hover:text-white ${FOCUS_RING}`}
+                  >
+                    <X className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openCreate({ title: `«${bookContext.title}» — ${bookContext.author}`.slice(0, FORUM_LIMITS.titleMax), categoryId: 'books' })}
+                  className={`inline-flex items-center gap-1 px-3 min-h-10 rounded-lg bg-[#2c2624] hover:bg-[#38302d] border border-[#443c37] font-semibold text-[#f5f2eb] ${FOCUS_RING}`}
+                  data-book-new-topic
+                >
+                  <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                  {t('frmBookNewTopic')}
                 </button>
               </div>
             )}
@@ -574,7 +621,7 @@ export const ForumAndChatsView: React.FC = () => {
                 <p className="text-xs text-[#9e948c]">{t('frmEmptyText')}</p>
                 <button
                   type="button"
-                  onClick={openCreate}
+                  onClick={() => openCreate()}
                   className={`mt-2 inline-flex items-center gap-1 px-4 min-h-10 rounded-lg bg-[#dfcfb3] hover:bg-[#ecd9bf] text-[#1e1b1a] text-xs font-semibold ${FOCUS_RING}`}
                 >
                   <Plus className="w-3.5 h-3.5" aria-hidden="true" />

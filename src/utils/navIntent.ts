@@ -22,10 +22,11 @@ export const takeEventsIntent = (): EventsIntent => {
   return intent;
 };
 
-/** Forum: open this topic (e.g. from a "new reply in your topic" notification). */
-export interface ForumIntent {
-  topicId: string;
-}
+/**
+ * Forum: open this topic (e.g. from a "new reply in your topic" notification),
+ * or show the discussions of a book (from the Books screen: search by its title, offer a new topic).
+ */
+export type ForumIntent = { topicId: string } | { book: { title: string; author: string } };
 
 let pendingForum: ForumIntent | null = null;
 export const FORUM_INTENT_EVENT = 'shq-forum-intent';

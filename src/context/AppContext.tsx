@@ -88,6 +88,10 @@ interface AppContextType {
   allReadBooks: (ReadBook & { readerName: string; readerAvatar: string; readerId: string })[];
   /** True if the book was credited (reward + book achievements). Live: decided by the server (async). */
   addReadBook: (book: Omit<ReadBook, 'id'>, coverFile?: File) => boolean | Promise<boolean>;
+  /** Save to the shelf and report the outcome (no alert): the form stays open with the text on error. */
+  saveReadBook: (book: Omit<ReadBook, 'id'>, coverFile?: File) => Promise<{ ok: boolean; credited?: boolean; error?: string; coverError?: string }>;
+  /** Take one's own "reading" entry off the shelf (finished books stay: they may have been rewarded). */
+  removeReadBook: (entryId: string) => Promise<{ ok: boolean; error?: string }>;
 
   forumTopics: ForumTopic[];
   /** Forum sections (live: from the database; demo: the reference list). A topic's section is one of these ids. */
@@ -849,6 +853,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       readerId: u.id,
     }))
   );
+
+  const saveReadBook = async (book: Omit<ReadBook, 'id'>, coverFile?: File): Promise<{ ok: boolean; credited?: boolean; error?: string; coverError?: string }> => {
+    if (!book.title.trim() || !book.author.trim()) return { ok: false, error: 'liveErrInvalid' };
+    if (book.title.trim().length > 300 || book.author.trim().length > 200 || (book.review?.length ?? 0) > 5000) return { ok: false, error: 'liveErrInvalid' };
+    if (live) {
+      const r = await live.saveUserBook(book, coverFile);
+      if (!r.ok) return { ok: false, error: r.error };
+      await refreshLive();
+      if (r.credited) try { confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } }); } catch {}
+      return { ok: true, credited: r.credited, coverError: r.coverError };
+    }
+    return { ok: true, credited: addReadBook(book) as boolean };
+  };
+
+  const removeReadBook = async (entryId: string): Promise<{ ok: boolean; error?: string }> => {
+    const entry = currentUser.readBooks.find(b => b.id === entryId);
+    if (!entry) return { ok: false, error: 'frmErrNotChanged' };
+    // Finished books may have been rewarded (one per week): removing them would free the week again.
+    if (entry.status !== 'reading') return { ok: false, error: 'libErrRemoveFinished' };
+    if (live) return runLive(live.removeUserBook(entryId), true);
+    setAllUsers(prev => prev.map(u => (u.id !== currentUser.id ? u : { ...u, readBooks: u.readBooks.filter(b => b.id !== entryId) })));
+    return { ok: true };
+  };
 
   const addReadBook = (book: Omit<ReadBook, 'id'>, coverFile?: File): boolean | Promise<boolean> => {
     if (live) {
@@ -1678,6 +1705,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         createEvent,
         allReadBooks,
         addReadBook,
+        saveReadBook,
+        removeReadBook,
         forumTopics,
         forumCategories,
         createForumTopic,
