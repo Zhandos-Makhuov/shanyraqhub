@@ -401,7 +401,7 @@ export const ReadingLibraryView: React.FC = () => {
             placeholder={t('libSearch')}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full min-h-10 pl-9 pr-3 rounded-xl bg-[#23201e] border border-[#352f2c] text-sm text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]/70"
+            className="w-full min-h-10 pl-9 pr-3 rounded-xl bg-[#23201e] border border-[#352f2c] text-sm text-[#f5f2eb] placeholder-[#9e948c] focus:outline-none focus:border-[#dfcfb3]/70"
           />
         </div>
       </div>
@@ -713,7 +713,7 @@ export const ReadingLibraryView: React.FC = () => {
                 <div>
                   <span className="font-medium text-[#d6cebf] block mb-1">{t('libFormCover')}</span>
                   <div className="flex items-center gap-3">
-                    <div className="w-12 aspect-[2/3] rounded-md shrink-0 overflow-hidden bg-[#1a1716] border border-[#3b3430] flex items-center justify-center text-[#736a62]">
+                    <div className="w-12 aspect-[2/3] rounded-md shrink-0 overflow-hidden bg-[#1a1716] border border-[#3b3430] flex items-center justify-center text-[#9e948c]">
                       {coverPreview || editingCoverUrl ? <img src={coverPreview ?? editingCoverUrl} alt="" className="w-full h-full object-cover" /> : '📖'}
                     </div>
                     {editingCoverUrl ? (
@@ -743,7 +743,7 @@ export const ReadingLibraryView: React.FC = () => {
                   </div>
                   <div className="flex items-start justify-between gap-3 text-[11px]">
                     <span id="book-credit-hint" className={creditHint.ok ? 'text-emerald-400' : 'text-[#9e948c]'}>{creditHint.text}</span>
-                    <span className={`font-mono shrink-0 ${reviewChars >= MIN_REVIEW_CHARS ? 'text-emerald-400' : 'text-[#736a62]'}`}>{reviewChars}/{MIN_REVIEW_CHARS}</span>
+                    <span className={`font-mono shrink-0 ${reviewChars >= MIN_REVIEW_CHARS ? 'text-emerald-400' : 'text-[#9e948c]'}`}>{reviewChars}/{MIN_REVIEW_CHARS}</span>
                   </div>
                 </div>
               </div>

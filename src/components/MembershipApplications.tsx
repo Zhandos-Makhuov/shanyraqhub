@@ -30,7 +30,7 @@ export const MembershipApplications: React.FC<{ showWhenEmpty?: boolean }> = ({ 
         )}
       </h3>
       {membershipApplications.length === 0 ? (
-        <p className="text-xs text-[#8c8279]">{t('liveApplicationsEmpty')}</p>
+        <p className="text-xs text-[#9e948c]">{t('liveApplicationsEmpty')}</p>
       ) : (
         <ul className="space-y-2">
           {membershipApplications.map(app => {
@@ -40,8 +40,8 @@ export const MembershipApplications: React.FC<{ showWhenEmpty?: boolean }> = ({ 
               <li key={app.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-[#1a1716] border border-[#302a28]">
                 <div className="text-xs min-w-0">
                   <span className="font-semibold text-[#f5f2eb]">{app.userName}</span>
-                  <span className="text-[#8c8279]"> → {dirName ?? app.direction}</span>
-                  <span className="block text-[10px] text-[#736a62] font-mono">{app.createdAt}</span>
+                  <span className="text-[#9e948c]"> → {dirName ?? app.direction}</span>
+                  <span className="block text-[10px] text-[#9e948c] font-mono">{app.createdAt}</span>
                   {app.message && <span className="block text-[11px] text-[#c7beaf] mt-1">«{app.message}»</span>}
                 </div>
                 <div className="flex gap-2 shrink-0">

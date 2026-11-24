@@ -1,7 +1,7 @@
 import { genreLabel } from '../data/bookGenres';
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { ACHIEVEMENT_ICONS } from './AchievementsView';
+import { ACHIEVEMENT_ICONS } from './achievementIcons';
 import { formatClubDate } from '../utils/eventTime';
 import { TIERS } from '../data/gamification';
 import { activeDirections } from '../data/directions';
@@ -166,7 +166,7 @@ export const ProfileView: React.FC = () => {
                 {currentUser.bio}
               </p>
 
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1.5 text-xs text-[#8c8279] pt-1">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1.5 text-xs text-[#9e948c] pt-1">
                 {currentUser.city && (
                   <span className="flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-[#dfcfb3]" aria-hidden="true" />
@@ -195,7 +195,7 @@ export const ProfileView: React.FC = () => {
                 {(currentUser.pendingDirections ?? []).map(dirId => (
                   <span
                     key={`pending-${dirId}`}
-                    className="text-[11px] px-2.5 py-0.5 rounded-md bg-[#1a1716] text-[#8c8279] border border-dashed border-[#4a413b]"
+                    className="text-[11px] px-2.5 py-0.5 rounded-md bg-[#1a1716] text-[#9e948c] border border-dashed border-[#4a413b]"
                   >
                     {directionName(dirId)} · {t('liveMembershipPending')}
                   </span>
@@ -307,7 +307,7 @@ export const ProfileView: React.FC = () => {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h4 className="font-bold text-[#f5f2eb] break-words">{book.title}</h4>
-                        <span className="text-[11px] text-[#8c8279] break-words">{book.author}</span>
+                        <span className="text-[11px] text-[#9e948c] break-words">{book.author}</span>
                       </div>
                       {completed && book.userRating > 0 ? (
                         <span className="text-amber-400 font-bold shrink-0" data-book-rating>{book.userRating}★</span>
@@ -322,7 +322,7 @@ export const ProfileView: React.FC = () => {
                         «{book.review}»
                       </p>
                     )}
-                    <div className="pt-2 border-t border-[#302a28] flex items-center justify-between gap-2 text-[11px] text-[#8c8279]">
+                    <div className="pt-2 border-t border-[#302a28] flex items-center justify-between gap-2 text-[11px] text-[#9e948c]">
                       <span>{genreLabel(book.genre, t)}</span>
                       {completed && book.dateFinished && <span>{formatClubDate(book.dateFinished, t)}</span>}
                     </div>
@@ -351,7 +351,7 @@ export const ProfileView: React.FC = () => {
                 <div key={`${rec.eventId}-${i}`} className="p-4 flex items-center justify-between gap-3 text-xs">
                   <div className="min-w-0">
                     <span className="font-bold text-[#f5f2eb] block break-words">{rec.title}</span>
-                    <span className="text-[11px] text-[#8c8279]" data-event-meta>
+                    <span className="text-[11px] text-[#9e948c]" data-event-meta>
                       {formatClubDate(rec.date, t)} · {directionName(rec.direction)}
                     </span>
                   </div>
@@ -361,7 +361,7 @@ export const ProfileView: React.FC = () => {
                         {t('prfAttended')}
                       </span>
                     ) : rec.status === 'cancelled' ? (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#1c1918] text-[#8c8279] border border-[#38312d]">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#1c1918] text-[#9e948c] border border-[#38312d]">
                         {t('attCancelled')}
                       </span>
                     ) : (
@@ -419,7 +419,7 @@ export const ProfileView: React.FC = () => {
 
           <div className="space-y-3">
             {currentUser.peerReviews.length === 0 ? (
-              <div className="p-8 text-center text-xs text-[#8c8279] rounded-xl bg-[#23201e]">
+              <div className="p-8 text-center text-xs text-[#9e948c] rounded-xl bg-[#23201e]">
                 {t('prfNoReviews')}
               </div>
             ) : (
@@ -509,7 +509,7 @@ export const ProfileView: React.FC = () => {
                       onChange={e => setEditTelegram(e.target.value)}
                       className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
                     />
-                    <p id="prf-telegram-hint" className="mt-1 text-[11px] text-[#8c8279]">{t('prfTelegramPublicHint')}</p>
+                    <p id="prf-telegram-hint" className="mt-1 text-[11px] text-[#9e948c]">{t('prfTelegramPublicHint')}</p>
                   </div>
                 </div>
 
@@ -545,7 +545,7 @@ export const ProfileView: React.FC = () => {
                   <span className="font-medium text-[#d6cebf] block mb-1.5">
                     {t('prfFormDirections')}:
                   </span>
-                  {!isDemoData && <p className="text-[11px] text-[#8c8279] mb-2">{t('liveMembershipHint')}</p>}
+                  {!isDemoData && <p className="text-[11px] text-[#9e948c] mb-2">{t('liveMembershipHint')}</p>}
                   <div className="flex flex-wrap gap-2">
                     {activeDirections().map(dir => (
                       <button
@@ -556,7 +556,7 @@ export const ProfileView: React.FC = () => {
                         className={`px-3 py-1.5 min-h-9 rounded-lg text-xs font-medium border transition-colors text-left ${
                           editDirections.includes(dir.id)
                             ? 'bg-[#dfcfb3] text-[#1e1b1a] border-[#dfcfb3]'
-                            : 'bg-[#1a1716] text-[#8c8279] border-[#3b3430]'
+                            : 'bg-[#1a1716] text-[#9e948c] border-[#3b3430]'
                         }`}
                       >
                         {ln(dir)}
@@ -578,7 +578,7 @@ export const ProfileView: React.FC = () => {
                     type="button"
                     onClick={closeEdit}
                     disabled={saving}
-                    className="px-3 py-2 min-h-10 text-xs text-[#8c8279] hover:text-[#f5f2eb] disabled:opacity-50"
+                    className="px-3 py-2 min-h-10 text-xs text-[#9e948c] hover:text-[#f5f2eb] disabled:opacity-50"
                   >
                     {t('actionClose')}
                   </button>

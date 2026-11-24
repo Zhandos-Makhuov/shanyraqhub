@@ -94,7 +94,6 @@ export const LeaderboardView: React.FC = () => {
           <button
             type="button"
             onClick={() => setSelectedUserModal(sortedUsers[1])}
-            aria-label={`#${2} ${sortedUsers[1].name}`}
             className="rounded-2xl p-4 sm:p-5 bg-[#23201e] border border-stone-600/50 flex flex-col items-center text-center cursor-pointer hover:border-stone-400 transition-all md:order-1 order-2"
           >
             <div className="relative mb-2.5">
@@ -124,7 +123,6 @@ export const LeaderboardView: React.FC = () => {
           <button
             type="button"
             onClick={() => setSelectedUserModal(sortedUsers[0])}
-            aria-label={`#${1} ${sortedUsers[0].name}`}
             className="rounded-2xl p-5 sm:p-6 bg-gradient-to-b from-[#2e2621] via-[#24201e] to-[#1c1917] border-2 border-[#dfcfb3] flex flex-col items-center text-center cursor-pointer shadow-[0_0_30px_rgba(223,207,179,0.2)] md:order-2 order-1 transform md:-translate-y-2 transition-all"
           >
             <Crown className="w-6 h-6 sm:w-7 sm:h-7 text-[#f5d77f] animate-bounce mb-1" />
@@ -157,7 +155,6 @@ export const LeaderboardView: React.FC = () => {
           <button
             type="button"
             onClick={() => setSelectedUserModal(sortedUsers[2])}
-            aria-label={`#${3} ${sortedUsers[2].name}`}
             className="rounded-2xl p-4 sm:p-5 bg-[#23201e] border border-amber-800/50 flex flex-col items-center text-center cursor-pointer hover:border-amber-700 transition-all md:order-3 order-3"
           >
             <div className="relative mb-2.5">
@@ -244,7 +241,7 @@ export const LeaderboardView: React.FC = () => {
             placeholder={t('lbSearch')}
             value={searchMember}
             onChange={e => setSearchMember(e.target.value)}
-            className="w-full min-h-10 pl-8 pr-3 py-1.5 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+            className="w-full min-h-10 pl-8 pr-3 py-1.5 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#9e948c] focus:outline-none focus:border-[#dfcfb3]"
           />
         </div>
       </div>

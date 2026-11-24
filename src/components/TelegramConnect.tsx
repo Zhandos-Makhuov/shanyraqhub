@@ -5,13 +5,15 @@
 import React, { useEffect, useState } from 'react';
 import { Send } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { ConfirmDialog } from './ForumPostTools';
 import type { TelegramStatus } from '../data/supabase/live';
 
 export const TelegramConnect: React.FC = () => {
-  const { liveApi, runLiveAction, currentUser, t } = useApp();
+  const { liveApi, runLiveAction, currentUser, t, showAppError } = useApp();
   const [status, setStatus] = useState<TelegramStatus | null>(null);
   const [link, setLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmUnlink, setConfirmUnlink] = useState(false);
 
   const reload = () =>
     liveApi?.telegramStatus()
@@ -61,7 +63,7 @@ export const TelegramConnect: React.FC = () => {
               onClick={() => act(async () => {
                 const r = await liveApi.createTelegramLink(status.botUsername!);
                 if (r.ok) setLink(r.url);
-                else alert(t(r.error));
+                else showAppError(t(r.error));
               })}
             >
               {t('tgLink')}
@@ -80,7 +82,7 @@ export const TelegramConnect: React.FC = () => {
               <button
                 disabled={busy}
                 className="text-[10px] text-[#9e948c] hover:text-[#f5f2eb] disabled:opacity-50"
-                onClick={() => confirm(t('tgUnlinkConfirm')) && act(() => runLiveAction(liveApi.unlinkTelegram()))}
+                onClick={() => setConfirmUnlink(true)}
               >
                 {t('tgUnlink')}
               </button>
@@ -88,6 +90,17 @@ export const TelegramConnect: React.FC = () => {
           </span>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmUnlink}
+        title={t('tgUnlink')}
+        text={t('tgUnlinkConfirm')}
+        confirmLabel={t('tgUnlink')}
+        busyLabel={t('evWorking')}
+        cancelLabel={t('frmCancel')}
+        busy={busy}
+        onCancel={() => setConfirmUnlink(false)}
+        onConfirm={() => void act(() => runLiveAction(liveApi.unlinkTelegram())).then(() => setConfirmUnlink(false))}
+      />
       {link && !status.linked && <div className="mt-1">{t('tgLinkHint')}</div>}
       {status.linked && status.blocked && <div className="mt-1 text-amber-300/80">{t('tgBlocked')}</div>}
       {status.linked && !status.canMessage && !status.blocked && enabled && (

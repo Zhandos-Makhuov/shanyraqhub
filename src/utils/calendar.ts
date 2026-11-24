@@ -4,7 +4,18 @@ import { getEventStart } from './eventTime';
 /**
  * Generates an iCalendar (.ics) RFC 5545 string and prompts file download
  */
+/** Phase 4 (localization): the calendar file speaks the member's language (Kazakh by default). */
+const ICS_TEXT = {
+  ru: { materials: 'Необходимые материалы', reminder: 'Напоминание о встрече Shanyraq Hub' },
+  kz: { materials: 'Қажетті материалдар', reminder: 'Shanyraq Hub кездесуі туралы еске салу' },
+  en: { materials: 'What to bring', reminder: 'Shanyraq Hub meetup reminder' },
+} as const;
+const icsLang = (): keyof typeof ICS_TEXT => {
+  try { const l = localStorage.getItem('shanyraq_lang'); return l === 'ru' || l === 'en' ? l : 'kz'; } catch { return 'kz'; }
+};
+
 export function exportEventToIcs(event: CommunityEvent): void {
+  const tx = ICS_TEXT[icsLang()];
   // Event date and time are the club's local time (Almaty), whatever the device's time zone.
   const startDate = getEventStart(event);
   const endDate = new Date(startDate.getTime() + (event.durationMinutes || 90) * 60 * 1000);
@@ -18,7 +29,7 @@ export function exportEventToIcs(event: CommunityEvent): void {
   const endFormatted = formatDate(endDate);
 
   const materialsText = event.requiredMaterials && event.requiredMaterials.length > 0
-    ? `\\n\\nНеобходимые материалы:\\n- ${event.requiredMaterials.join('\\n- ')}`
+    ? `\\n\\n${tx.materials}:\\n- ${event.requiredMaterials.join('\\n- ')}`
     : '';
 
   const cleanDescription = (event.description + materialsText)
@@ -44,7 +55,7 @@ export function exportEventToIcs(event: CommunityEvent): void {
     'BEGIN:VALARM',
     'TRIGGER:-PT2H',
     'ACTION:DISPLAY',
-    'DESCRIPTION:Напоминание о встрече Shanyraq Hub',
+    `DESCRIPTION:${tx.reminder}`,
     'END:VALARM',
     'END:VEVENT',
     'END:VCALENDAR',

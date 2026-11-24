@@ -5,7 +5,7 @@ import { SHOP_ITEMS } from '../data/gamification';
 import { COMMUNITY_DIRECTIONS } from '../data/directions';
 import { formatClubDate } from '../utils/eventTime';
 import { recentAchievements, tierProgress } from '../utils/profileProgress';
-import { ACHIEVEMENT_ICONS } from './AchievementsView';
+import { ACHIEVEMENT_ICONS } from './achievementIcons';
 import { PeerReview, ShopItem, UserProfile, UserRole } from '../types';
 
 /** "Алихан Берік" → "АБ"; one word → its first letter. */
@@ -146,7 +146,7 @@ export const ReviewCard: React.FC<{ review: PeerReview; compact?: boolean }> = (
         </span>
       </div>
       <p className={`text-[#d6cebf] leading-relaxed break-words ${compact ? 'text-[11px]' : 'text-xs'}`}>«{review.comment}»</p>
-      <span className="text-[11px] text-[#8c8279] block">
+      <span className="text-[11px] text-[#9e948c] block">
         {formatClubDate(review.createdAt, t)} · {t('prfAspect')}: {t(`aspect_${review.aspect}`)}
       </span>
     </div>
@@ -205,7 +205,7 @@ export const TierProgressPanel: React.FC<{ user: UserProfile; showCoins?: boolea
   return (
     <div role="group" aria-labelledby={titleId} data-tier-progress className="rounded-xl bg-[#191615] border border-[#38312d] p-4 min-w-0">
       <div className="flex items-center justify-between gap-3">
-        <p id={titleId} className="text-[11px] font-semibold uppercase tracking-wide text-[#8c8279]">{t('prfLevelProgress')}</p>
+        <p id={titleId} className="text-[11px] font-semibold uppercase tracking-wide text-[#9e948c]">{t('prfLevelProgress')}</p>
         {showCoins && (
           <span className="inline-flex items-center gap-1 text-xs font-mono-numbers font-bold text-amber-400" data-own-coins title={t('prfCoins')}>
             <Coins className="w-3.5 h-3.5" aria-hidden="true" />
@@ -258,7 +258,7 @@ export const RecentAchievements: React.FC<{
   return (
     <div role="group" aria-labelledby={titleId} data-recent-achievements className="rounded-xl bg-[#191615] border border-[#38312d] p-4 min-w-0">
       <div className="flex items-center justify-between gap-3">
-        <p id={titleId} className="text-[11px] font-semibold uppercase tracking-wide text-[#8c8279]">{t('prfRecentAchievements')}</p>
+        <p id={titleId} className="text-[11px] font-semibold uppercase tracking-wide text-[#9e948c]">{t('prfRecentAchievements')}</p>
         {action}
       </div>
       {recent.length === 0 ? (

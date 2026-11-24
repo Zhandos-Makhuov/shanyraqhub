@@ -81,7 +81,7 @@ export const AvatarShopView: React.FC = () => {
             <Coins className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <span className="text-[11px] text-[#8c8279] block">{t('shopBalance')}</span>
+            <span className="text-[11px] text-[#9e948c] block">{t('shopBalance')}</span>
             <span className="text-2xl font-bold font-mono-numbers text-amber-400">
               {currentUser.coins} 🪙
             </span>
@@ -274,7 +274,7 @@ export const AvatarShopView: React.FC = () => {
                       <span className={`px-2 py-0.5 rounded-full border uppercase ${getRarityBadge(item.rarity)}`}>
                         {t(`shopRarity_${item.rarity}`)}
                       </span>
-                      <span className="text-[#8c8279] uppercase">
+                      <span className="text-[#9e948c] uppercase">
                         {t(`shopCategory_${item.category}`)}
                       </span>
                     </div>
@@ -301,7 +301,7 @@ export const AvatarShopView: React.FC = () => {
                         )}
                       </div>
                       {item.category !== 'avatar' && (
-                        <span className="text-[10px] text-[#8c8279] mt-1">{t('shopPreviewOnYou')}</span>
+                        <span className="text-[10px] text-[#9e948c] mt-1">{t('shopPreviewOnYou')}</span>
                       )}
                     </div>
                     <p className="text-[11px] text-[#dfcfb3]/80 leading-snug">{t(`shopWhat_${item.category}`)}</p>
@@ -352,7 +352,7 @@ export const AvatarShopView: React.FC = () => {
                     )}
                   </div>
                   {!isOwned && currentUser.coins < item.priceCoins && (
-                    <p className="mt-2 text-[10px] text-[#8c8279] text-right">
+                    <p className="mt-2 text-[10px] text-[#9e948c] text-right">
                       {t('shopNeedMore').replace('{n}', String(item.priceCoins - currentUser.coins))}
                     </p>
                   )}
@@ -403,14 +403,14 @@ export const AvatarShopView: React.FC = () => {
                         <h4 className={`font-display text-sm font-bold ${tier.textColor}`}>
                           {language === 'kz' ? tier.nameKz : language === 'en' ? tier.nameEn : tier.nameRu}
                         </h4>
-                        <span className="text-[11px] text-[#8c8279] font-mono">
+                        <span className="text-[11px] text-[#9e948c] font-mono">
                           {t('shopRequires')}: {tier.minXp}+ XP
                         </span>
                       </div>
                     </div>
 
                     <div className="p-3 rounded-xl bg-[#1c1918] border border-[#302a28] text-xs text-[#d6cebf] leading-relaxed">
-                      <span className="text-[#8c8279] text-[10px] uppercase block mb-1 font-semibold">
+                      <span className="text-[#9e948c] text-[10px] uppercase block mb-1 font-semibold">
                         {t('shopTierPerk')}:
                       </span>
                       {language === 'kz' ? tier.privilegeKz : language === 'en' ? tier.privilegeEn : tier.privilegeRu}
@@ -418,7 +418,7 @@ export const AvatarShopView: React.FC = () => {
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-[#302a28] flex items-center justify-between text-xs">
-                    <span className="text-[#8c8279]">{t('shopMemberXp')}:</span>
+                    <span className="text-[#9e948c]">{t('shopMemberXp')}:</span>
                     <span className="font-mono-numbers font-bold text-[#f5f2eb]">
                       {tier.minXp} XP
                     </span>
@@ -444,7 +444,7 @@ export const AvatarShopView: React.FC = () => {
 
           <div className="divide-y divide-[#2d2725]">
             {myTransactions.length === 0 ? (
-              <div className="p-8 text-center text-xs text-[#8c8279]">
+              <div className="p-8 text-center text-xs text-[#9e948c]">
                 {t('shopHistoryEmpty')}
               </div>
             ) : (
@@ -468,7 +468,7 @@ export const AvatarShopView: React.FC = () => {
                       <span className="font-semibold text-[#f5f2eb] block">
                         {language === 'kz' ? tx.reasonKz : language === 'en' ? tx.reasonEn : tx.reasonRu}
                       </span>
-                      <span className="text-[10px] text-[#8c8279] font-mono">
+                      <span className="text-[10px] text-[#9e948c] font-mono">
                         {tx.createdAt}
                       </span>
                     </div>

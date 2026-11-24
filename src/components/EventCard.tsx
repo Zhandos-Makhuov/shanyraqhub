@@ -105,7 +105,6 @@ export const EventCard: React.FC<{
         type="button"
         onClick={() => onOpen(event)}
         className="relative block w-full text-left focus-visible:outline-none"
-        aria-label={`${t('evDetails')}: ${event.title}`}
       >
         <img
           src={eventImage(event)}
@@ -122,6 +121,8 @@ export const EventCard: React.FC<{
           {event.format === 'online' && <Globe className="w-3 h-3" />}
           {event.format === 'offline' ? t('evOffline') : t('evOnline')}
         </span>
+        {/* WCAG 2.5.3: the name comes from the content — the words on the picture, then what the button does */}
+        <span className="sr-only">. {t('evDetails')}: {event.title}</span>
       </button>
 
       <div className="flex-1 flex flex-col p-4 gap-2.5">

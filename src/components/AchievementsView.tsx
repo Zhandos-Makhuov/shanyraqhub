@@ -48,41 +48,7 @@ import {
 } from 'lucide-react';
 
 /** Icon names used in data/achievements.ts. Unknown names fall back to Award. */
-export const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Activity,
-  BookHeart,
-  Handshake,
-  Puzzle,
-  BookMarked,
-  BookOpen,
-  Brain,
-  CalendarCheck,
-  CalendarClock,
-  CalendarDays,
-  ClipboardCheck,
-  Compass,
-  Flame,
-  Footprints,
-  Heart,
-  HeartHandshake,
-  Hourglass,
-  Landmark,
-  Languages,
-  Library,
-  Medal,
-  MessageSquarePlus,
-  MessageSquareText,
-  MessagesSquare,
-  Mic,
-  Palette,
-  PenLine,
-  PenTool,
-  Presentation,
-  Star,
-  Sunrise,
-  ThumbsUp,
-  Trophy,
-};
+import { ACHIEVEMENT_ICONS } from './achievementIcons';
 
 const getIcon = (iconName: string) => ACHIEVEMENT_ICONS[iconName] || Award;
 
@@ -168,7 +134,7 @@ export const AchievementsView: React.FC = () => {
             </span>
             <span className="font-mono-numbers text-sm font-semibold text-[#dfcfb3]">{percent}%</span>
           </div>
-          <div className="mt-2 h-2 rounded-full bg-[#141211] border border-[#3b3430] overflow-hidden" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+          <div className="mt-2 h-2 rounded-full bg-[#141211] border border-[#3b3430] overflow-hidden" role="progressbar" aria-label={t('achOverviewEarned').replace('{n}', String(earnedRows.length)).replace('{total}', String(total))} aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
             <div className="h-full rounded-full bg-[#dfcfb3] transition-[width] duration-500" style={{ width: `${percent}%` }} />
           </div>
         </div>
@@ -179,12 +145,12 @@ export const AchievementsView: React.FC = () => {
           >
             <AchIcon row={latest} size="sm" />
             <span className="min-w-0">
-              <span className="block text-[11px] text-[#8c8279]">{t('achLatest')} · {formatShortDate(latest.earnedAt, t)}</span>
+              <span className="block text-[11px] text-[#9e948c]">{t('achLatest')} · {formatShortDate(latest.earnedAt, t)}</span>
               <span className="block text-[13px] font-semibold text-[#f5f2eb] truncate">{lf(latest.ach, 'title')}</span>
             </span>
           </button>
         ) : (
-          earnedRows.length === 0 && <p className="text-[13px] text-[#8c8279]">{t('achNoneYet')}</p>
+          earnedRows.length === 0 && <p className="text-[13px] text-[#9e948c]">{t('achNoneYet')}</p>
         )}
       </section>
 
@@ -199,11 +165,11 @@ export const AchievementsView: React.FC = () => {
                 onClick={() => setStatus(s)}
                 aria-pressed={status === s}
                 className={`flex-1 sm:flex-none min-h-9 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                  status === s ? 'bg-[#3a3330] text-[#f5f2eb]' : 'text-[#8c8279] hover:text-[#d6cebf]'
+                  status === s ? 'bg-[#3a3330] text-[#f5f2eb]' : 'text-[#9e948c] hover:text-[#d6cebf]'
                 }`}
               >
                 {t(s === 'all' ? 'achFilterAll' : s === 'earned' ? 'achFilterEarned' : 'achFilterLocked')}
-                <span className="ml-1 font-mono-numbers text-[11px] opacity-70">{count}</span>
+                <span className="ml-1 font-mono-numbers text-[11px] opacity-90">{count}</span>
               </button>
             );
           })}
@@ -220,7 +186,7 @@ export const AchievementsView: React.FC = () => {
                 className={`chip shrink-0 gap-1.5 ${category === c.id ? 'chip-active' : ''}`}
               >
                 {c.label}
-                <span className="font-mono-numbers text-[11px] opacity-70">{earned}/{inCat.length}</span>
+                <span className="font-mono-numbers text-[11px] opacity-90">{earned}/{inCat.length}</span>
               </button>
             );
           })}
@@ -230,7 +196,7 @@ export const AchievementsView: React.FC = () => {
       {/* Cards */}
       {shown.length === 0 ? (
         <div className="p-8 text-center rounded-2xl bg-[#23201e] border border-[#352f2c]">
-          <Award className="w-9 h-9 mx-auto text-[#8c8279] opacity-50" />
+          <Award className="w-9 h-9 mx-auto text-[#9e948c] opacity-50" />
           <p className="mt-2 text-[13px] text-[#9e948c] max-w-sm mx-auto">
             {status === 'earned' ? t('achEmptyEarned') : t('achEmptyLocked')}
           </p>
@@ -275,7 +241,7 @@ const AchIcon: React.FC<{ row: AchRow; size?: 'sm' | 'md' | 'lg' }> = ({ row, si
       <Icon className={ico} />
       {!earned && (
         <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#23201e] border border-[#3b3430] flex items-center justify-center">
-          <Lock className="w-2.5 h-2.5 text-[#8c8279]" />
+          <Lock className="w-2.5 h-2.5 text-[#9e948c]" />
         </span>
       )}
     </span>
@@ -337,11 +303,11 @@ const AchCard: React.FC<{ row: AchRow; members: number; onOpen: () => void }> = 
               <span className="truncate">{row.earnedAt ? t('achEarnedOn').replace('{date}', formatShortDate(row.earnedAt, t)) : t('achUnlocked')}</span>
             </span>
           ) : row.state === 'manual' ? (
-            <span className="inline-flex items-center gap-1 text-[#8c8279] min-w-0"><ShieldCheck className="w-3.5 h-3.5 shrink-0" /><span className="truncate">{t('achByModerator')}</span></span>
+            <span className="inline-flex items-center gap-1 text-[#9e948c] min-w-0"><ShieldCheck className="w-3.5 h-3.5 shrink-0" /><span className="truncate">{t('achByModerator')}</span></span>
           ) : row.state === 'revoked' ? (
-            <span className="text-[#8c8279] truncate">{t('achRevoked')}</span>
+            <span className="text-[#9e948c] truncate">{t('achRevoked')}</span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[#8c8279] min-w-0"><Users className="w-3.5 h-3.5 shrink-0" /><span className="truncate">{t('achEarnedByCount').replace('{n}', String(row.holders.length)).replace('{m}', String(members))}</span></span>
+            <span className="inline-flex items-center gap-1 text-[#9e948c] min-w-0"><Users className="w-3.5 h-3.5 shrink-0" /><span className="truncate">{t('achEarnedByCount').replace('{n}', String(row.holders.length)).replace('{m}', String(members))}</span></span>
           )}
           <Rewards ach={row.ach} />
         </span>
@@ -383,25 +349,25 @@ const AchDetail: React.FC<{ row: AchRow; members: number; onClose: () => void; o
           </div>
 
           <div className="space-y-1">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[#8c8279]">{t('achHowToEarn')}</h3>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[#9e948c]">{t('achHowToEarn')}</h3>
             <p className="text-sm text-[#d6cebf] leading-relaxed">{lf(row.ach, 'description')}</p>
             {special && <p className="text-[12px] text-[#9e948c]">{t('achSpecialHint')}</p>}
           </div>
 
           {row.state === 'progress' && (
             <div className="space-y-1.5">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[#8c8279]">{t('achProgress')}</h3>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[#9e948c]">{t('achProgress')}</h3>
               <ProgressBar value={row.value} target={row.target} />
             </div>
           )}
 
           <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2">
             <div className="p-3 rounded-xl bg-[#1c1918] border border-[#302a28]">
-              <span className="block text-[11px] text-[#8c8279]">{t('achReward')}</span>
+              <span className="block text-[11px] text-[#9e948c]">{t('achReward')}</span>
               <span className="mt-1 block"><Rewards ach={row.ach} /></span>
             </div>
             <div className="p-3 rounded-xl bg-[#1c1918] border border-[#302a28]">
-              <span className="block text-[11px] text-[#8c8279]">{earned ? t('achFilterEarned') : t('achCatCommunity')}</span>
+              <span className="block text-[11px] text-[#9e948c]">{earned ? t('achFilterEarned') : t('achCatCommunity')}</span>
               <span className="mt-1 block text-[13px] font-medium text-[#e6dfd3]">
                 {earned && row.earnedAt ? formatShortDate(row.earnedAt, t) : t('achEarnedByCount').replace('{n}', String(row.holders.length)).replace('{m}', String(members))}
               </span>
@@ -409,9 +375,9 @@ const AchDetail: React.FC<{ row: AchRow; members: number; onClose: () => void; o
           </div>
 
           <div className="space-y-2">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[#8c8279]">{t('unlockedBy')}</h3>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[#9e948c]">{t('unlockedBy')}</h3>
             {row.holders.length === 0 ? (
-              <p className="text-[13px] text-[#8c8279]">{t('achNobodyYet')}</p>
+              <p className="text-[13px] text-[#9e948c]">{t('achNobodyYet')}</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {row.holders.slice(0, 12).map(u => (
@@ -420,7 +386,7 @@ const AchDetail: React.FC<{ row: AchRow; members: number; onClose: () => void; o
                     <span className="text-[12px] text-[#d6cebf] max-w-[9rem] truncate">{u.name}</span>
                   </button>
                 ))}
-                {row.holders.length > 12 && <span className="self-center text-[11px] text-[#8c8279] font-mono-numbers">+{row.holders.length - 12}</span>}
+                {row.holders.length > 12 && <span className="self-center text-[11px] text-[#9e948c] font-mono-numbers">+{row.holders.length - 12}</span>}
               </div>
             )}
           </div>

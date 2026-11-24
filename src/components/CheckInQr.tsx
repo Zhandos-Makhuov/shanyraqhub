@@ -17,7 +17,7 @@ const RENEW_BEFORE_MS = 20_000;
 const Overlay: React.FC<{ onClose: () => void; title: string; children: React.ReactNode }> = ({ onClose, title, children }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
     <div className="relative w-full max-w-sm max-h-[90dvh] overflow-y-auto bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl p-5 space-y-4">
-      <button onClick={onClose} aria-label="×" className="absolute right-3 top-3 p-1.5 rounded-lg text-[#8c8279] hover:text-[#f5f2eb] hover:bg-[#2d2825]">
+      <button onClick={onClose} aria-label="×" className="absolute right-3 top-3 p-1.5 rounded-lg text-[#9e948c] hover:text-[#f5f2eb] hover:bg-[#2d2825]">
         <X className="w-4 h-4" />
       </button>
       <h2 className="font-display text-base font-bold text-[#f5f2eb] pr-8 flex items-center gap-2">
@@ -115,7 +115,7 @@ export const MyQrModal: React.FC<{ event: CommunityEvent; onClose: () => void }>
         <>
           <img src={image} alt={t('qrMyCodeTitle')} className="w-full aspect-square rounded-xl bg-[#f5f2eb] p-2" />
           <p className="text-xs text-[#c7beaf] text-center">{t('qrMyCodeHint')}</p>
-          <p className="text-[11px] text-[#8c8279] text-center font-mono">
+          <p className="text-[11px] text-[#9e948c] text-center font-mono">
             {t('qrRenewsIn')} {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
           </p>
         </>
@@ -214,7 +214,7 @@ export const QrScanModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-[#141110] border border-[#352f2c]">
         <video ref={video} className="w-full h-full object-cover" muted playsInline />
         {camera !== 'on' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-[#8c8279] p-4 text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-[#9e948c] p-4 text-center">
             {camera === 'starting' ? <Loader2 className="w-6 h-6 animate-spin text-[#dfcfb3]" /> : <ScanLine className="w-6 h-6" />}
             <span>{camera === 'starting' ? t('qrCameraStarting') : t('qrCameraUnavailable')}</span>
           </div>

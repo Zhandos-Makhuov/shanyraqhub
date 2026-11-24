@@ -368,7 +368,7 @@ export const AdminView: React.FC = () => {
                 onChange={e => setUserQuery(e.target.value)}
                 aria-label={t('admSearchMembers')}
                 placeholder={t('admSearchMembers')}
-                className="flex-1 min-w-0 min-h-10 px-3 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+                className="flex-1 min-w-0 min-h-10 px-3 rounded-lg bg-[#191615] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#9e948c] focus:outline-none focus:border-[#dfcfb3]"
               />
               <select
                 value={roleFilter}
@@ -829,7 +829,7 @@ export const AdminView: React.FC = () => {
               <div key={log.id} className="p-4 flex items-center justify-between gap-3 text-xs">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-[#f5f2eb]">{log.adminName}</span>
+                    <span className="font-bold text-[#f5f2eb]">{log.adminId ? log.adminName : t('admAuditSystem')}</span>
                     <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-[#191615] text-[#dfcfb3] border border-[#352f2c]">
                       {log.action}
                     </span>
@@ -837,7 +837,7 @@ export const AdminView: React.FC = () => {
                   </div>
                   <p className="text-[11px] text-[#9e948c]">{log.details}</p>
                 </div>
-                <span className="text-[10px] text-[#736a62] font-mono whitespace-nowrap">
+                <span className="text-[10px] text-[#9e948c] font-mono whitespace-nowrap">
                   {log.timestamp}
                 </span>
               </div>

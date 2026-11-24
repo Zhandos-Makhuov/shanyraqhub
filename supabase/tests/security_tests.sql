@@ -628,7 +628,15 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-0000000
 select public.register_for_event(:'ops');
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
 select public.register_for_event(:'ops');
-select t.ok((select count(*) from public.event_registrations where event_id = :'ops') = 1, 'C-21: a member sees only own registration');
+select t.ok((select count(*) from public.event_registrations where event_id = :'ops') = 2, 'C-21 (Phase 4): every member sees who registered');
+select t.ok((select count(*) from public.event_registrations where event_id = :'ev' and user_id = '00000000-0000-0000-0000-000000000001') = 0, 'C-21 (Phase 4): a cancelled registration of someone else stays private');
+select t.expect_fail($$update public.event_registrations set status = 'cancelled' where event_id = '$$ || :'ops' || $$'$$, '%permission denied%');
+select t.expect_fail($$delete from public.event_registrations where event_id = '$$ || :'ops' || $$'$$, '%permission denied%');
+select t.expect_fail($$insert into public.event_registrations (event_id, user_id, status) values ('$$ || :'ops' || $$', '00000000-0000-0000-0000-000000000001', 'registered')$$, '%permission denied%');
+set role anon;
+select t.expect_fail('select * from public.event_registrations', '%permission denied%');
+select t.expect_fail('select * from public.get_member_stats()', '%permission denied%');
+set role authenticated;
 select t.ok((select registered from public.get_event_counts(array[:'ops'::uuid])) = 2, 'C-21: registration counts stay public');
 select t.ok((select attended from public.get_member_stats() where user_id = '00000000-0000-0000-0000-000000000002') >= 1, 'C-21: per-member visit numbers stay public');
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);

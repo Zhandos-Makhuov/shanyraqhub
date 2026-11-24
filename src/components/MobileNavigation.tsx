@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useDialog } from '../hooks/useDialog';
 import { useApp, NavTab } from '../context/AppContext';
 import {
   Compass,
@@ -37,6 +38,8 @@ export const MobileNavigation: React.FC = () => {
   } = useApp();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // Phase 4 (a11y): the menu is a dialog — Escape closes it, focus stays inside and returns to the menu button.
+  const sheetRef = useDialog<HTMLDivElement>(isMenuOpen, () => setIsMenuOpen(false));
   // The real visible height (Telegram Mini App / mobile browsers: 100vh can be taller than what is shown),
   // and no page scrolling behind the open menu.
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
@@ -46,12 +49,10 @@ export const MobileNavigation: React.FC = () => {
     update();
     window.addEventListener('resize', update);
     window.visualViewport?.addEventListener('resize', update);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    // (the page behind is locked by useDialog)
     return () => {
       window.removeEventListener('resize', update);
       window.visualViewport?.removeEventListener('resize', update);
-      document.body.style.overflow = overflow;
     };
   }, [isMenuOpen]);
 
@@ -103,7 +104,7 @@ export const MobileNavigation: React.FC = () => {
                 onClick={item.onClick}
                 aria-current={item.active ? 'page' : undefined}
                 className={`flex flex-1 min-w-0 flex-col items-center justify-center gap-0.5 min-h-[52px] px-0.5 transition-colors ${
-                  item.active ? 'text-[#ecd9bf]' : 'text-[#8c8279] active:text-[#d6cebf]'
+                  item.active ? 'text-[#ecd9bf]' : 'text-[#9e948c] active:text-[#d6cebf]'
                 }`}
               >
                 <span className={`flex items-center justify-center w-12 h-7 rounded-full transition-colors ${item.active ? 'bg-[#dfcfb3]/15' : ''}`}>
@@ -126,7 +127,12 @@ export const MobileNavigation: React.FC = () => {
           onClick={e => e.target === e.currentTarget && setIsMenuOpen(false)}
         >
           <div
-            className="mt-auto w-full bg-[#201d1c] border-t border-[#3f3834] rounded-t-2xl p-5 space-y-4 overflow-y-auto overscroll-contain"
+            ref={sheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('navMenu')}
+            tabIndex={-1}
+            className="outline-none mt-auto w-full bg-[#201d1c] border-t border-[#3f3834] rounded-t-2xl p-5 space-y-4 overflow-y-auto overscroll-contain"
             style={{ maxHeight: Math.round(viewportHeight * 0.85), paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
           >
             {/* Drawer Header */}
@@ -158,7 +164,7 @@ export const MobileNavigation: React.FC = () => {
 
             {/* Language Quick Toggle */}
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#191615] border border-[#302a28] text-xs">
-              <span className="text-[#8c8279] flex items-center gap-1.5">
+              <span className="text-[#9e948c] flex items-center gap-1.5">
                 <Globe className="w-3.5 h-3.5 text-[#dfcfb3]" />
                 <span>{t('navLanguage')}:</span>
               </span>
@@ -170,7 +176,7 @@ export const MobileNavigation: React.FC = () => {
                     className={`min-h-8 min-w-10 px-2.5 rounded-lg text-xs font-mono font-semibold uppercase ${
                       language === l
                         ? 'bg-[#dfcfb3] text-[#1e1b1a]'
-                        : 'text-[#8c8279] hover:text-[#f5f2eb]'
+                        : 'text-[#9e948c] hover:text-[#f5f2eb]'
                     }`}
                   >
                     {l}
@@ -181,7 +187,7 @@ export const MobileNavigation: React.FC = () => {
 
             {/* All Sections List */}
             <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#736a62] px-2 block mb-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#9e948c] px-2 block mb-1">
                 {t('navAllSections')}
               </span>
 

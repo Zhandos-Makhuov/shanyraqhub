@@ -296,7 +296,7 @@ export const AttendanceView: React.FC = () => {
                 onChange={e => setWalkInQuery(e.target.value)}
                 placeholder={t('attWalkInPlaceholder')}
                 autoComplete="off"
-                className="w-full sm:max-w-md min-h-10 px-3 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+                className="w-full sm:max-w-md min-h-10 px-3 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] placeholder-[#9e948c] focus:outline-none focus:border-[#dfcfb3]"
               />
               {walkInQuery.trim().length >= 2 && (
                 walkIns.length === 0 ? (

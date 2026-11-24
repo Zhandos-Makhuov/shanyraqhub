@@ -54,7 +54,7 @@ export const AchievementToast: React.FC = () => {
             <span className="block text-[12px] text-[#b0a79d] line-clamp-2">{toast.message}</span>
           </span>
         </button>
-        <button onClick={() => setToast(null)} aria-label={t('actionClose')} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-[#8c8279] hover:text-[#f5f2eb]">
+        <button onClick={() => setToast(null)} aria-label={t('actionClose')} className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-[#9e948c] hover:text-[#f5f2eb]">
           <X className="w-4 h-4" />
         </button>
       </div>

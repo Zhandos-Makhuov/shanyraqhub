@@ -15,7 +15,7 @@ import { computeCommunityStats } from '../utils/communityStats';
 import { setEventsIntent } from '../utils/navIntent';
 import { EventCard } from './EventCard';
 import { MyQrModal } from './CheckInQr';
-import { ACHIEVEMENT_ICONS } from './AchievementsView';
+import { ACHIEVEMENT_ICONS } from './achievementIcons';
 import { CommunityEvent } from '../types';
 import {
   Calendar,
@@ -178,13 +178,14 @@ export const DashboardView: React.FC = () => {
           <div
             className="w-full h-2 rounded-full bg-[#141211] border border-[#3b3430] overflow-hidden"
             role="progressbar"
+            aria-label={t('prfProgressAria')}
             aria-valuenow={xpProgress}
             aria-valuemin={0}
             aria-valuemax={100}
           >
             <div className="h-full bg-[#dfcfb3] rounded-full transition-[width] duration-500" style={{ width: `${xpProgress}%` }} />
           </div>
-          <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px] text-[#8c8279]">
+          <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px] text-[#9e948c]">
             <span>
               {nextTier
                 ? t('homeXpToNext').replace('{n}', String(Math.max(0, nextTier.minXp - currentUser.xp))).replace('{tier}', ln(nextTier))
@@ -297,22 +298,22 @@ export const DashboardView: React.FC = () => {
             >
               <UserCheck className="w-4 h-4 text-[#c8b393]" />
               <div className="mt-1.5 text-xl font-bold font-mono-numbers text-[#f5f2eb]">{visits}</div>
-              <div className="text-[11px] text-[#8c8279] leading-tight">{t('homeVisits')}</div>
+              <div className="text-[11px] text-[#9e948c] leading-tight">{t('homeVisits')}</div>
             </button>
             <button
               onClick={() => setActiveTab('attendance')}
               className="text-left p-3 rounded-xl bg-[#1c1918] border border-[#302a28] hover:border-[#4d443f] transition-colors"
             >
-              <Flame className={`w-4 h-4 ${weekStreak > 0 ? 'text-amber-400' : 'text-[#8c8279]'}`} />
+              <Flame className={`w-4 h-4 ${weekStreak > 0 ? 'text-amber-400' : 'text-[#9e948c]'}`} />
               <div className="mt-1.5 text-xl font-bold font-mono-numbers text-[#f5f2eb]">{weekStreak}</div>
-              <div className="text-[11px] text-[#8c8279] leading-tight">{t('homeWeekStreak')}</div>
+              <div className="text-[11px] text-[#9e948c] leading-tight">{t('homeWeekStreak')}</div>
             </button>
           </div>
           <button
             onClick={() => setActiveTab('achievements')}
             className="text-left p-3 rounded-xl bg-[#1c1918] border border-[#302a28] hover:border-[#4d443f] transition-colors"
           >
-            <span className="block text-[11px] text-[#8c8279]">{t('homeNextAchievement')}</span>
+            <span className="block text-[11px] text-[#9e948c]">{t('homeNextAchievement')}</span>
             {nextAchievement ? (
               <>
                 <span className="mt-1 flex items-center gap-2 min-w-0">
@@ -372,7 +373,7 @@ export const DashboardView: React.FC = () => {
       <section className="space-y-3">
         <div>
           <h2 className="font-display text-lg font-bold text-[#f5f2eb]">{t('homeDirections')}</h2>
-          <p className="text-[13px] text-[#8c8279]">{t('dashDirectionsSub')}</p>
+          <p className="text-[13px] text-[#9e948c]">{t('dashDirectionsSub')}</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
           {activeDirections().map(dir => (
@@ -392,7 +393,7 @@ export const DashboardView: React.FC = () => {
                   {language === 'kz' ? dir.shortNameKz : language === 'en' ? dir.shortNameEn : dir.shortNameRu}
                 </span>
                 <span className="hidden sm:block mt-0.5">
-                  <span className="text-[11px] text-[#8c8279] line-clamp-2">{lf(dir, 'description')}</span>
+                  <span className="text-[11px] text-[#9e948c] line-clamp-2">{lf(dir, 'description')}</span>
                 </span>
               </span>
             </button>
@@ -402,7 +403,7 @@ export const DashboardView: React.FC = () => {
 
       {/* 6. The club in numbers (real data only, see utils/communityStats.ts) */}
       <section className="rounded-2xl border border-[#302a28] p-4">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-[#8c8279] mb-3">{t('homeClubNow')}</h2>
+        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-[#9e948c] mb-3">{t('homeClubNow')}</h2>
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
           {[
             { label: t('dashMembers'), value: String(stats.members) },
@@ -414,7 +415,7 @@ export const DashboardView: React.FC = () => {
             },
           ].map(s => (
             <div key={s.label} className="min-w-0">
-              <dt className="text-[11px] text-[#8c8279] truncate">{s.label}</dt>
+              <dt className="text-[11px] text-[#9e948c] truncate">{s.label}</dt>
               <dd className="text-base font-semibold font-mono-numbers text-[#d6cebf]">{s.value}</dd>
             </div>
           ))}

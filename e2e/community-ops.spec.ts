@@ -50,7 +50,7 @@ async function switchTo(page: Page, account: string) {
 
 const card = (page: Page, title: RegExp) => page.locator('main article').filter({ hasText: title }).first();
 const openEvent = async (page: Page, title: RegExp) => {
-  await card(page, title).locator('button[aria-label]').first().click();
+  await card(page, title).locator('button').first().click(); // the picture opens the event
   return page.locator('[data-event-dialog]');
 };
 const FUTURE = { 'event-5': { inMin: 60 * 26 }, 'event-6': { inMin: 60 * 50 } };
@@ -72,6 +72,20 @@ test.describe('events (phone)', () => {
     await expect(c).toContainText('Сіз жазылдыңыз');
     await c.locator('[data-event-action="cancel"]').click();
     await expect(c.locator('[data-event-action="register"]')).toBeVisible();
+    await noHorizontalOverflow(page);
+  });
+
+  test('every member sees who signed up (owner decision C-21, Phase 4); no organizer tools, no "came" marks', async ({ page }) => {
+    await openApp(page);
+    await planEvents(page, FUTURE);
+    await goTab(page, 'events');
+    const dlg = await openEvent(page, ARAB);
+    const who = dlg.locator('[data-event-who-coming]');
+    await expect(who).toContainText('Кім тіркелді');
+    await expect(who).toContainText('Айзере Мұрат');
+    await expect(dlg.locator('[data-event-manage]')).toHaveCount(0);
+    await expect(dlg.locator('[data-event-registrants]')).toHaveCount(0);
+    await expect(who.locator('svg')).toHaveCount(0); // no check marks of who came
     await noHorizontalOverflow(page);
   });
 

@@ -24,6 +24,9 @@ import {
   FilterX,
 } from 'lucide-react';
 
+/** C-21: how many names the "who signed up" list shows before "and N more". */
+const WHO_COMING_LIMIT = 24;
+
 const getEventStartSafe = (date: string, time: string) => getEventStart({ date, time } as CommunityEvent).getTime();
 
 export const EventsView: React.FC = () => {
@@ -334,14 +337,14 @@ export const EventsView: React.FC = () => {
           </div>
 
           <div className="relative flex-1 min-w-0 sm:max-w-xs">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8c8279] pointer-events-none" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#9e948c] pointer-events-none" />
             <input
               type="search"
               aria-label={t('evSearchLabel')}
               placeholder={t('actionSearch')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full min-h-10 pl-9 pr-3 rounded-xl bg-[#23201e] border border-[#352f2c] text-sm text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]/70"
+              className="w-full min-h-10 pl-9 pr-3 rounded-xl bg-[#23201e] border border-[#352f2c] text-sm text-[#f5f2eb] placeholder-[#9e948c] focus:outline-none focus:border-[#dfcfb3]/70"
             />
           </div>
 
@@ -354,7 +357,7 @@ export const EventsView: React.FC = () => {
         </div>
 
         {hasActiveFilters && (
-          <div className="flex items-center justify-between text-xs text-[#8c8279]">
+          <div className="flex items-center justify-between text-xs text-[#9e948c]">
             <span>{t('evShown').replace('{n}', String(filteredEvents.length))}</span>
             <button onClick={resetFilters} className="sm:hidden inline-flex items-center gap-1 min-h-8 px-2 text-[#dfcfb3] font-medium">
               <FilterX className="w-3.5 h-3.5" />
@@ -367,7 +370,7 @@ export const EventsView: React.FC = () => {
       {/* Empty State */}
       {filteredEvents.length === 0 ? (
         <div className="p-8 sm:p-12 text-center rounded-2xl bg-[#23201e] border border-[#352f2c] space-y-3">
-          <FilterX className="w-10 h-10 text-[#8c8279] mx-auto opacity-40" />
+          <FilterX className="w-10 h-10 text-[#9e948c] mx-auto opacity-40" />
           <h3 className="font-display text-base font-bold text-[#f5f2eb]">
             {t('evEmptyTitle')}
           </h3>
@@ -389,7 +392,7 @@ export const EventsView: React.FC = () => {
             <section key={group.key} className="space-y-3">
               <h2 className="flex items-baseline gap-2 font-display text-base sm:text-lg font-bold text-[#f5f2eb]">
                 {group.title}
-                <span className="text-xs font-mono-numbers font-normal text-[#8c8279]">{group.list.length}</span>
+                <span className="text-xs font-mono-numbers font-normal text-[#9e948c]">{group.list.length}</span>
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {group.list.map(event => (
@@ -521,6 +524,36 @@ export const EventsView: React.FC = () => {
                 </span>
               </div>
             </div>
+
+            {/* C-21 (Phase 4): every member sees who signed up (names only; who came stays with the organizer) */}
+            {!canManage(openModal) && openModal.status !== 'cancelled' && openModal.registeredUserIds.length > 0 && (() => {
+              const shown = openModal.registeredUserIds.slice(0, WHO_COMING_LIMIT);
+              const rest = openModal.registeredUserIds.length - shown.length;
+              return (
+                <div className="space-y-2" data-event-who-coming>
+                  <h3 className="text-xs font-semibold text-[#dfcfb3]">
+                    {t('evWhoComing').replace('{n}', String(openModal.registeredUserIds.length))}
+                  </h3>
+                  <ul className="flex flex-wrap gap-1.5">
+                    {shown.map(id => {
+                      const u = allUsers.find(x => x.id === id);
+                      const me = id === currentUser.id;
+                      return (
+                        <li key={id} className={`inline-flex items-center gap-1.5 pl-1 pr-2.5 py-0.5 min-h-8 rounded-full border text-[12px] ${me ? 'border-[#dfcfb3]/60 bg-[#2a2522] text-[#f5f2eb]' : 'border-[#302a28] bg-[#23201e] text-[#d6cebf]'}`}>
+                          <AvatarWithFallback src={u?.avatar} name={u?.name ?? '—'} className="w-6 h-6" textClassName="text-[9px]" />
+                          <span className="max-w-[10rem] truncate">{u?.name ?? '—'}</span>
+                        </li>
+                      );
+                    })}
+                    {rest > 0 && (
+                      <li className="inline-flex items-center px-2.5 min-h-8 rounded-full border border-[#302a28] text-[12px] text-[#9e948c]">
+                        {t('evWhoComingMore').replace('{n}', String(rest))}
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              );
+            })()}
 
             {/* Organizer tools (organizer of this event or moderator+): who signed up, edit, cancel / restore */}
             {canManage(openModal) && (
@@ -725,7 +758,7 @@ export const EventsView: React.FC = () => {
                   value={feedbackComment}
                   onChange={e => setFeedbackComment(e.target.value)}
                   placeholder={t('evFeedbackPlaceholder')}
-                  className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+                  className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#9e948c] focus:outline-none focus:border-[#dfcfb3]"
                 />
               </div>
 

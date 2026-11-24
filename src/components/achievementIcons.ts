@@ -1,0 +1,41 @@
+import type React from 'react';
+import {
+  Activity, BookHeart, BookMarked, BookOpen, Brain, CalendarCheck, CalendarClock, CalendarDays, ClipboardCheck, Compass, Flame, Footprints, Handshake, Heart, HeartHandshake, Hourglass, Landmark, Languages, Library, Medal, MessageSquarePlus, MessageSquareText, MessagesSquare, Mic, Palette, PenLine, PenTool, Presentation, Puzzle, Star, Sunrise, ThumbsUp, Trophy,
+} from 'lucide-react';
+
+/** Achievement icon names (as stored in the catalogue) → icons. Shared by the profile, home and achievements screens. */
+export const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Activity,
+  BookHeart,
+  Handshake,
+  Puzzle,
+  BookMarked,
+  BookOpen,
+  Brain,
+  CalendarCheck,
+  CalendarClock,
+  CalendarDays,
+  ClipboardCheck,
+  Compass,
+  Flame,
+  Footprints,
+  Heart,
+  HeartHandshake,
+  Hourglass,
+  Landmark,
+  Languages,
+  Library,
+  Medal,
+  MessageSquarePlus,
+  MessageSquareText,
+  MessagesSquare,
+  Mic,
+  Palette,
+  PenLine,
+  PenTool,
+  Presentation,
+  Star,
+  Sunrise,
+  ThumbsUp,
+  Trophy,
+};

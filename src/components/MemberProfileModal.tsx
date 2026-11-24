@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { ACHIEVEMENT_ICONS } from './AchievementsView';
+import { ACHIEVEMENT_ICONS } from './achievementIcons';
 import { TIERS } from '../data/gamification';
 import { X, BookOpen, Award, UserRound } from 'lucide-react';
 import { PeerReview } from '../types';
@@ -112,7 +112,7 @@ export const MemberProfileModal: React.FC = () => {
                 <ProfileRoleBadge role={member.role} compact />
               </div>
               {member.bio && <p className="text-xs text-[#a39b94] leading-relaxed break-words">{member.bio}</p>}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#8c8279] pt-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#9e948c] pt-1">
                 {member.city && <span>{member.city}</span>}
                 <span className="flex items-center gap-1 min-w-0" title={t('prfHandleLabel')} data-contact="handle">
                   <UserRound className="w-3.5 h-3.5 text-[#dfcfb3] shrink-0" aria-hidden="true" />
@@ -197,7 +197,7 @@ export const MemberProfileModal: React.FC = () => {
             </h3>
             <div className="space-y-1.5 max-h-36 overflow-y-auto overscroll-contain">
               {member.readBooks.length === 0 ? (
-                <span className="text-xs text-[#8c8279]">{t('mpNoEntries')}</span>
+                <span className="text-xs text-[#9e948c]">{t('mpNoEntries')}</span>
               ) : (
                 member.readBooks.map(book => {
                   const completed = book.status === 'completed';
@@ -253,7 +253,7 @@ export const MemberProfileModal: React.FC = () => {
               <form onSubmit={handleReviewSubmit} className="p-3 rounded-xl bg-[#1c1918] border border-[#302a28] space-y-3 text-xs">
                 <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2">
                   <div>
-                    <label htmlFor="mp-rating" className="text-[#8c8279] block mb-1">{t('mpRating')}</label>
+                    <label htmlFor="mp-rating" className="text-[#9e948c] block mb-1">{t('mpRating')}</label>
                     {/* The form offers 3–5 stars; the data allows 1–5 (range unchanged until the owner decides). */}
                     <select
                       id="mp-rating"
@@ -267,7 +267,7 @@ export const MemberProfileModal: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="mp-aspect" className="text-[#8c8279] block mb-1">{t('prfAspect')}</label>
+                    <label htmlFor="mp-aspect" className="text-[#9e948c] block mb-1">{t('prfAspect')}</label>
                     <select
                       id="mp-aspect"
                       value={reviewAspect}
@@ -290,7 +290,7 @@ export const MemberProfileModal: React.FC = () => {
                 )}
 
                 <div>
-                  <label htmlFor="mp-text" className="text-[#8c8279] block mb-1">{t('mpReviewText')}</label>
+                  <label htmlFor="mp-text" className="text-[#9e948c] block mb-1">{t('mpReviewText')}</label>
                   <textarea
                     id="mp-text"
                     rows={2}
@@ -323,7 +323,7 @@ export const MemberProfileModal: React.FC = () => {
 
             <div className="space-y-2 max-h-60 overflow-y-auto overscroll-contain">
               {member.peerReviews.length === 0 ? (
-                <span className="text-xs text-[#8c8279]">{t('mpNoReviews')}</span>
+                <span className="text-xs text-[#9e948c]">{t('mpNoReviews')}</span>
               ) : (
                 member.peerReviews.map(rev => <ReviewCard key={rev.id} review={rev} compact />)
               )}

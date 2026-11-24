@@ -567,7 +567,7 @@ export const ForumAndChatsView: React.FC = () => {
                       placeholder={t('frmSearchPlaceholder')}
                       autoComplete="off"
                       enterKeyHint="search"
-                      className="w-full min-h-10 pl-8 pr-3 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+                      className="w-full min-h-10 pl-8 pr-3 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] placeholder-[#9e948c] focus:outline-none focus:border-[#dfcfb3]"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -896,7 +896,7 @@ export const ForumAndChatsView: React.FC = () => {
                         aria-describedby="forum-reply-hint"
                         aria-invalid={replyError ? true : undefined}
                         style={{ maxHeight: REPLY_MAX_HEIGHT }}
-                        className="flex-1 min-w-0 px-3 py-2.5 min-h-10 resize-none overflow-y-auto rounded-lg bg-[#24201e] border border-[#3d3632] text-[13px] leading-snug text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+                        className="flex-1 min-w-0 px-3 py-2.5 min-h-10 resize-none overflow-y-auto rounded-lg bg-[#24201e] border border-[#3d3632] text-[13px] leading-snug text-[#f5f2eb] placeholder-[#9e948c] focus:outline-none focus:border-[#dfcfb3]"
                       />
                       <button
                         type="submit"
@@ -1072,7 +1072,7 @@ export const ForumAndChatsView: React.FC = () => {
                   maxLength={FORUM_LIMITS.chatMax}
                   onChange={e => setChatMessageText(e.target.value)}
                   aria-invalid={chatError ? true : undefined}
-                  className="flex-1 min-w-0 px-3 min-h-10 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] placeholder-[#736a62] focus:outline-none focus:border-[#dfcfb3]"
+                  className="flex-1 min-w-0 px-3 min-h-10 rounded-lg bg-[#24201e] border border-[#3d3632] text-xs text-[#f5f2eb] placeholder-[#9e948c] focus:outline-none focus:border-[#dfcfb3]"
                 />
                 <button
                   type="submit"

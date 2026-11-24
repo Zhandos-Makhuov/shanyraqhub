@@ -38,7 +38,7 @@ export async function setLanguage(page: Page, lang: 'ru' | 'en') {
   if (isMobile(page)) {
     await openMore(page);
     await page.locator('button', { hasText: new RegExp(`^${lang}$`, 'i') }).click();
-    await page.locator('.fixed [aria-label]').first().click();
+    await page.locator('.fixed [role="dialog"] button[aria-label]').first().click(); // close the menu
   } else {
     await page.locator('header button', { hasText: /^\s*kz\s*$/i }).first().click();
     await page.getByText(lang === 'ru' ? 'Русский' : 'English', { exact: true }).click();
@@ -62,6 +62,7 @@ export async function goTab(page: Page, tab: string, moreLabel?: RegExp) {
     await openMore(page);
     await page.locator('.fixed .grid button', { hasText: moreLabel }).first().click();
   }
+  await expect(page.locator('main [data-view-loading]')).toHaveCount(0); // screens load as separate files (Phase 4)
   await page.waitForTimeout(150);
 }
 

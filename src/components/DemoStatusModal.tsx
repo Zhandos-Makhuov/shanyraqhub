@@ -78,10 +78,10 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
           <div className="space-y-1.5">
             <div className="p-2.5 rounded-lg bg-[#1c1918] border border-[#302a28] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Server className="w-4 h-4 text-[#8c8279]" />
+                <Server className="w-4 h-4 text-[#9e948c]" />
                 <div>
                   <span className="font-medium text-[#f5f2eb] block">Supabase PostgreSQL & Auth</span>
-                  <span className="text-[10px] text-[#8c8279]">Хранилище и серверная авторизация</span>
+                  <span className="text-[10px] text-[#9e948c]">Хранилище и серверная авторизация</span>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-950/80 text-amber-300 border border-amber-800 shrink-0">
@@ -94,7 +94,7 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <div>
                   <span className="font-medium text-[#f5f2eb] block">Локальное хранилище браузера</span>
-                  <span className="text-[10px] text-[#8c8279]">Сквозная персистентность сессий</span>
+                  <span className="text-[10px] text-[#9e948c]">Сквозная персистентность сессий</span>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950/80 text-emerald-300 border border-emerald-800">
@@ -104,10 +104,10 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
 
             <div className="p-2.5 rounded-lg bg-[#1c1918] border border-[#302a28] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#8c8279]" />
+                <ShieldCheck className="w-4 h-4 text-[#9e948c]" />
                 <div>
                   <span className="font-medium text-[#f5f2eb] block">Закрытые чаты и доступ по ролям</span>
-                  <span className="text-[10px] text-[#8c8279]">Серверная проверка прав (Supabase RLS). Сообщения не шифруются сквозным шифрованием</span>
+                  <span className="text-[10px] text-[#9e948c]">Серверная проверка прав (Supabase RLS). Сообщения не шифруются сквозным шифрованием</span>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-950/80 text-amber-300 border border-amber-800 shrink-0">
@@ -120,7 +120,7 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <div>
                   <span className="font-medium text-[#f5f2eb] block">PWA & Offline Service Worker</span>
-                  <span className="text-[10px] text-[#8c8279]">Манифест и статическое кеширование</span>
+                  <span className="text-[10px] text-[#9e948c]">Манифест и статическое кеширование</span>
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950/80 text-emerald-300 border border-emerald-800">
@@ -131,7 +131,7 @@ export const DemoStatusModal: React.FC<DemoStatusModalProps> = ({ isOpen, onClos
         </div>
 
         {/* Current Demo Cache Count */}
-        <div className="p-3 rounded-xl bg-[#1a1716] border border-[#302a28] flex items-center justify-between text-xs text-[#8c8279]">
+        <div className="p-3 rounded-xl bg-[#1a1716] border border-[#302a28] flex items-center justify-between text-xs text-[#9e948c]">
           <span>{isDemoData ? 'Загружено демо-записей:' : 'Записей в этом браузере:'}</span>
           <span className="font-mono text-[#dfcfb3]">
             {allUsers.length} пользователей · {events.length} событий · {allReadBooks.length} книг

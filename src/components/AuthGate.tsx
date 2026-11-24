@@ -78,7 +78,7 @@ const Shell: React.FC<{ t: (k: string) => string; language: Language; setLanguag
             key={l}
             onClick={() => setLanguage(l)}
             className={`px-2.5 py-1 rounded-md text-[11px] font-mono uppercase ${
-              l === language ? 'bg-[#dfcfb3]/15 text-[#dfcfb3]' : 'text-[#8c8279] hover:text-[#d6cebf]'
+              l === language ? 'bg-[#dfcfb3]/15 text-[#dfcfb3]' : 'text-[#9e948c] hover:text-[#d6cebf]'
             }`}
           >
             {l}
@@ -108,7 +108,7 @@ const PasswordInput: React.FC<{
         type="button"
         onClick={() => setVisible(v => !v)}
         aria-label={visible ? t('authHidePassword') : t('authShowPassword')}
-        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#8c8279] hover:text-[#d6cebf]"
+        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#9e948c] hover:text-[#d6cebf]"
       >
         {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
       </button>
@@ -208,7 +208,7 @@ const AuthScreen: React.FC<{ initialError: string | null }> = ({ initialError })
           <p className="text-xs text-[#c7beaf] leading-relaxed">
             {t(mode === 'check-email' ? 'authCheckEmailText' : 'authResetSentText')} <span className="text-[#f5f2eb] font-medium break-all">{email.trim()}</span>
           </p>
-          <p className="text-[11px] text-[#8c8279]">{t('authCheckSpam')}</p>
+          <p className="text-[11px] text-[#9e948c]">{t('authCheckSpam')}</p>
           {error && <Message kind="error">{t(error)}</Message>}
           {info && <Message kind="info">{t(info)}</Message>}
           {mode === 'check-email' && (
@@ -293,7 +293,7 @@ const AuthScreen: React.FC<{ initialError: string | null }> = ({ initialError })
               <button type="button" onClick={() => go('forgot')} className={linkClass}>
                 {t('authForgotLink')}
               </button>
-              <span className="text-xs text-[#8c8279]">
+              <span className="text-xs text-[#9e948c]">
                 {t('authNoAccount')}{' '}
                 <button type="button" onClick={() => go('signup')} className={linkClass}>
                   {t('authSignUpLink')}
@@ -302,7 +302,7 @@ const AuthScreen: React.FC<{ initialError: string | null }> = ({ initialError })
             </>
           )}
           {mode !== 'signin' && (
-            <span className="text-xs text-[#8c8279]">
+            <span className="text-xs text-[#9e948c]">
               {mode === 'signup' && `${t('authHaveAccount')} `}
               <button type="button" onClick={() => go('signin')} className={linkClass}>
                 {mode === 'signup' ? t('authSignInLink') : t('authBackToSignIn')}
@@ -349,7 +349,7 @@ const NewPasswordScreen: React.FC<{ onDone: () => void }> = ({ onDone }) => {
 };
 
 const CenterNote: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#191615] text-[#8c8279] px-6 text-center text-xs">
+  <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#191615] text-[#9e948c] px-6 text-center text-xs">
     <div className="w-14 h-14 rounded-full overflow-hidden bg-[#24201e] ring-1 ring-[#dfcfb3]/40 p-1 flex items-center justify-center">
       <img src="/icons/icon-192.png" alt="Shanyraq Hub" className="w-full h-full object-contain rounded-full" />
     </div>

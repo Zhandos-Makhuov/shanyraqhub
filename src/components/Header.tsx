@@ -278,7 +278,7 @@ export const Header: React.FC = () => {
 
                   {canSwitchTestAccounts && (
                   <div className="pt-2">
-                    <div className="text-[10px] font-semibold text-[#8c8279] uppercase tracking-wider mb-1 px-1">
+                    <div className="text-[10px] font-semibold text-[#9e948c] uppercase tracking-wider mb-1 px-1">
                       {t('actionSwitchUser')}
                     </div>
                     <div className="space-y-1">
@@ -335,7 +335,7 @@ export const Header: React.FC = () => {
                   {signOut && (
                     <div className="mt-2 pt-2 border-t border-[#38322e]">
                       {currentUser.email && !currentUser.email.endsWith('@telegram.invalid') && (
-                        <div className="text-[10px] text-[#8c8279] truncate px-1 mb-1.5">{currentUser.email}</div>
+                        <div className="text-[10px] text-[#9e948c] truncate px-1 mb-1.5">{currentUser.email}</div>
                       )}
                       <button
                         onClick={() => {

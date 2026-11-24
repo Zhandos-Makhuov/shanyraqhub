@@ -50,6 +50,10 @@ export type NavTab =
   | 'admin';
 
 interface AppContextType {
+  /** Phase 4: an error message shown inside the page (instead of a browser alert, which a Telegram mini app may not show). */
+  appError: string | null;
+  showAppError: (message: string) => void;
+  dismissAppError: () => void;
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
@@ -174,6 +178,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   });
 
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [appError, setAppError] = useState<string | null>(null);
+  const showAppError = (message: string) => setAppError(message);
+  const dismissAppError = () => setAppError(null);
   const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
     let withNewcomer: UserProfile[];
     if (account) {
@@ -481,7 +488,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       setAuditLogs(snap.auditLogs);
       setMembershipApplications(snap.membershipApplications);
     } catch {
-      alert(t('authErrorNetwork'));
+      showAppError(t('authErrorNetwork'));
     }
   };
   // Stage 7, Realtime: new notifications, chat messages and forum replies refresh the open page
@@ -510,7 +517,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   const runLive = async (action: Promise<{ ok: true } | { ok: false; error: string }>, quiet = false): Promise<{ ok: boolean; error?: string }> => {
     const r = await action;
     if (!r.ok) {
-      if (!quiet) alert(t(r.error));
+      if (!quiet) showAppError(t(r.error));
       return { ok: false, error: r.error };
     }
     await refreshLive();
@@ -940,10 +947,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     if (live) {
       return live.saveUserBook(book, coverFile).then(async r => {
         if (!r.ok) {
-          alert(t(r.error));
+          showAppError(t(r.error));
           return false;
         }
-        if (r.coverError) alert(t(r.coverError));
+        if (r.coverError) showAppError(t(r.coverError));
         await refreshLive();
         if (r.credited) try { confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } }); } catch {}
         return r.credited;
@@ -1253,7 +1260,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     if (!item) return false;
     if (live) return runLive(live.purchaseShopItem(itemId)).then(r => r.ok);
     if (currentUser.coins < item.priceCoins) {
-      alert(t('ctxNotEnoughCoins'));
+      showAppError(t('ctxNotEnoughCoins'));
       return false;
     }
     if (currentUser.inventory.ownedItemIds.includes(itemId)) {
@@ -1338,7 +1345,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         return false;
       }
       if (!(await requestWebPushPermission())) {
-        alert(t('liveErrPushDenied'));
+        showAppError(t('liveErrPushDenied'));
         return false;
       }
       const r = await runLive(live.enablePush());
@@ -1363,11 +1370,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     if (!target || target.role === newRole) return false;
     if (live) return (await runLive(live.setUserRole(targetUserId, newRole))).ok;
     if (!canAssignRole(currentUser.role, currentUser.id, targetUserId, target.role, newRole)) {
-      alert(t('ctxNoRightsRole'));
+      showAppError(t('ctxNoRightsRole'));
       return false;
     }
     if (target.role === 'super_admin' && allUsers.filter(u => u.role === 'super_admin').length <= 1) {
-      alert(t('ctxLastSuperAdmin'));
+      showAppError(t('ctxLastSuperAdmin'));
       return false;
     }
     setAllUsers(prev =>
@@ -1392,19 +1399,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     if (live) return runLive(live.adminAdjustCoins(targetUserId, amount, reason)).then(r => r.ok);
     const target = allUsers.find(u => u.id === targetUserId);
     if (!target || !hasRole(currentUser.role, 'admin')) {
-      alert(t('ctxAdminsOnlyCoins'));
+      showAppError(t('ctxAdminsOnlyCoins'));
       return false;
     }
     if (targetUserId === currentUser.id && currentUser.role !== 'super_admin') {
-      alert(t('ctxNotOwnBalance'));
+      showAppError(t('ctxNotOwnBalance'));
       return false;
     }
     if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 10000 || !reason.trim()) {
-      alert(t('ctxAmountAndReason'));
+      showAppError(t('ctxAmountAndReason'));
       return false;
     }
     if (target.coins + amount < 0) {
-      alert(t('ctxTargetNotEnough').replace('{n}', String(target.coins)));
+      showAppError(t('ctxTargetNotEnough').replace('{n}', String(target.coins)));
       return false;
     }
     addXpAndCoins(targetUserId, 0, amount, reason);
@@ -1632,15 +1639,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     const ach = ALL_ACHIEVEMENTS.find(a => a.id === achievementId) || owned;
     if (!target || !owned || !ach) return false;
     if (!hasRole(currentUser.role, 'admin')) {
-      alert(t('ctxAdminsOnlyRevoke'));
+      showAppError(t('ctxAdminsOnlyRevoke'));
       return false;
     }
     if (userId === currentUser.id && currentUser.role !== 'super_admin') {
-      alert(t('ctxNotOwnRevoke'));
+      showAppError(t('ctxNotOwnRevoke'));
       return false;
     }
     if (!reason.trim()) {
-      alert(t('ctxRevokeReason'));
+      showAppError(t('ctxRevokeReason'));
       return false;
     }
 
@@ -1692,19 +1699,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     const target = allUsers.find(u => u.id === userId);
     if (!ach || !target) return false;
     if (!hasRole(currentUser.role, 'moderator')) {
-      alert(t('ctxModsOnlyAward'));
+      showAppError(t('ctxModsOnlyAward'));
       return false;
     }
     if (userId === currentUser.id && currentUser.role !== 'super_admin') {
-      alert(t('ctxNotOwnAward'));
+      showAppError(t('ctxNotOwnAward'));
       return false;
     }
     if (!isManualAchievement(ach)) {
-      alert(t('ctxAutoAchievement'));
+      showAppError(t('ctxAutoAchievement'));
       return false;
     }
     if (target.achievements.some(a => a.id === ach.id)) {
-      alert(t('ctxAlreadyHasAch').replace('{ach}', ach.titleRu));
+      showAppError(t('ctxAlreadyHasAch').replace('{ach}', ach.titleRu));
       return false;
     }
     // A deliberate re-award lifts an earlier revocation.
@@ -1734,6 +1741,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   return (
     <AppContext.Provider
       value={{
+        appError,
+        showAppError,
+        dismissAppError,
         language,
         setLanguage,
         t,
