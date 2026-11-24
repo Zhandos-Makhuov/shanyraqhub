@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import confetti from 'canvas-confetti';
+import { fireConfetti } from '../utils/confetti';
 import {
   Language,
   UserProfile,
@@ -355,7 +355,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
         if (tierUpgraded) {
           try {
-            confetti({
+            fireConfetti({
               particleCount: 80,
               spread: 70,
               origin: { y: 0.6 },
@@ -367,9 +367,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
               id: `notif-tier-${Date.now()}`,
               userId: u.id,
               type: 'level_up',
-              title: 'Повышение клубного ранга!',
-              message: `Поздравляем! Ваш статус повышен до ${TIERS[newTier].nameRu}!`,
-              timestamp: 'Только что',
+              title: t('ntfTierTitle'),
+              message: t('ntfTierText').replace('{tier}', ln(TIERS[newTier])),
+              timestamp: t('ntfJustNow'),
               read: false,
               linkTab: 'profile',
             },
@@ -557,7 +557,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   const registerForEvent = async (eventId: string): Promise<{ ok: boolean; error?: string }> => {
     if (live) {
       const r = await runLive(live.registerForEvent(eventId), true);
-      if (r.ok) try { confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } }); } catch {}
+      if (r.ok) try { fireConfetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } }); } catch {}
       return r;
     }
     const target = events.find(e => e.id === eventId);
@@ -608,7 +608,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     );
 
     try {
-      confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } });
+      fireConfetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } });
     } catch {}
 
     setNotifications(prev => [
@@ -616,9 +616,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         id: `notif-reg-${Date.now()}`,
         userId: currentUser.id,
         type: 'new_event',
-        title: 'Успешная регистрация на мероприятие',
-        message: `Вы записаны на «${events.find(e => e.id === eventId)?.title}». Детали и список материалов сохранены в кабинете.`,
-        timestamp: 'Только что',
+        title: t('ntfRegTitle'),
+        message: t('ntfRegText').replace('{title}', events.find(e => e.id === eventId)?.title ?? ''),
+        timestamp: t('ntfJustNow'),
         read: false,
         linkTab: 'events',
         eventId,
@@ -695,7 +695,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     if (!isStaffRole(currentUser.role) || (targetUserId === currentUser.id && currentUser.role !== 'super_admin')) return { ok: false };
     if (live) {
       const r = await runLive(live.manualCheckIn(eventId, targetUserId, 'Отметка персоналом на входе (выбор участника из списка)'), true);
-      if (r.ok) try { confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } }); } catch {}
+      if (r.ok) try { fireConfetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } }); } catch {}
       return r;
     }
     const uid = targetUserId;
@@ -747,7 +747,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     recordActivity(uid);
 
     try {
-      confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
+      fireConfetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
     } catch {}
     return { ok: true };
   };
@@ -776,7 +776,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         const r = await live.checkInWithToken(code);
         if (!r.ok) return r;
         await refreshLive();
-        try { confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } }); } catch {}
+        try { fireConfetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } }); } catch {}
         return r;
       }
     : undefined;
@@ -895,9 +895,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         id: `notif-new-ev-${Date.now()}`,
         userId: currentUser.id,
         type: 'new_event',
-        title: 'Новое событие добавлено в календарь!',
-        message: `Мероприятие «${newEvent.title}» опубликовано и доступно для записи.`,
-        timestamp: 'Только что',
+        title: t('ntfNewEvTitle'),
+        message: t('ntfNewEvText').replace('{title}', newEvent.title),
+        timestamp: t('ntfJustNow'),
         read: false,
         linkTab: 'events',
       },
@@ -905,7 +905,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     ]);
 
     try {
-      confetti({ particleCount: 40, spread: 60 });
+      fireConfetti({ particleCount: 40, spread: 60 });
     } catch {}
     return { ok: true };
   };
@@ -927,7 +927,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       const r = await live.saveUserBook(book, coverFile);
       if (!r.ok) return { ok: false, error: r.error };
       await refreshLive();
-      if (r.credited) try { confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } }); } catch {}
+      if (r.credited) try { fireConfetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } }); } catch {}
       return { ok: true, credited: r.credited, coverError: r.coverError };
     }
     return { ok: true, credited: addReadBook(book) as boolean };
@@ -952,7 +952,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         }
         if (r.coverError) showAppError(t(r.coverError));
         await refreshLive();
-        if (r.credited) try { confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } }); } catch {}
+        if (r.credited) try { fireConfetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } }); } catch {}
         return r.credited;
       });
     }
@@ -994,7 +994,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         `Книга «${book.title}» с рецензией`
       );
       try {
-        confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
+        fireConfetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
       } catch {}
     }
     return credited;
@@ -1285,7 +1285,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     );
 
     try {
-      confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
+      fireConfetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
     } catch {}
 
     return true;
@@ -1357,10 +1357,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       prev.map(u => (u.id === currentUser.id ? { ...u, pushNotificationsEnabled: granted } : u))
     );
     if (granted) {
-      sendLocalPushNotification(
-        'SHANYRAQ HUB: Уведомления активированы',
-        'Вы будете оперативно получать анонсы встреч и клубные напоминания.'
-      );
+      sendLocalPushNotification(`SHANYRAQ HUB: ${t('ctxPushActivated')}`, t('livePushEnabled'));
     }
     return granted;
   };
@@ -1452,7 +1449,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       type: 'broadcast',
       title: `🏛 Shanyraq Hub: ${title}`,
       message: content,
-      timestamp: 'Только что',
+      timestamp: t('ntfJustNow'),
       read: false,
       linkTab: 'events',
     }));
@@ -1477,7 +1474,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     ]);
 
     try {
-      confetti({ particleCount: 35, spread: 70 });
+      fireConfetti({ particleCount: 35, spread: 70 });
     } catch {}
   };
 
@@ -1545,9 +1542,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         id: `notif-rev-${Date.now()}`,
         userId: targetUserId,
         type: 'review',
-        title: 'Новый отзыв в вашем профиле',
-        message: `${currentUser.name} оставил(а) о вас теплый отзыв: «${comment.slice(0, 60)}...» (+25 коинов).`,
-        timestamp: 'Только что',
+        title: t('ntfReviewTitle'),
+        message: t('ntfReviewText').replace('{name}', currentUser.name).replace('{text}', comment.slice(0, 60)),
+        timestamp: t('ntfJustNow'),
         read: false,
         linkTab: 'profile',
       },
@@ -1596,9 +1593,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
               id: notifId,
               userId,
               type: 'achievement',
-              title: 'Новое достижение!',
-              message: `Открыто «${ach.titleRu}»: +${ach.xpReward} XP и +${ach.coinReward} коинов.`,
-              timestamp: 'Только что',
+              title: t('ntfAchTitle'),
+              message: t('ntfAchText').replace('{ach}', lf(ach, 'title')).replace('{xp}', String(ach.xpReward)).replace('{coins}', String(ach.coinReward)),
+              timestamp: t('ntfJustNow'),
               read: false,
               linkTab: 'achievements',
             },
@@ -1608,7 +1605,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
 
     if (userId === currentUser.id) {
       try {
-        confetti({ particleCount: 70, spread: 75, origin: { y: 0.6 }, colors: ['#dfcfb3', '#f5d77f', '#ffffff'] });
+        fireConfetti({ particleCount: 70, spread: 75, origin: { y: 0.6 }, colors: ['#dfcfb3', '#f5d77f', '#ffffff'] });
       } catch {}
     }
     return true;
@@ -1670,9 +1667,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         id: `notif-ach-revoke-${achievementId}-${userId}-${Date.now()}`,
         userId,
         type: 'achievement',
-        title: 'Достижение отозвано',
-        message: `Администратор отозвал «${ach.titleRu}». Причина: ${reason.trim()}`,
-        timestamp: 'Только что',
+        title: t('ntfRevokeTitle'),
+        message: t('ntfRevokeText').replace('{ach}', lf(ach, 'title')).replace('{reason}', reason.trim()),
+        timestamp: t('ntfJustNow'),
         read: false,
         linkTab: 'achievements',
       },

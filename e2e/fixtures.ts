@@ -41,7 +41,7 @@ export async function setLanguage(page: Page, lang: 'ru' | 'en') {
     await page.locator('.fixed [role="dialog"] button[aria-label]').first().click(); // close the menu
   } else {
     await page.locator('header button', { hasText: /^\s*kz\s*$/i }).first().click();
-    await page.getByText(lang === 'ru' ? 'Русский' : 'English', { exact: true }).click();
+    await page.getByText(lang === 'ru' ? 'Русский' : 'English', { exact: true }).filter({ visible: true }).first().click();
   }
 }
 

@@ -14,6 +14,13 @@ import {
   Search,
 } from 'lucide-react';
 
+/**
+ * P4-7 (Phase 4.1): the bronze tier colour (amber-600) is 3.97:1 on the highlighted "you" row — below WCAG AA.
+ * There the lighter shade of the same bronze (amber-500, ≈ 6:1) is used; every other place and tier keeps its colour.
+ */
+const tierTextColor = (textColor: string, highlighted: boolean) =>
+  highlighted && textColor === 'text-amber-600' ? 'text-amber-500' : textColor;
+
 export const LeaderboardView: React.FC = () => {
   const { allUsers, currentUser, setSelectedUserModal, language, t, ln } = useApp();
 
@@ -276,7 +283,7 @@ export const LeaderboardView: React.FC = () => {
                     <span className="font-bold text-xs text-[#f5f2eb] truncate block">
                       {user.name} {isMe && <span className="text-[10px] text-[#dfcfb3] font-normal">({t('lbYou')})</span>}
                     </span>
-                    <span className={`text-[10px] font-semibold ${tierInfo.textColor}`}>
+                    <span className={`text-[10px] font-semibold ${tierTextColor(tierInfo.textColor, isMe)}`}>
                       {ln(tierInfo)}
                     </span>
                   </div>
@@ -354,7 +361,7 @@ export const LeaderboardView: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className={`font-semibold ${tierInfo.textColor}`}>
+                      <span className={`font-semibold ${tierTextColor(tierInfo.textColor, isMe)}`}>
                         {language === 'kz' ? tierInfo.nameKz : language === 'en' ? tierInfo.nameEn : tierInfo.nameRu}
                       </span>
                     </td>

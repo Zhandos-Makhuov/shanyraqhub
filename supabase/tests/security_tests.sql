@@ -685,4 +685,36 @@ select t.ok(public.manual_check_in(:'past', '00000000-0000-0000-0000-00000000000
 reset role;
 select t.ok(exists (select 1 from public.reward_ledger where idempotency_key = 'attendance:' || :'past' || ':00000000-0000-0000-0000-000000000001:r1' and xp_delta = 60), 'C-14: and is rewarded again');
 
+-- Phase 4.1 — P4-10: capacity never below active registrations (the 'ops' meetup has 2 registered)
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', false);
+select t.expect_fail($$update public.events set capacity = 1 where id = '$$ || :'ops' || $$'$$, '%capacity_below_registered%');
+update public.events set capacity = 2 where id = :'ops';
+reset role;
+select t.ok((select capacity from public.events where id = :'ops') = 2, 'P4-10: capacity equal to the registrations is allowed');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', false);
+update public.events set capacity = 12 where id = :'ops';
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+update public.events set capacity = 1 where id = :'ops';
+reset role;
+select t.ok((select capacity from public.events where id = :'ops') = 12, 'P4-10: more is allowed; a member cannot change it at all');
+select t.ok((select count(*) from public.event_registrations where event_id = :'ops' and status = 'registered') = 2, 'P4-10: registrations are untouched');
+
+-- Phase 4.1 — S-3: a member deletes only own books that are still being read
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select public.save_user_book('S3 Still Reading', 'Tester', null, 'reading') as s3r \gset
+select public.save_user_book('S3 Finished', 'Tester', null, 'completed', 5, repeat('ж', 120)) as s3c \gset
+delete from public.user_books where id = :'s3r';
+delete from public.user_books where id = :'s3c';
+reset role;
+select t.ok(not exists (select 1 from public.user_books where id = :'s3r'), 'S-3: a book being read can be removed');
+select t.ok(exists (select 1 from public.user_books where id = :'s3c'), 'S-3: a finished book cannot be deleted by its owner');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+delete from public.user_books where id = :'s3c';
+reset role;
+select t.ok(not exists (select 1 from public.user_books where id = :'s3c'), 'S-3: moderator+ can still remove it (moderation)');
+
 \echo ALL_TESTS_PASSED

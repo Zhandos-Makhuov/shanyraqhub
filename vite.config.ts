@@ -16,8 +16,12 @@ export default defineConfig(() => {
         output: {
           // Third-party libraries in their own chunk: cached across app deploys.
           // QR libraries stay out of it: they load only when a QR window is opened.
+          // Phase 4.1 (P4-13): canvas-confetti too — it is imported on first use (src/utils/confetti.ts).
+          // Supabase deliberately stays in this chunk: measured on slow 4G, moving it into its own chunk showed
+          // the loading screen 0.3 s sooner but the sign-in form 0.2 s later (it then downloads after the main
+          // file instead of in parallel). See docs/PHASE4.1-RESIDUAL-CORRECTIONS-REPORT.md.
           codeSplitting: {
-            groups: [{ name: 'vendor', test: /node_modules[\\/](?!qrcode|qr-scanner|pngjs|dijkstrajs)/ }],
+            groups: [{ name: 'vendor', test: /node_modules[\\/](?!qrcode|qr-scanner|pngjs|dijkstrajs|canvas-confetti)/ }],
           },
         },
       },

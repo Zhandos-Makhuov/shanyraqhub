@@ -294,6 +294,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
 /** Server error text -> translation key (raw database messages are never shown). */
 const SERVER_ERRORS: [RegExp, string][] = [
   [/event_full/, 'liveErrEventFull'],
+  [/capacity_below_registered/, 'evErrCapacityBelow'],
   [/registration_closed/, 'liveErrRegistrationClosed'],
   [/event_already_started/, 'liveErrEventStarted'],
   [/event_not_available|event_not_found/, 'liveErrEventNotAvailable'],
