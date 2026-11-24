@@ -12,7 +12,9 @@ import {
   isCheckInWindowOpen,
 } from '../utils/eventTime';
 import { computeCommunityStats } from '../utils/communityStats';
-import { setEventsIntent } from '../utils/navIntent';
+import { setEventsIntent, setForumIntent, setLibraryIntent } from '../utils/navIntent';
+import { firstSteps, myDiscussions, readingNow, FirstStepId } from '../utils/memberActivity';
+import { STORAGE_KEY } from '../config/runtime';
 import { EventCard } from './EventCard';
 import { MyQrModal } from './CheckInQr';
 import { ACHIEVEMENT_ICONS } from './achievementIcons';
@@ -28,6 +30,11 @@ import {
   Flame,
   UserCheck,
   Award,
+  BookOpen,
+  MessagesSquare,
+  CheckCircle2,
+  Circle,
+  X,
 } from 'lucide-react';
 
 const TIER_ORDER = ['bronze', 'silver', 'gold', 'platinum', 'titanium', 'tengri'] as const;
@@ -59,6 +66,7 @@ export const DashboardView: React.FC = () => {
     t,
     ln,
     lf,
+    forumTopics,
   } = useApp();
   const [qrEvent, setQrEvent] = useState<CommunityEvent | null>(null);
 
@@ -138,6 +146,43 @@ export const DashboardView: React.FC = () => {
   })();
 
   const stats = computeCommunityStats(allUsers, events);
+
+  // --- Continue where I left off (Phase 5) ----------------------------------------------
+  const reading = readingNow(currentUser).slice(0, 2);
+  const discussions = useMemo(() => myDiscussions(forumTopics, currentUser), [forumTopics, currentUser]);
+  const discussionsWithNews = discussions.filter(d => d.newReplies > 0).slice(0, 2);
+  const myUpcoming = upcoming.filter(e => e.registeredUserIds.includes(me)).length;
+  const hasContinue = reading.length > 0 || discussions.length > 0 || myUpcoming > 0;
+  const openBook = (title: string, author: string) => {
+    setLibraryIntent({ title, author });
+    setActiveTab('library');
+    window.scrollTo({ top: 0 });
+  };
+  const openForum = (intent: Parameters<typeof setForumIntent>[0]) => {
+    setForumIntent(intent);
+    setActiveTab('forum');
+    window.scrollTo({ top: 0 });
+  };
+
+  // --- First steps for a new member (Phase 5): hidden when all done, dismissed, or after the first visit ----------
+  const stepsKey = `${STORAGE_KEY}_first_steps_hidden_${me}`;
+  const [stepsHidden, setStepsHidden] = useState(() => {
+    try { return localStorage.getItem(stepsKey) === '1'; } catch { return false; }
+  });
+  const steps = firstSteps(currentUser, events, forumTopics);
+  const stepsDone = steps.filter(s => s.done).length;
+  // Only for newcomers: after the first confirmed visit the member already knows the club (no nagging about an empty bio).
+  const showSteps = !stepsHidden && stepsDone < steps.length && visits === 0 && currentUser.attendedEvents.every(a => a.status !== 'attended');
+  const hideSteps = () => {
+    setStepsHidden(true);
+    try { localStorage.setItem(stepsKey, '1'); } catch { /* private mode: hidden for this visit only */ }
+  };
+  const goStep = (id: FirstStepId) => {
+    if (id === 'event') return openEvents();
+    if (id === 'forum') return openForum({ mine: true });
+    setActiveTab(id === 'book' ? 'library' : 'profile');
+    window.scrollTo({ top: 0 });
+  };
 
   const stepTitle = (key: string, ev?: CommunityEvent) => t(key).replace('{title}', ev?.title ?? '');
   const eventWhen = (ev: CommunityEvent) => `${formatEventDay(ev, t)} · ${ev.time} · ${ev.locationAddress}`;
@@ -338,6 +383,114 @@ export const DashboardView: React.FC = () => {
           </button>
         </section>
       </div>
+
+      {/* First steps (new members): five ordinary ways into the club, done-state from real data, no rewards */}
+      {showSteps && (
+        <section className="rounded-2xl bg-[#23201e] border border-[#352f2c] p-4 sm:p-5 space-y-3" aria-labelledby="first-steps-title" data-first-steps>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 id="first-steps-title" className="font-display text-base sm:text-lg font-bold text-[#f5f2eb]">{t('fsTitle')}</h2>
+              <p className="text-[13px] text-[#9e948c]" data-first-steps-count>
+                {t('fsProgress').replace('{n}', String(stepsDone)).replace('{total}', String(steps.length))}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={hideSteps}
+              aria-label={t('fsHide')}
+              title={t('fsHide')}
+              className="shrink-0 -mr-1 -mt-1 w-10 h-10 inline-flex items-center justify-center rounded-lg text-[#9e948c] hover:text-[#f5f2eb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfcfb3]/60"
+              data-first-steps-hide
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
+          <ol className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+            {steps.map(step => (
+              <li key={step.id}>
+                <button
+                  type="button"
+                  onClick={() => goStep(step.id)}
+                  className={`w-full h-full text-left flex items-start gap-2.5 p-3 rounded-xl border transition-colors ${
+                    step.done ? 'bg-[#1c1918] border-[#302a28]' : 'bg-[#1c1918] border-[#4a413b] hover:border-[#dfcfb3]/60'
+                  }`}
+                  data-first-step={step.id}
+                  data-done={step.done ? 'true' : 'false'}
+                >
+                  {step.done
+                    ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" aria-hidden="true" />
+                    : <Circle className="w-4 h-4 mt-0.5 shrink-0 text-[#9e948c]" aria-hidden="true" />}
+                  <span className="min-w-0">
+                    <span className={`block text-[13px] font-semibold leading-snug ${step.done ? 'text-[#9e948c] line-through' : 'text-[#f5f2eb]'}`}>
+                      {t(`fsStep_${step.id}`)}
+                    </span>
+                    <span className="sr-only">{step.done ? t('fsDone') : t('fsTodo')}</span>
+                    {!step.done && <span className="block mt-0.5 text-[11px] text-[#9e948c] leading-snug">{t(`fsStepHint_${step.id}`)}</span>}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {/* Continue where I left off: reading now, my discussions with replies after my last post, my registrations */}
+      {hasContinue && (
+        <section className="space-y-3" aria-labelledby="continue-title" data-continue>
+          <h2 id="continue-title" className="font-display text-base sm:text-lg font-bold text-[#f5f2eb]">{t('ctTitle')}</h2>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {reading.map(book => (
+              <li key={book.id}>
+                <button
+                  type="button"
+                  onClick={() => openBook(book.title, book.author)}
+                  className="w-full text-left flex items-center gap-3 p-3 rounded-xl bg-[#23201e] border border-[#352f2c] hover:border-[#4d443f] transition-colors min-w-0"
+                  data-continue-book
+                >
+                  <BookOpen className="w-5 h-5 shrink-0 text-[#c8b393]" aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] text-[#9e948c]">{t('ctReading')}</span>
+                    <span className="block text-sm font-semibold text-[#f5f2eb] truncate">{book.title}</span>
+                    <span className="block text-[11px] text-[#9e948c] truncate">{book.author}</span>
+                  </span>
+                  <ArrowRight className="w-4 h-4 shrink-0 text-[#9e948c]" aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+            {discussionsWithNews.map(d => (
+              <li key={d.topic.id}>
+                <button
+                  type="button"
+                  onClick={() => openForum({ topicId: d.topic.id })}
+                  className="w-full text-left flex items-center gap-3 p-3 rounded-xl bg-[#23201e] border border-[#352f2c] hover:border-[#4d443f] transition-colors min-w-0"
+                  data-continue-topic={d.topic.id}
+                >
+                  <MessagesSquare className="w-5 h-5 shrink-0 text-[#c8b393]" aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] text-emerald-300">{t('frmNewReplies').replace('{n}', String(d.newReplies))}</span>
+                    <span className="block text-sm font-semibold text-[#f5f2eb] line-clamp-2 break-words">{d.topic.title}</span>
+                  </span>
+                  <ArrowRight className="w-4 h-4 shrink-0 text-[#9e948c]" aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-2">
+            {myUpcoming > 0 && (
+              <button type="button" onClick={() => openEvents({ mine: true })} className="btn-ghost min-h-10 text-xs" data-continue-my-events>
+                <CalendarCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                {t('ctMyEvents').replace('{n}', String(myUpcoming))}
+              </button>
+            )}
+            {discussions.length > 0 && (
+              <button type="button" onClick={() => openForum({ mine: true })} className="btn-ghost min-h-10 text-xs" data-continue-my-topics>
+                <MessagesSquare className="w-3.5 h-3.5" aria-hidden="true" />
+                {t('ctMyTopics').replace('{n}', String(discussions.length))}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* 4. Upcoming events (the one in "next step" is not repeated) */}
       <section className="space-y-3">

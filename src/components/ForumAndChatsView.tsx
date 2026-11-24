@@ -9,6 +9,7 @@ import { AvatarWithFallback, ProfileRoleBadge } from './ProfileParts';
 import { MessageSquare, Lock, ShieldCheck, ThumbsUp, Send, Plus, Key, X, ArrowLeft, Search, BookOpen } from 'lucide-react';
 import { ForumTopic, ForumReply } from '../types';
 import { canDeleteReply, canDeleteTopic, canEditReply, canEditTopic, canModerateForum, canSeeForumPost, othersReplied } from '../utils/forumPermissions';
+import { myDiscussions } from '../utils/memberActivity';
 import { ConfirmDialog, PostAction, PostActionsMenu, TopicEditDialog } from './ForumPostTools';
 
 /** User text: line breaks and paragraphs kept, long words and links wrap inside the card (never rendered as HTML). */
@@ -32,6 +33,8 @@ const topicMatches = (topic: ForumTopic, words: string[]) => {
 const lastActivity = (topic: ForumTopic) =>
   Math.max(Date.parse(topic.createdAt) || 0, ...topic.replies.map(r => Date.parse(r.createdAt) || 0));
 type TopicSort = 'new' | 'active' | 'popular';
+/** Section-filter value for "my discussions" (not a real section id). */
+const MINE_FILTER = '__mine';
 
 /** The reply field grows up to this height (≈ 8 lines), then scrolls. */
 const REPLY_MAX_HEIGHT = 168;
@@ -80,9 +83,16 @@ export const ForumAndChatsView: React.FC = () => {
   const [sectionFilter, setSectionFilter] = useState<string>('all');
   const queryWords = useMemo(() => norm(query).split(/\s+/).filter(Boolean), [query]);
   const filtering = queryWords.length > 0 || sectionFilter !== 'all';
+  // Phase 5: "my discussions" (topics I started or replied in) and how many replies came after my last post.
+  const mine = useMemo(() => new Map(myDiscussions(forumTopics, currentUser).map(d => [d.topic.id, d.newReplies])), [forumTopics, currentUser]);
   const filteredTopics = useMemo(
-    () => sortedTopics.filter(tp => (sectionFilter === 'all' || tp.categoryId === sectionFilter) && topicMatches(tp, queryWords)),
-    [sortedTopics, sectionFilter, queryWords],
+    () =>
+      sortedTopics.filter(
+        tp =>
+          (sectionFilter === 'all' || (sectionFilter === MINE_FILTER ? mine.has(tp.id) : tp.categoryId === sectionFilter)) &&
+          topicMatches(tp, queryWords),
+      ),
+    [sortedTopics, sectionFilter, queryWords, mine],
   );
   const resetFilters = () => {
     setQuery('');
@@ -218,6 +228,15 @@ export const ForumAndChatsView: React.FC = () => {
       if (!intent) return;
       setActiveSection('forum');
       resetFilters();
+      if ('mine' in intent) {
+        setTopicNotFound(false);
+        setBookContext(null);
+        setSectionFilter(MINE_FILTER);
+        setSelectedTopicId('');
+        setMobileForumView('list');
+        requestAnimationFrame(() => listHeadingRef.current?.focus());
+        return;
+      }
       if ('book' in intent) {
         // From a book (Phase 2.5): its discussions are the topics that mention the title; a new one can be opened from here.
         setTopicNotFound(false);
@@ -579,6 +598,7 @@ export const ForumAndChatsView: React.FC = () => {
                       className="min-w-0 min-h-10 px-2 rounded-lg bg-[#1a1716] border border-[#3b3430] text-xs text-[#f5f2eb] focus:outline-none focus:border-[#dfcfb3]"
                     >
                       <option value="all">{t('frmAllSections')}</option>
+                      <option value={MINE_FILTER}>{t('frmMineFilter')}</option>
                       {forumCategories.map(c => (
                         <option key={c.id} value={c.id}>{ln(c)}</option>
                       ))}
@@ -659,6 +679,11 @@ export const ForumAndChatsView: React.FC = () => {
                         <span className="flex items-center justify-between gap-2 text-[11px] mb-1">
                           <span className="font-semibold text-[#dfcfb3] min-w-0 truncate">{lf(topic, 'categoryName')}</span>
                           <span className="flex items-center gap-1 shrink-0">
+                            {(mine.get(topic.id) ?? 0) > 0 && (
+                              <span className="text-[10px] px-1.5 py-px rounded bg-emerald-950/70 text-emerald-300 border border-emerald-800" data-topic-new-replies>
+                                {t('frmNewReplies').replace('{n}', String(mine.get(topic.id)))}
+                              </span>
+                            )}
                             {topic.isHidden && hiddenBadge}
                             {topic.isPinned && (
                               <span className="text-[10px] px-1.5 py-px rounded bg-amber-950/70 text-amber-300 border border-amber-800">

@@ -18,6 +18,7 @@ import {
 import { DirectionId } from '../types';
 import { isDemoData } from '../config/runtime';
 import { MembershipApplications } from './MembershipApplications';
+import { MyContribution } from './MyContribution';
 import {
   AvatarWithFallback,
   EquippedAvatar,
@@ -234,6 +235,9 @@ export const ProfileView: React.FC = () => {
               </button>
             }
           />
+        </div>
+        <div className="mt-3">
+          <MyContribution />
         </div>
       </div>
 

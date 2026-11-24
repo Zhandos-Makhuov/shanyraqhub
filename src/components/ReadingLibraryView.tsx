@@ -8,7 +8,7 @@ import { ReadBook, UserProfile } from '../types';
 import { BOOK_GENRES, genreLabel } from '../data/bookGenres';
 import { isDemoData } from '../config/runtime';
 import { useDialog } from '../hooks/useDialog';
-import { setForumIntent } from '../utils/navIntent';
+import { setForumIntent, takeLibraryIntent } from '../utils/navIntent';
 import { AvatarWithFallback } from './ProfileParts';
 import { ConfirmDialog } from './ForumPostTools';
 
@@ -87,7 +87,11 @@ export const ReadingLibraryView: React.FC = () => {
   const [scope, setScope] = useState<'club' | 'mine'>('club');
   const [sort, setSort] = useState<'recent' | 'rating' | 'readers'>('recent');
   const [searchQuery, setSearchQuery] = useState('');
-  const [openKey, setOpenKey] = useState<string | null>(null);
+  // Phase 5: the home page's "continue reading" opens the book's window directly.
+  const [openKey, setOpenKey] = useState<string | null>(() => {
+    const intent = takeLibraryIntent();
+    return intent ? bookKey(intent.title, intent.author) : null;
+  });
   const [reviewSort, setReviewSort] = useState<'newest' | 'top'>('newest');
   const [showAddModal, setShowAddModal] = useState(false);
   const [saved, setSaved] = useState<{ key: string; credited: boolean; shown: boolean } | null>(null);

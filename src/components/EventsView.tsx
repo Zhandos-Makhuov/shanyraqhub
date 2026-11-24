@@ -22,6 +22,7 @@ import {
   Check,
   X,
   FilterX,
+  CalendarCheck,
 } from 'lucide-react';
 
 /** C-21: how many names the "who signed up" list shows before "and N more". */
@@ -51,6 +52,8 @@ export const EventsView: React.FC = () => {
   const [intent] = useState(takeEventsIntent);
   const [selectedDirection, setSelectedDirection] = useState<string>(intent.direction ?? 'all');
   const [selectedFormat, setSelectedFormat] = useState<'all' | 'offline' | 'online'>('all');
+  // Phase 5: only my events (registered or attended), so a member can find what they signed up for.
+  const [onlyMine, setOnlyMine] = useState(!!intent.mine);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeModalEvent, setActiveModalEvent] = useState<CommunityEvent | null>(
     () => events.find(e => e.id === intent.openEventId) ?? null,
@@ -67,6 +70,7 @@ export const EventsView: React.FC = () => {
   React.useEffect(() => {
     const onIntent = () => {
       const next = takeEventsIntent();
+      if (next.mine) setOnlyMine(true);
       if (!next.openEventId) return;
       const ev = eventsRef.current.find(e => e.id === next.openEventId);
       setEventGone(!ev);
@@ -178,7 +182,9 @@ export const EventsView: React.FC = () => {
     setNotice(cancelled ? t('evCancelledDone').replace('{title}', ev.title) : t('evRestoredDone').replace('{title}', ev.title));
   };
 
+  const isMine = (e: CommunityEvent) => e.registeredUserIds.includes(currentUser.id) || e.attendedUserIds.includes(currentUser.id);
   const filteredEvents = events.filter(e => {
+    if (onlyMine && !isMine(e)) return false;
     if (selectedDirection !== 'all' && e.direction !== selectedDirection) return false;
     if (selectedFormat !== 'all' && e.format !== selectedFormat) return false;
     if (searchQuery.trim()) {
@@ -191,7 +197,7 @@ export const EventsView: React.FC = () => {
     return true;
   });
 
-  const hasActiveFilters = selectedDirection !== 'all' || selectedFormat !== 'all' || searchQuery.trim() !== '';
+  const hasActiveFilters = onlyMine || selectedDirection !== 'all' || selectedFormat !== 'all' || searchQuery.trim() !== '';
   // Upcoming first (soonest on top), then past events (latest on top).
   const byStart = (a: CommunityEvent, b: CommunityEvent) => getEventStart(a).getTime() - getEventStart(b).getTime();
   const upcomingList = filteredEvents.filter(e => !hasEventEnded(e)).sort(byStart);
@@ -253,6 +259,7 @@ export const EventsView: React.FC = () => {
   };
 
   const resetFilters = () => {
+    setOnlyMine(false);
     setSelectedDirection('all');
     setSelectedFormat('all');
     setSearchQuery('');
@@ -301,6 +308,16 @@ export const EventsView: React.FC = () => {
       {/* Filters: directions (scrolling chips), format and search; active filters can be reset in one tap. */}
       <div className="space-y-2.5">
         <div className="-mx-3 sm:mx-0 px-3 sm:px-0 flex items-center gap-2 overflow-x-auto scrollbar-none">
+          <button
+            onClick={() => setOnlyMine(v => !v)}
+            className={`chip gap-1.5 shrink-0 ${onlyMine ? 'chip-active' : ''}`}
+            aria-pressed={onlyMine}
+            data-events-mine
+          >
+            <CalendarCheck className="w-3.5 h-3.5" aria-hidden="true" />
+            {t('evMineFilter')}
+          </button>
+          <span aria-hidden="true" className="w-px h-5 bg-[#3b3430] shrink-0" />
           <button
             onClick={() => setSelectedDirection('all')}
             className={`chip shrink-0 ${selectedDirection === 'all' ? 'chip-active' : ''}`}
@@ -375,7 +392,7 @@ export const EventsView: React.FC = () => {
             {t('evEmptyTitle')}
           </h3>
           <p className="text-xs text-[#9e948c] max-w-sm mx-auto">
-            {t('evEmptyText')}
+            {onlyMine && selectedDirection === 'all' && selectedFormat === 'all' && !searchQuery.trim() ? t('evMineEmpty') : t('evEmptyText')}
           </p>
           {hasActiveFilters && (
             <button onClick={resetFilters} className="btn-secondary">

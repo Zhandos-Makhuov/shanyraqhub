@@ -8,6 +8,8 @@ export interface EventsIntent {
   openEventId?: string;
   /** Open the feedback form for this event. */
   feedbackEventId?: string;
+  /** Show only the member's own events (registered or attended) — Phase 5. */
+  mine?: boolean;
 }
 
 let pending: EventsIntent | null = null;
@@ -29,7 +31,7 @@ export const takeEventsIntent = (): EventsIntent => {
  * Forum: open this topic (e.g. from a "new reply in your topic" notification),
  * or show the discussions of a book (from the Books screen: search by its title, offer a new topic).
  */
-export type ForumIntent = { topicId: string } | { book: { title: string; author: string } };
+export type ForumIntent = { topicId: string } | { book: { title: string; author: string } } | { mine: true };
 
 let pendingForum: ForumIntent | null = null;
 export const FORUM_INTENT_EVENT = 'shq-forum-intent';
@@ -43,5 +45,24 @@ export const setForumIntent = (intent: ForumIntent) => {
 export const takeForumIntent = (): ForumIntent | null => {
   const intent = pendingForum;
   pendingForum = null;
+  return intent;
+};
+
+/** Books: open this book's window (e.g. "continue reading" on the home page) — Phase 5. */
+export interface LibraryIntent {
+  title: string;
+  author: string;
+}
+
+let pendingLibrary: LibraryIntent | null = null;
+
+/** The library screen is never open while the home page is, so a plain hand-over is enough. */
+export const setLibraryIntent = (intent: LibraryIntent) => {
+  pendingLibrary = intent;
+};
+
+export const takeLibraryIntent = (): LibraryIntent | null => {
+  const intent = pendingLibrary;
+  pendingLibrary = null;
   return intent;
 };

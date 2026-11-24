@@ -21,7 +21,7 @@ test('filters: direction chip, count, reset', async ({ page }) => {
   await openApp(page);
   await goTab(page, 'events');
   const all = await cards(page).count();
-  await page.locator('button.chip').nth(1).click();
+  await page.locator('button.chip').nth(2).click(); // 0 = «Менің кездесулерім» (Phase 5), 1 = «Барлық бағыттар», 2 = first direction
   expect(await cards(page).count()).toBeLessThanOrEqual(all);
   await page.locator('button:visible', { hasText: 'Тазарту' }).click();
   await expect(cards(page)).toHaveCount(all);
