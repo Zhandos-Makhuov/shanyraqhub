@@ -1,4 +1,4 @@
-// Shanyraq Hub Service Worker v3 (push)
+// Shanyraq Hub Service Worker v4 (push; Phase 6: a tapped notification opens what it is about)
 //
 // Strategy:
 //   * Page navigations (HTML): network-first, so a new deploy is picked up on the
@@ -7,7 +7,7 @@
 //     whenever their content changes, so they never go stale).
 //   * Everything else (cross-origin requests, APIs, Vite dev-server modules): not
 //     intercepted, so the service worker never serves stale data.
-const CACHE_NAME = 'shanyraq-cache-v3';
+const CACHE_NAME = 'shanyraq-cache-v4';
 const SHELL_URL = '/index.html';
 const PRECACHE = [
   SHELL_URL,
@@ -93,7 +93,8 @@ self.addEventListener('push', (event) => {
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
       tag: data.id || undefined,
-      data: { url: '/' },
+      // Phase 6 (C-16): /?n=<notification id> — the site opens what the notification is about and marks it read.
+      data: { url: data.id ? '/?n=' + encodeURIComponent(data.id) : '/' },
     })
   );
 });
@@ -103,8 +104,12 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const url = (event.notification.data && event.notification.data.url) || '/';
       const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
-      return open ? open.focus() : self.clients.openWindow((event.notification.data && event.notification.data.url) || '/');
+      if (!open) return self.clients.openWindow(url);
+      // The site is already open: bring it forward and let it open the notification there (no second window).
+      open.postMessage({ type: 'shq-open', url });
+      return open.focus();
     })
   );
 });

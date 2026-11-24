@@ -717,4 +717,12 @@ delete from public.user_books where id = :'s3c';
 reset role;
 select t.ok(not exists (select 1 from public.user_books where id = :'s3c'), 'S-3: moderator+ can still remove it (moderation)');
 
+-- Phase 6 — C-23: events and registrations are live; attendance is not (DELETE would expose who came)
+select t.ok(not exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+  or (exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'events')
+      and exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'event_registrations')),
+  'C-23: events and event_registrations are in the Realtime publication');
+select t.ok(not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'event_attendance'),
+  'C-23: event_attendance is NOT in the Realtime publication (attendance privacy)');
+
 \echo ALL_TESTS_PASSED

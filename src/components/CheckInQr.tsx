@@ -10,11 +10,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle, Loader2, QrCode, ScanLine, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import type { CommunityEvent } from '../types';
+import { useBackLayer } from '../utils/backNav';
 
 const QR_PREFIX = 'shq1:';
 const RENEW_BEFORE_MS = 20_000;
 
-const Overlay: React.FC<{ onClose: () => void; title: string; children: React.ReactNode }> = ({ onClose, title, children }) => (
+const Overlay: React.FC<{ onClose: () => void; title: string; children: React.ReactNode }> = ({ onClose, title, children }) => {
+  useBackLayer(true, onClose); // Phase 6 (N-4): Back closes it
+  return (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
     <div className="relative w-full max-w-sm max-h-[90dvh] overflow-y-auto bg-[#23201e] border border-[#3f3834] rounded-2xl shadow-2xl p-5 space-y-4">
       <button onClick={onClose} aria-label="×" className="absolute right-3 top-3 p-1.5 rounded-lg text-[#9e948c] hover:text-[#f5f2eb] hover:bg-[#2d2825]">
@@ -27,7 +30,8 @@ const Overlay: React.FC<{ onClose: () => void; title: string; children: React.Re
       {children}
     </div>
   </div>
-);
+  );
+};
 
 const Note: React.FC<{ kind: 'ok' | 'error' | 'info'; children: React.ReactNode }> = ({ kind, children }) => (
   <div

@@ -30,6 +30,7 @@ import {
   useDirectionName,
 } from './ProfileParts';
 import { useDialog } from '../hooks/useDialog';
+import { PROFILE_INTENT_EVENT, takeProfileIntent } from '../utils/navIntent';
 
 type SubTab = 'books' | 'events' | 'achievements' | 'reviews';
 
@@ -38,7 +39,16 @@ export const ProfileView: React.FC = () => {
   const directionName = useDirectionName();
   const [avatarBusy, setAvatarBusy] = useState(false);
 
-  const [activeSubTab, setActiveSubTab] = useState<SubTab>('books');
+  // Phase 6: a notification ("new review in your profile") opens the matching sub-tab.
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>(() => takeProfileIntent() ?? 'books');
+  useEffect(() => {
+    const onIntent = () => {
+      const next = takeProfileIntent();
+      if (next) setActiveSubTab(next);
+    };
+    window.addEventListener(PROFILE_INTENT_EVENT, onIntent);
+    return () => window.removeEventListener(PROFILE_INTENT_EVENT, onIntent);
+  }, []);
   const [showEditModal, setShowEditModal] = useState(false);
 
   // Edit form state — filled from the latest currentUser every time the form opens (openEdit).

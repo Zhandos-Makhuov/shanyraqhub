@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { setEventsIntent, setForumIntent } from '../utils/navIntent';
+import { routeNotification } from '../utils/navIntent';
 import { useApp } from '../context/AppContext';
 import { TIERS } from '../data/gamification';
 import { Bell, Globe, Sparkles, ChevronDown, Coins, Database, LogOut } from 'lucide-react';
@@ -7,6 +7,7 @@ import { Language } from '../types';
 import { DemoStatusModal } from './DemoStatusModal';
 import { canSwitchTestAccounts, isDemoData } from '../config/runtime';
 import { TelegramConnect } from './TelegramConnect';
+import { useBackLayer } from '../utils/backNav';
 
 export const Header: React.FC = () => {
   const {
@@ -19,6 +20,7 @@ export const Header: React.FC = () => {
     signOut,
     notifications,
     markAllNotificationsAsRead,
+    markNotificationRead,
     togglePushNotifications,
     setActiveTab,
     ln,
@@ -26,6 +28,7 @@ export const Header: React.FC = () => {
 
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  useBackLayer(showNotifDropdown, () => setShowNotifDropdown(false)); // Phase 6 (N-4): Back closes the panel
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
 
@@ -151,10 +154,11 @@ export const Header: React.FC = () => {
                 }}
                 className="relative flex items-center justify-center min-w-9 min-h-9 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] text-[#d6cebf] transition-colors"
                 title={t('hdrNotifications')}
+                data-bell
               >
                 <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#dfcfb3]" />
                 {unreadNotifs.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-amber-700 text-white text-[9px] sm:text-[10px] font-bold flex items-center justify-center">
+                  <span data-unread-count className="absolute -top-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-amber-700 text-white text-[9px] sm:text-[10px] font-bold flex items-center justify-center">
                     {unreadNotifs.length}
                   </span>
                 )}
@@ -197,16 +201,9 @@ export const Header: React.FC = () => {
                           key={notif.id}
                           data-notif-item={notif.id}
                           onClick={() => {
-                            // A reply in your topic opens that topic (Phase 2.4.2, F-16); other notifications open their section.
-                            if (notif.topicId) setForumIntent({ topicId: notif.topicId });
-                            // A registration or a reminder opens that event (Phase 3).
-                            // Only when the notification leads to the events page (e.g. "attendance confirmed" leads elsewhere).
-                            if (notif.eventId && (notif.linkTab ?? 'events') === 'events') setEventsIntent({ openEventId: notif.eventId });
-                            if (notif.linkTab && notif.linkTab !== 'members') {
-                              setActiveTab(notif.linkTab as any);
-                            } else if (notif.topicId) {
-                              setActiveTab('forum');
-                            }
+                            // One rule for the bell, Web Push and Telegram (Phase 6, utils/navIntent.ts); opening it marks it read.
+                            routeNotification(notif, setActiveTab);
+                            if (!notif.read) markNotificationRead(notif.id);
                             setShowNotifDropdown(false);
                           }}
                           className={`block w-full text-left py-2 px-1 text-xs cursor-pointer hover:bg-[#2d2825] rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfcfb3] ${

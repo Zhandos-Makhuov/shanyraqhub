@@ -10,6 +10,7 @@ import { ConfirmDialog } from './ForumPostTools';
 import { COMMUNITY_DIRECTIONS } from '../data/directions';
 import type { DirectionInput } from '../data/supabase/live';
 import type { Direction } from '../types';
+import { useBackLayer } from '../utils/backNav';
 
 const empty: DirectionInput = {
   id: '', name_ru: '', name_kz: '', name_en: '', short_name_ru: '', short_name_kz: '', short_name_en: '',
@@ -32,6 +33,7 @@ export const DirectionsManager: React.FC = () => {
   const { liveApi, runLiveAction, t, ln, showAppError } = useApp();
   const [archiving, setArchiving] = useState<{ id: string; name: string } | null>(null);
   const [form, setForm] = useState<DirectionInput | null>(null);
+  useBackLayer(!!form, () => setForm(null)); // Phase 6 (N-4)
   const [isNew, setIsNew] = useState(false);
   const [busy, setBusy] = useState(false);
   if (!liveApi) return null;

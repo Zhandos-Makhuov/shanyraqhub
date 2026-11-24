@@ -6,6 +6,7 @@ import { isDemoData } from '../config/runtime';
 import { exportEventToIcs } from '../utils/calendar';
 import { formatEventDay, getEventStart, hasEventEnded, hasEventStarted } from '../utils/eventTime';
 import { EVENTS_INTENT_EVENT, takeEventsIntent } from '../utils/navIntent';
+import { eventLink } from '../utils/deepLink';
 import { EventCard } from './EventCard';
 import { MyQrModal } from './CheckInQr';
 import { CommunityEvent, DirectionId } from '../types';
@@ -23,6 +24,7 @@ import {
   X,
   FilterX,
   CalendarCheck,
+  Link2,
 } from 'lucide-react';
 
 /** C-21: how many names the "who signed up" list shows before "and N more". */
@@ -142,6 +144,18 @@ export const EventsView: React.FC = () => {
   const canManage = (ev: CommunityEvent) => hasRole(currentUser.role, 'moderator') || (ev.hostId === currentUser.id && isStaff);
   const openModal = activeModalEvent ? events.find(e => e.id === activeModalEvent.id) ?? activeModalEvent : null;
 
+  // Phase 6 (C-16): copy the event's direct link; the message stays until the window closes or another event opens.
+  const [linkCopied, setLinkCopied] = useState('');
+  React.useEffect(() => setLinkCopied(''), [activeModalEvent?.id]);
+  const copyEventLink = async (ev: CommunityEvent) => {
+    const url = eventLink(ev.id);
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(t('evLinkCopied'));
+    } catch {
+      setLinkCopied(t('evLinkCopyManual').replace('{url}', url)); // no clipboard (e.g. some in-app browsers): show it
+    }
+  };
   const closeDetail = () => { if (!detailBusy) { setActiveModalEvent(null); setDetailError(''); } };
   const detailRef = useDialog<HTMLDivElement>(!!openModal && !confirmCancelEvent && !showCreateModal, closeDetail);
   const closeFeedback = () => { if (!feedbackBusy) setShowFeedbackModal(null); };
@@ -453,7 +467,7 @@ export const EventsView: React.FC = () => {
               <X className="w-4 h-4" aria-hidden="true" />
             </button>
 
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-4 sm:space-y-5">
+            <div tabIndex={0} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-4 sm:space-y-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#dfcfb3]/60">
             <div className="-mx-5 sm:-mx-6 -mt-5 sm:-mt-6 relative">
               <img src={eventImage(openModal)} alt="" className={`w-full h-44 sm:h-52 object-cover rounded-t-2xl ${openModal.status === 'cancelled' ? 'grayscale' : ''}`} />
               {canEditCover(openModal) && (
@@ -654,7 +668,11 @@ export const EventsView: React.FC = () => {
                   {detailError}
                 </p>
               )}
+              {linkCopied && (
+                <p role="status" className="text-[12px] text-emerald-300 break-all" data-link-copied>{linkCopied}</p>
+              )}
               <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => exportEventToIcs(openModal)}
                   className="btn-ghost px-3 text-[#dfcfb3]"
@@ -664,6 +682,18 @@ export const EventsView: React.FC = () => {
                   <span className="hidden sm:inline">{t('actionExportCalendar')}</span>
                   <span className="sm:hidden" aria-hidden="true">.ICS</span>
                 </button>
+                {/* Phase 6 (C-16): a direct link to this event (opens after sign-in; access is still checked by the server) */}
+                <button
+                  onClick={() => void copyEventLink(openModal)}
+                  className="btn-ghost px-3 text-[#dfcfb3]"
+                  aria-label={t('evCopyLink')}
+                  title={t('evCopyLink')}
+                  data-event-copy-link
+                >
+                  <Link2 className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span className="hidden sm:inline">{t('evCopyLinkShort')}</span>
+                </button>
+                </div>
 
                 <button
                   onClick={() => void registerOrCancel(openModal)}

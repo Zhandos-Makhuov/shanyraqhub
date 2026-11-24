@@ -10,6 +10,7 @@ import { lazyView, prefetchViews } from './utils/lazyView';
 import { MemberProfileModal } from './components/MemberProfileModal';
 import { AchievementToast } from './components/AchievementToast';
 import { AppErrorNotice } from './components/AppErrorNotice';
+import { DeepLinkHandler } from './components/DeepLinkHandler';
 
 // Live mode only: sign-in gate + Supabase client. Compared against the inlined env value
 // so demo builds drop this chunk (and supabase-js) entirely.
@@ -40,6 +41,7 @@ const MainContent: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#191615] text-[#f5f2eb] overflow-x-hidden w-full max-w-full">
+      <DeepLinkHandler />
       <Header />
       <NavigationTabs />
 

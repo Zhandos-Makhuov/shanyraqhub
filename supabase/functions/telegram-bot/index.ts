@@ -68,8 +68,15 @@ const lang = (code?: string): Lang => (code?.startsWith('en') ? 'en' : 'kz');
 const t = (key: string, l: Lang, vars: Record<string, string> = {}) =>
   Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, escapeHtml(v)), T[key][l]);
 const openButton = (l: Lang) => ({ inline_keyboard: [[{ text: t('open', l), web_app: { url: env('SHQ_SITE_URL') } }]] });
-const say = (chatId: number, text: string, l: Lang) =>
-  api('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', reply_markup: openButton(l), link_preview_options: { is_disabled: true } });
+const say = (chatId: number, text: string, l: Lang, markup = openButton(l)) =>
+  api('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', reply_markup: markup, link_preview_options: { is_disabled: true } });
+// Phase 6 (C-16): the button under a notification opens the Mini App on what it is about (/?n=<notification id>;
+// the site resolves the id only for its owner, marks it read, and opens the event / topic / section).
+const notificationButton = (l: Lang, notificationId: string) => {
+  const url = new URL(env('SHQ_SITE_URL'));
+  url.searchParams.set('n', notificationId);
+  return { inline_keyboard: [[{ text: t('open', l), web_app: { url: url.toString() } }]] };
+};
 
 interface Update {
   message?: { chat: { id: number; type: string }; from?: { id: number; username?: string; first_name?: string; language_code?: string }; text?: string };
@@ -115,7 +122,7 @@ const dispatch = async () => {
   let sent = 0, failed = 0;
   const blocked: number[] = [];
   for (const r of rows) { // sequential: stays far below Telegram's 30 messages/second
-    const res = await say(r.chat_id, `<b>${escapeHtml(r.title)}</b>\n${escapeHtml(r.body)}`, 'kz');
+    const res = await say(r.chat_id, `<b>${escapeHtml(r.title)}</b>\n${escapeHtml(r.body)}`, 'kz', notificationButton('kz', r.notification_id));
     if (res.json.ok) sent++;
     else if (res.status === 403) blocked.push(r.chat_id);
     else failed++;

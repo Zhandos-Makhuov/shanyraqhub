@@ -36,6 +36,7 @@ import { registeredCount } from '../utils/counts';
 import { STORAGE_KEY, canSwitchTestAccounts } from '../config/runtime';
 import { hasQualifyingReview, isWeekFreeForCredit } from '../utils/bookCredit';
 import { computeDayStreak, computeWeekStreak, toLocalDay } from '../utils/streak';
+import { initBackNav, navigateTab, restoredTab } from '../utils/backNav';
 
 export type NavTab =
   | 'dashboard'
@@ -48,6 +49,8 @@ export type NavTab =
   | 'shop'
   | 'profile'
   | 'admin';
+
+const RESTORABLE_TABS: NavTab[] = ['dashboard', 'events', 'achievements', 'library', 'attendance', 'leaderboard', 'forum', 'shop', 'profile'];
 
 interface AppContextType {
   /** Phase 4: an error message shown inside the page (instead of a browser alert, which a Telegram mini app may not show). */
@@ -132,6 +135,8 @@ interface AppContextType {
   auditLogs: AuditLog[];
   notifications: AppNotification[];
   markAllNotificationsAsRead: () => void;
+  /** Phase 6: one notification opened (bell, Web Push, Telegram) -> read. Own notifications only (RLS). */
+  markNotificationRead: (id: string) => void;
   togglePushNotifications: () => Promise<boolean>;
   /** Live only (null in demo): server API, e.g. Telegram linking in the notifications menu. */
   liveApi: LiveAccount['api'] | null;
@@ -177,7 +182,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     return (saved as Language) || 'kz'; // owner decision: Kazakh is the main language
   });
 
-  const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  // Phase 6 (N-4): sections and windows are browser-history entries; a reload keeps the section (not "Управление").
+  const [activeTab, setActiveTabRaw] = useState<NavTab>(
+    () => (restoredTab(t => RESTORABLE_TABS.includes(t as NavTab)) as NavTab | null) ?? 'dashboard',
+  );
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  // Synchronously on the first render: child effects (e.g. a direct link) run before this component's effects.
+  const navInit = useRef(false);
+  if (!navInit.current) {
+    navInit.current = true;
+    initBackNav(t => setActiveTabRaw(t as NavTab), activeTabRef.current);
+  }
+  const setActiveTab = (tab: NavTab) => {
+    navigateTab(tab);
+    setActiveTabRaw(tab);
+  };
   const [appError, setAppError] = useState<string | null>(null);
   const showAppError = (message: string) => setAppError(message);
   const dismissAppError = () => setAppError(null);
@@ -1329,6 +1349,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
     );
   };
 
+  const markNotificationRead = (id: string) => {
+    if (live) {
+      void runLive(live.markNotificationRead(id), true);
+      return;
+    }
+    setNotifications(prev => prev.map(n => (n.id === id && n.userId === currentUser.id ? { ...n, read: true } : n)));
+  };
+
   const markAllNotificationsAsRead = () => {
     if (live) {
       void runLive(live.markAllNotificationsRead(), true);
@@ -1795,6 +1823,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         auditLogs,
         notifications,
         markAllNotificationsAsRead,
+        markNotificationRead,
         togglePushNotifications,
         liveApi: live ?? null,
         runLiveAction: runLive,

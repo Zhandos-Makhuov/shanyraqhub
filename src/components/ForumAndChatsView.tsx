@@ -10,6 +10,7 @@ import { MessageSquare, Lock, ShieldCheck, ThumbsUp, Send, Plus, Key, X, ArrowLe
 import { ForumTopic, ForumReply } from '../types';
 import { canDeleteReply, canDeleteTopic, canEditReply, canEditTopic, canModerateForum, canSeeForumPost, othersReplied } from '../utils/forumPermissions';
 import { myDiscussions } from '../utils/memberActivity';
+import { useBackLayer } from '../utils/backNav';
 import { ConfirmDialog, PostAction, PostActionsMenu, TopicEditDialog } from './ForumPostTools';
 
 /** User text: line breaks and paragraphs kept, long words and links wrap inside the card (never rendered as HTML). */
@@ -35,6 +36,19 @@ const lastActivity = (topic: ForumTopic) =>
 type TopicSort = 'new' | 'active' | 'popular';
 /** Section-filter value for "my discussions" (not a real section id). */
 const MINE_FILTER = '__mine';
+
+/** Below Tailwind's `lg` the topic list and the open topic are separate screens. */
+const useNarrowScreen = () => {
+  const query = '(max-width: 1023.98px)';
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return narrow;
+};
 
 /** The reply field grows up to this height (≈ 8 lines), then scrolls. */
 const REPLY_MAX_HEIGHT = 168;
@@ -211,6 +225,11 @@ export const ForumAndChatsView: React.FC = () => {
     setMobileForumView('thread');
     requestAnimationFrame(() => threadHeadingRef.current?.focus({ preventScroll: false }));
   };
+  // Phase 6 (N-4): on a phone the open topic / room covers the list — Back returns to the list.
+  const narrow = useNarrowScreen();
+  useBackLayer(narrow && activeSection === 'forum' && mobileForumView === 'thread', () => backToTopicsRef.current());
+  useBackLayer(narrow && activeSection === 'encrypted_rooms' && mobileChatView === 'chat', () => setMobileChatView('list'));
+  const backToTopicsRef = useRef<() => void>(() => {});
   const backToTopics = () => {
     setMobileForumView('list');
     const id = lastOpenedTopic.current;
@@ -218,6 +237,7 @@ export const ForumAndChatsView: React.FC = () => {
       if (id) document.querySelector<HTMLElement>(`[data-topic-card="${id}"]`)?.focus();
     });
   };
+  backToTopicsRef.current = backToTopics;
 
   // --- From a notification (F-16): open that topic; if it is not available, say so ----------
   const topicsRef = useRef(visibleTopics);

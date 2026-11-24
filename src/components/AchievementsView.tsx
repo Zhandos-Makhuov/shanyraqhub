@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useBackLayer } from '../utils/backNav';
 import { useApp } from '../context/AppContext';
 import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 import { formatShortDate } from '../utils/eventTime';
@@ -320,6 +321,7 @@ const AchDetail: React.FC<{ row: AchRow; members: number; onClose: () => void; o
   const { t, lf } = useApp();
   const earned = row.state === 'earned';
   const special = isManualAchievement(row.ach);
+  useBackLayer(true, onClose); // Phase 6 (N-4): Back closes it
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4 bg-black/75 backdrop-blur-sm animate-fade-in"

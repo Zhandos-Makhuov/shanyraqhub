@@ -6,6 +6,7 @@
  * Security comes from RLS and the server-side RPCs, never from hiding these values.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { TG_KEY, tgPost } from '../../utils/telegramBridge';
 
 const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ?? '';
 const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? '';
@@ -26,7 +27,7 @@ export const openedFromRecoveryLink = new URLSearchParams(window.location.hash.s
  * Read it here, before createClient looks at the URL hash, and keep it for reloads inside the Mini App.
  * The signature is checked on the server (Edge Function telegram-auth); here it is only passed on.
  */
-const TG_KEY = 'shq_tg_init_data';
+
 export const telegramInitData: string | null = (() => {
   try {
     const fromHash = new URLSearchParams(window.location.hash.slice(1)).get('tgWebAppData');
@@ -45,17 +46,10 @@ export const isTelegramMiniApp = telegramInitData !== null;
 /** Tells Telegram the page is ready and asks for full height (no-op outside Telegram). */
 export const telegramReady = () => {
   if (!isTelegramMiniApp) return;
-  const post = (eventType: string, eventData: Record<string, unknown> = {}) => {
-    const w = window as unknown as { TelegramWebviewProxy?: { postEvent: (t: string, d: string) => void }; external?: { notify?: (s: string) => void } };
-    try {
-      if (w.TelegramWebviewProxy) w.TelegramWebviewProxy.postEvent(eventType, JSON.stringify(eventData));
-      else if (window.parent !== window) window.parent.postMessage(JSON.stringify({ eventType, eventData }), '*');
-    } catch { /* not inside Telegram after all */ }
-  };
-  post('web_app_ready');
-  post('web_app_expand');
+  tgPost('web_app_ready');
+  tgPost('web_app_expand');
   // Scrolling a list (e.g. the menu) must not swipe the Mini App closed.
-  post('web_app_setup_swipe_behavior', { allow_vertical_swipe: false });
+  tgPost('web_app_setup_swipe_behavior', { allow_vertical_swipe: false });
 };
 
 export const supabaseUrl = url.replace(/\/$/, '');

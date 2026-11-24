@@ -66,3 +66,35 @@ export const takeLibraryIntent = (): LibraryIntent | null => {
   pendingLibrary = null;
   return intent;
 };
+
+/** Profile: open this sub-tab (e.g. "new review in your profile" -> reviews) — Phase 6. */
+export type ProfileSubTab = 'books' | 'events' | 'achievements' | 'reviews';
+let pendingProfile: ProfileSubTab | null = null;
+export const PROFILE_INTENT_EVENT = 'shq-profile-intent';
+export const setProfileIntent = (tab: ProfileSubTab) => {
+  pendingProfile = tab;
+  window.dispatchEvent(new Event(PROFILE_INTENT_EVENT));
+};
+export const takeProfileIntent = (): ProfileSubTab | null => {
+  const tab = pendingProfile;
+  pendingProfile = null;
+  return tab;
+};
+
+/**
+ * Where a notification leads (Phase 6: one rule for the bell, Web Push and the Telegram button):
+ * a forum reply -> that topic; an event notification -> that event's window; a review -> the profile's reviews;
+ * anything else -> its section.
+ */
+export const routeNotification = (
+  n: { type: string; linkTab?: string; topicId?: string; eventId?: string },
+  setTab: (tab: any) => void,
+) => {
+  if (n.topicId) setForumIntent({ topicId: n.topicId });
+  // Only when the notification leads to the events page ("attendance confirmed" leads to the visits page).
+  if (n.eventId && (n.linkTab ?? 'events') === 'events') setEventsIntent({ openEventId: n.eventId });
+  if (n.type === 'review') setProfileIntent('reviews');
+  if (n.linkTab && n.linkTab !== 'members') setTab(n.linkTab);
+  else if (n.topicId) setTab('forum');
+  else if (n.eventId) setTab('events');
+};

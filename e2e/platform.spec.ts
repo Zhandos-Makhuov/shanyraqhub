@@ -45,8 +45,7 @@ test.describe('screens as separate files', () => {
       const reloaded = page.waitForEvent('load');
       await goTab(page, 'events');
       await reloaded;
-      await expect(page.locator('main h1')).toBeVisible();
-      await page.locator('nav[aria-label] button').nth(1).click();
+      // Phase 6 (N-4, closes P4-14): after the reload the same section is restored, so the message shows at once.
       const failed = page.locator('main [data-view-failed]');
       await expect(failed).toBeVisible();
       await expect(failed).toHaveAttribute('role', 'alert');

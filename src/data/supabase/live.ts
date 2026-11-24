@@ -398,6 +398,35 @@ export const updateEvent = (eventId: string, p: EventPatch) =>
 export const setEventStatus = (eventId: string, status: 'published' | 'cancelled') =>
   changeRows(db().from('events').update({ status }).eq('id', eventId).select('id'));
 
+/** Phase 6: one own notification -> read (RLS: own rows; the column grant allows only read_at). */
+export const markNotificationRead = async (id: string): Promise<ActionResult> => {
+  try {
+    const { error } = await db().from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id).is('read_at', null);
+    return error ? { ok: false, error: serverErrorKey(error.message) } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: serverErrorKey(e instanceof Error ? e.message : String(e)) };
+  }
+};
+
+/** Phase 6 (C-16): a notification opened from a link (push, Telegram) that is not in the loaded list. Own only (RLS). */
+export const fetchNotification = async (id: string): Promise<AppNotification | null> => {
+  try {
+    const { data } = await db().from('notifications')
+      .select('id, type, title, body, link_tab, read_at, created_at, user_id, meta').eq('id', id).maybeSingle();
+    if (!data) return null;
+    const n = data as NotificationRow;
+    return {
+      id: n.id, userId: n.user_id, type: notificationType(n.type), title: n.title, message: n.body,
+      timestamp: formatWhen(n.created_at), read: n.read_at !== null,
+      linkTab: (n.link_tab ?? undefined) as AppNotification['linkTab'],
+      topicId: typeof n.meta?.topic_id === 'string' ? n.meta.topic_id : undefined,
+      eventId: typeof n.meta?.event_id === 'string' ? n.meta.event_id : undefined,
+    };
+  } catch {
+    return null;
+  }
+};
+
 export const markAllNotificationsRead = async (): Promise<ActionResult> => {
   try {
     const { error } = await db().from('notifications').update({ read_at: new Date().toISOString() }).is('read_at', null);
@@ -717,7 +746,7 @@ export const uploadAvatar = async (file: File): Promise<ActionResult> => {
 // --- Realtime (stage 7): open pages update without a reload. RLS decides which rows a member receives. ---
 export type LiveChange =
   | { kind: 'notification'; title: string; body: string }
-  | { kind: 'chat' | 'forum' };
+  | { kind: 'chat' | 'forum' | 'events' };
 
 /** Subscribes to new notifications (own only), chat messages and forum replies. Returns the unsubscribe function. */
 export const subscribeLive = (userId: string, onChange: (change: LiveChange) => void): (() => void) => {
@@ -731,6 +760,10 @@ export const subscribeLive = (userId: string, onChange: (change: LiveChange) => 
       })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => onChange({ kind: 'chat' }))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'forum_replies' }, () => onChange({ kind: 'forum' }))
+    // Phase 6 (C-23): event edits/cancellations and sign-ups (places left, the organizer's desk) arrive live.
+    // Attendance is deliberately not published (a DELETE would reveal who came) — see migration 20261125000001.
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => onChange({ kind: 'events' }))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'event_registrations' }, () => onChange({ kind: 'events' }))
     .subscribe();
   return () => {
     void c.removeChannel(channel);
