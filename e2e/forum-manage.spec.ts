@@ -139,6 +139,9 @@ test.describe('member: own posts (phone)', () => {
     await expect(replyMenu(page, id!)).toBeFocused();
     await replyMenu(page, id!).click();
     await action(page, 'edit').click();
+    // The field takes focus (and the caret moves to the end) in the next frame; wait for it, or under load that
+    // frame can land inside fill('') and undo its "select all" (a test race, not a user-visible bug).
+    await expect(field).toBeFocused();
     await field.fill('');
     await expect(page.locator(`main [data-reply-id="${id}"]`).getByRole('button', { name: 'Сақтау' })).toBeDisabled(); // empty
     await field.fill('Түзетілген жауап\nекінші жол');

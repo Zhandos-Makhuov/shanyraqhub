@@ -238,6 +238,9 @@ test.describe('forum keyboard and dialog (desktop)', () => {
     await expect(page.locator('main [data-topic-card="topic-2"]')).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.locator('main [data-topic-card="topic-2"]')).toHaveAttribute('aria-current', 'true');
+    // Opening a topic moves focus to its heading in the next frame; wait for it, or under load that frame can
+    // take focus away from the card focused below (a test race, not a user-visible bug).
+    await expect(page.locator('#forum-topic-title')).toBeFocused();
     await page.locator('main [data-topic-card="topic-1"]').focus();
     await page.keyboard.press('Space');
     await expect(page.locator('main [data-topic-card="topic-1"]')).toHaveAttribute('aria-current', 'true');

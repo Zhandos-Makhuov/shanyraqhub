@@ -765,8 +765,15 @@ export const subscribeLive = (userId: string, onChange: (change: LiveChange) => 
     .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => onChange({ kind: 'events' }))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'event_registrations' }, () => onChange({ kind: 'events' }))
     .subscribe();
+  // C-23a (owner decision 25.11.2026): someone else's cancellation is hidden by RLS (C-21), so it never comes as a row
+  // change; the database sends a hint with only the event id on this private channel (signed-in members only).
+  const hints = c
+    .channel('shq-events', { config: { private: true } })
+    .on('broadcast', { event: 'registrations_changed' }, () => onChange({ kind: 'events' }))
+    .subscribe();
   return () => {
     void c.removeChannel(channel);
+    void c.removeChannel(hints);
   };
 };
 

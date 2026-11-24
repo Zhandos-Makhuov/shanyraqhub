@@ -725,4 +725,26 @@ select t.ok(not exists (select 1 from pg_publication where pubname = 'supabase_r
 select t.ok(not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'event_attendance'),
   'C-23: event_attendance is NOT in the Realtime publication (attendance privacy)');
 
+-- C-23a (owner decision 25.11.2026): a cancellation is broadcast (private topic, event id only) so every member sees the freed place
+create function t.rt_count() returns bigint language plpgsql as $f$
+declare n bigint := 0;
+begin
+  if to_regclass('realtime.messages') is not null then
+    execute $q$select count(*) from realtime.messages where topic = 'shq-events' and event = 'registrations_changed'$q$ into n;
+  end if;
+  return n;
+end $f$;
+reset role;
+create temp table rt0 as select t.rt_count() as n;
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select public.cancel_event_registration(:'ops');
+reset role;
+select t.ok(to_regclass('realtime.messages') is null or t.rt_count() > (select n from rt0), 'C-23a: cancelling a registration sends a live-update hint');
+select t.ok(to_regclass('realtime.messages') is null or exists (
+  select 1 from pg_policies where schemaname = 'realtime' and tablename = 'messages' and policyname = 'shq_events_broadcast_read'
+     and roles = array['authenticated']::name[]),
+  'C-23a: the hint channel is for signed-in members only (no anon policy)');
+select t.ok(exists (select 1 from pg_trigger where tgname = 'registrations_broadcast' and tgrelid = 'public.event_registrations'::regclass), 'C-23a: trigger on registrations exists');
+
 \echo ALL_TESTS_PASSED
