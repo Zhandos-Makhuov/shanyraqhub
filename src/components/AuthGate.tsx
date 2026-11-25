@@ -18,6 +18,7 @@ import * as liveApi from '../data/supabase/live';
 import type { LiveSnapshot } from '../data/supabase/live';
 import { TRANSLATIONS } from '../data/translations';
 import type { Language, UserProfile } from '../types';
+import { hasBootSplash, useBootSplash } from '../utils/bootSplash';
 
 export interface LiveAccount {
   profile: UserProfile;
@@ -348,6 +349,14 @@ const NewPasswordScreen: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   );
 };
 
+/** A loading step of sign-in (session check, Telegram sign-in, member data): the "Shanyraq Draw" splash stays on
+ *  top (src/utils/bootSplash.ts); without it (no index.html splash) the plain note below is shown. */
+const LoadingNote: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  useBootSplash();
+  if (hasBootSplash) return <div className="min-h-screen bg-[#191615]" data-boot-placeholder />;
+  return <CenterNote>{children}</CenterNote>;
+};
+
 const CenterNote: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#191615] text-[#9e948c] px-6 text-center text-xs">
     <div className="w-14 h-14 rounded-full overflow-hidden bg-[#24201e] ring-1 ring-[#dfcfb3]/40 p-1 flex items-center justify-center">
@@ -415,7 +424,7 @@ export const AuthGate: React.FC<{ children: (account: LiveAccount) => React.Reac
   }, [userId, email, attempt]);
 
   if (!supabaseConfigured) return <CenterNote>{t('authNotConfigured')}</CenterNote>;
-  if (session === undefined || telegramSignIn === 'busy') return <CenterNote>{t(isTelegramMiniApp ? 'authTelegramSigningIn' : 'authLoading')}</CenterNote>;
+  if (session === undefined || telegramSignIn === 'busy') return <LoadingNote>{t(isTelegramMiniApp ? 'authTelegramSigningIn' : 'authLoading')}</LoadingNote>;
   if (recovery && session) return <NewPasswordScreen onDone={() => setRecovery(false)} />;
   if (!session) return <AuthScreen initialError={linkError ?? telegramError} />;
   if (profileError) {
@@ -429,7 +438,7 @@ export const AuthGate: React.FC<{ children: (account: LiveAccount) => React.Reac
       </CenterNote>
     );
   }
-  if (!profile || !snapshot || profile.id !== userId) return <CenterNote>{t('authLoading')}</CenterNote>;
+  if (!profile || !snapshot || profile.id !== userId) return <LoadingNote>{t('authLoading')}</LoadingNote>;
   // key: a different account gets a fresh app state (its own local storage namespace).
   return <React.Fragment key={profile.id}>{children({ profile, signOut, snapshot, api: liveApi })}</React.Fragment>;
 };

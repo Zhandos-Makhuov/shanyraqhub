@@ -22,6 +22,100 @@
   </head>
   <body class="bg-[#191615] text-[#f5f2eb] antialiased selection:bg-[#dfcfb3]/30 selection:text-[#dfcfb3] overflow-x-hidden min-h-screen">
     <div id="root" class="min-h-screen flex flex-col"></div>
+    <!-- Boot splash "Shanyraq Draw" (25.11.2026). Shown from the first frame, before any script; the app keeps it
+         while it starts (src/utils/bootSplash.ts) and fades it out when the first real screen is ready.
+         The mark is public/brand/shanyraq-mark.svg (geometry unchanged; e2e/loading-screen.spec.ts checks the copy). -->
+    <style>
+      .shq-splash { position: fixed; inset: 0; z-index: 2147483000; display: flex; flex-direction: column; align-items: center;
+        justify-content: center; padding: 24px; color: #d2be9c; opacity: 1; transition: opacity 280ms ease;
+        background: radial-gradient(60% 45% at 50% 42%, rgba(210, 190, 156, 0.075), rgba(210, 190, 156, 0) 70%),
+                    radial-gradient(120% 90% at 50% 50%, #1d1918 0%, #191615 55%, #120f0e 100%); }
+      .shq-splash.is-leaving { opacity: 0; pointer-events: none; }
+      .shq-splash.is-late { animation: shq-splash-in 220ms ease-out 150ms both; }
+      .shq-splash-stage { display: flex; flex-direction: column; align-items: center; }
+      .shq-mark { width: min(34vw, 132px); height: auto; overflow: visible; }
+      .shq-mark-draw path { fill: none; stroke: #d2be9c; stroke-width: 3.4; stroke-linejoin: round;
+        stroke-dasharray: 1; stroke-dashoffset: 1;
+        animation: shq-draw 950ms cubic-bezier(0.55, 0, 0.3, 1) calc(280ms + var(--i) * 85ms) both,
+                   shq-stroke-out 450ms ease 1750ms both; }
+      .shq-mark-draw path:first-child { animation-duration: 1100ms, 400ms; animation-delay: 0ms, 1750ms; }
+      .shq-mark-fill { fill: #d2be9c; opacity: 0; animation: shq-fade 600ms ease 1150ms both; }
+      .shq-name { margin: 26px 0 0; padding-left: 0.34em; font: 600 15px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        letter-spacing: 0.34em; color: #e7d9bf; opacity: 0; animation: shq-rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) 650ms both; }
+      .shq-bar { position: relative; width: 88px; height: 2px; margin-top: 22px; border-radius: 2px; overflow: hidden;
+        background: rgba(210, 190, 156, 0.14); opacity: 0; animation: shq-fade 500ms ease 1100ms both; }
+      .shq-bar i { position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: 2px;
+        background: linear-gradient(90deg, rgba(210, 190, 156, 0), #d2be9c, rgba(210, 190, 156, 0));
+        animation: shq-slide 1400ms ease-in-out infinite; }
+      .shq-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      .shq-stuck { margin-top: 28px; max-width: 260px; text-align: center; font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #b8ad9f; }
+      .shq-stuck button { margin-top: 12px; min-height: 40px; padding: 0 18px; border-radius: 10px; border: 1px solid rgba(210, 190, 156, 0.45);
+        background: rgba(210, 190, 156, 0.1); color: #e7d9bf; font: inherit; font-weight: 600; cursor: pointer; }
+      @keyframes shq-draw { to { stroke-dashoffset: 0; } }
+      @keyframes shq-stroke-out { to { stroke-opacity: 0; } }
+      @keyframes shq-fade { to { opacity: 1; } }
+      @keyframes shq-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      @keyframes shq-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      @keyframes shq-splash-in { from { opacity: 0; } }
+      @media (prefers-reduced-motion: reduce) {
+        .shq-mark-draw { display: none; }
+        .shq-mark-fill, .shq-name { animation: none; opacity: 1; transform: none; }
+        .shq-bar { display: none; }
+        .shq-splash, .shq-splash.is-late { animation: none; transition: none; }
+      }
+    </style>
+    <div id="boot-splash" class="shq-splash">
+      <div class="shq-splash-stage" aria-hidden="true">
+        <svg class="shq-mark" viewBox="24 34 394 394" xmlns="http://www.w3.org/2000/svg" focusable="false">
+          <path class="shq-mark-fill" fill-rule="evenodd" d="M 213,43 177,48 147,58 127,68 110,79 77,110 55,143 41,178 35,207 34,243 38,271 49,305 59,325 69,340 81,355 96,370 123,390 153,405 190,415 205,417 235,417 274,410 312,394 340,375 366,349 385,321 392,307 401,282 407,252 408,221 403,186 393,156 383,136 371,118 344,89 323,73 290,56 250,45 Z M 370,311 369,315 358,332 334,358 313,374 279,391 248,399 213,401 184,397 163,391 158,388 158,386 220,324 222,324 253,355 267,362 287,362 299,356 306,349 313,335 314,324 312,314 306,303 280,277 267,289 295,318 296,331 294,336 287,343 280,346 274,346 266,343 235,312 235,309 300,244 302,244 Z M 63,167 65,167 127,229 127,232 99,259 93,267 89,276 88,290 90,299 95,308 103,316 112,321 120,323 130,323 138,321 150,314 175,289 162,277 137,302 132,305 118,305 110,299 105,287 108,276 139,244 142,244 207,309 207,312 140,379 137,379 119,367 91,341 75,319 60,288 52,256 50,226 53,198 57,182 Z M 220,163 222,163 287,229 287,232 222,297 220,297 154,231 154,229 Z M 218,206 209,209 201,216 197,226 197,235 202,246 208,251 216,254 226,254 234,251 241,244 245,234 245,226 242,218 236,211 228,207 Z M 302,81 314,87 325,95 351,120 370,147 381,171 390,206 391,247 385,278 379,293 376,293 315,232 315,229 345,199 352,187 354,178 352,162 346,151 341,146 325,138 305,139 295,144 268,171 280,184 309,156 322,155 328,158 333,163 336,169 336,180 333,186 302,217 300,217 234,151 234,149 Z M 282,71 284,75 222,136 219,136 187,104 174,98 162,97 150,100 136,111 132,117 128,130 130,147 138,160 162,184 174,171 149,146 146,140 147,126 154,118 160,115 170,115 175,117 207,149 207,151 142,217 140,217 72,149 74,143 89,122 114,97 136,82 164,69 185,63 205,60 237,60 261,64 Z"/>
+          <g class="shq-mark-draw">
+            <path pathLength="1" style="--i:0" d="M 213,43 177,48 147,58 127,68 110,79 77,110 55,143 41,178 35,207 34,243 38,271 49,305 59,325 69,340 81,355 96,370 123,390 153,405 190,415 205,417 235,417 274,410 312,394 340,375 366,349 385,321 392,307 401,282 407,252 408,221 403,186 393,156 383,136 371,118 344,89 323,73 290,56 250,45 Z"/>
+            <path pathLength="1" style="--i:1" d="M 370,311 369,315 358,332 334,358 313,374 279,391 248,399 213,401 184,397 163,391 158,388 158,386 220,324 222,324 253,355 267,362 287,362 299,356 306,349 313,335 314,324 312,314 306,303 280,277 267,289 295,318 296,331 294,336 287,343 280,346 274,346 266,343 235,312 235,309 300,244 302,244 Z"/>
+            <path pathLength="1" style="--i:2" d="M 63,167 65,167 127,229 127,232 99,259 93,267 89,276 88,290 90,299 95,308 103,316 112,321 120,323 130,323 138,321 150,314 175,289 162,277 137,302 132,305 118,305 110,299 105,287 108,276 139,244 142,244 207,309 207,312 140,379 137,379 119,367 91,341 75,319 60,288 52,256 50,226 53,198 57,182 Z"/>
+            <path pathLength="1" style="--i:3" d="M 220,163 222,163 287,229 287,232 222,297 220,297 154,231 154,229 Z"/>
+            <path pathLength="1" style="--i:4" d="M 218,206 209,209 201,216 197,226 197,235 202,246 208,251 216,254 226,254 234,251 241,244 245,234 245,226 242,218 236,211 228,207 Z"/>
+            <path pathLength="1" style="--i:5" d="M 302,81 314,87 325,95 351,120 370,147 381,171 390,206 391,247 385,278 379,293 376,293 315,232 315,229 345,199 352,187 354,178 352,162 346,151 341,146 325,138 305,139 295,144 268,171 280,184 309,156 322,155 328,158 333,163 336,169 336,180 333,186 302,217 300,217 234,151 234,149 Z"/>
+            <path pathLength="1" style="--i:6" d="M 282,71 284,75 222,136 219,136 187,104 174,98 162,97 150,100 136,111 132,117 128,130 130,147 138,160 162,184 174,171 149,146 146,140 147,126 154,118 160,115 170,115 175,117 207,149 207,151 142,217 140,217 72,149 74,143 89,122 114,97 136,82 164,69 185,63 205,60 237,60 261,64 Z"/>
+          </g>
+        </svg>
+        <p class="shq-name">SHANYRAQ HUB</p>
+        <div class="shq-bar"><i></i></div>
+      </div>
+      <span class="shq-sr" role="progressbar" data-splash-label>Жүктелуде…</span>
+      <div class="shq-stuck" data-splash-stuck hidden>
+        <span data-splash-stuck-text></span><br />
+        <button type="button" onclick="location.reload()" data-splash-stuck-button></button>
+      </div>
+    </div>
+    <script>
+      // Splash texts in the saved language (Kazakh by default) and the safety net: if the app has not started
+      // after 20 s (no connection, a failed file), say so and offer a reload instead of an endless animation.
+      (function () {
+        var T = {
+          kz: ['Жүктелуде…', 'Жүктеу ұзаққа созылды. Интернетті тексеріп, бетті жаңартыңыз.', 'Жаңарту'],
+          ru: ['Загрузка…', 'Загрузка затянулась. Проверьте интернет и обновите страницу.', 'Обновить'],
+          en: ['Loading…', 'This is taking too long. Check your connection and reload the page.', 'Reload']
+        };
+        window.__shqSplash = {
+          localize: function (el) {
+            var l = 'kz';
+            try { var s = localStorage.getItem('shanyraq_lang'); if (s === 'ru' || s === 'en') l = s; } catch (e) {}
+            el.querySelector('[data-splash-label]').textContent = T[l][0];
+            el.querySelector('[data-splash-label]').setAttribute('aria-label', T[l][0]);
+            el.querySelector('[data-splash-stuck-text]').textContent = T[l][1];
+            el.querySelector('[data-splash-stuck-button]').textContent = T[l][2];
+          },
+          armStuck: function (el) {
+            return setTimeout(function () {
+              if (el.isConnected && !el.classList.contains('is-leaving')) el.querySelector('[data-splash-stuck]').hidden = false;
+            }, 20000);
+          }
+        };
+        var el = document.getElementById('boot-splash');
+        window.__shqSplash.localize(el);
+        window.__shqSplash.armStuck(el);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {

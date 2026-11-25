@@ -7,6 +7,7 @@ import { NavigationTabs } from './components/NavigationTabs';
 import { MobileNavigation } from './components/MobileNavigation';
 import { DashboardView } from './components/DashboardView';
 import { lazyView, prefetchViews } from './utils/lazyView';
+import { hasBootSplash, useBootSplash } from './utils/bootSplash';
 import { MemberProfileModal } from './components/MemberProfileModal';
 import { AchievementToast } from './components/AchievementToast';
 import { AppErrorNotice } from './components/AppErrorNotice';
@@ -112,15 +113,22 @@ const bootText = () => {
   try { const l = localStorage.getItem('shanyraq_lang'); return BOOT_TEXT[l === 'ru' || l === 'en' ? l : 'kz']; } catch { return BOOT_TEXT.kz; }
 };
 
-/** Shown for the moment the initial data loads (demo module or, later, Supabase). */
-const LoadingScreen: React.FC<{ error?: string }> = ({ error }) => (
-  <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#191615] text-[#9e948c] px-6 text-center">
-    <div className="w-14 h-14 rounded-full overflow-hidden bg-[#24201e] ring-1 ring-[#dfcfb3]/40 p-1 flex items-center justify-center animate-pulse">
-      <img src="/icons/icon-192.png" alt="Shanyraq Hub" className="w-full h-full object-contain rounded-full" />
+/** Shown for the moment the initial data loads (demo module or, later, Supabase).
+ *  While loading, the "Shanyraq Draw" splash from index.html is on top (src/utils/bootSplash.ts); an error is
+ *  never held behind it — the splash fades and the message below shows. */
+const LoadingScreen: React.FC<{ error?: string }> = ({ error }) => {
+  const splash = !error && hasBootSplash;
+  useBootSplash(splash);
+  if (splash) return <div className="min-h-screen bg-[#191615]" data-boot-placeholder />;
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#191615] text-[#9e948c] px-6 text-center">
+      <div className="w-14 h-14 rounded-full overflow-hidden bg-[#24201e] ring-1 ring-[#dfcfb3]/40 p-1 flex items-center justify-center animate-pulse">
+        <img src="/icons/icon-192.png" alt="Shanyraq Hub" className="w-full h-full object-contain rounded-full" />
+      </div>
+      <span className="text-xs" role="status">{error ? `${bootText().error}: ${error}` : bootText().loading}</span>
     </div>
-    <span className="text-xs" role="status">{error ? `${bootText().error}: ${error}` : bootText().loading}</span>
-  </div>
-);
+  );
+};
 
 export default function App() {
   const [initialData, setInitialData] = useState<InitialData | null>(null);
