@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { playSound } from './sound';
 
 /**
  * Loading screen "Shanyraq Draw" (25.11.2026).
@@ -42,21 +41,6 @@ function introLeft(el: HTMLElement): number {
   return Math.max(0, start + MIN_SHOW_MS - now);
 }
 
-/** The sword "shing" sounds when the mark fills with gold (CSS: the fill starts 1150 ms after the start). */
-const FILL_AT_MS = 1150;
-/** Too late for the moment (the script arrived after the fill): stay silent rather than sound out of place. */
-const SOUND_LATE_MS = 700;
-function scheduleSplashSound(el: HTMLElement) {
-  if (reducedMotion()) return; // nothing is drawn then — no "moment" to mark
-  const start = Number(el.getAttribute('data-start'));
-  if (!Number.isFinite(start) || start <= 0) return;
-  const delay = start + FILL_AT_MS - performance.now();
-  if (delay < -SOUND_LATE_MS) return;
-  window.setTimeout(() => {
-    if (el.isConnected && !el.classList.contains('is-leaving')) void playSound('sword');
-  }, Math.max(0, delay));
-}
-
 interface SplashHelpers {
   localize: (el: HTMLElement) => void;
   armStuck: (el: HTMLElement) => number;
@@ -85,7 +69,6 @@ function show() {
   helpers()?.localize(fresh); // the language may have changed on the sign-in screen
   fresh.setAttribute('data-start', String(performance.now() + LATE_DELAY_MS));
   document.body.appendChild(fresh);
-  scheduleSplashSound(fresh);
   window.clearTimeout(stuckTimer);
   stuckTimer = helpers()?.armStuck(fresh);
 }
@@ -97,12 +80,6 @@ function hide() {
   el.classList.add('is-leaving');
   el.setAttribute('aria-hidden', 'true');
   window.setTimeout(() => el.remove(), FADE_MS);
-}
-
-// The start-up splash: try the sound at its fill moment (browsers may not allow sound before a tap).
-if (typeof document !== 'undefined') {
-  const first = document.getElementById(ID);
-  if (first) scheduleSplashSound(first);
 }
 
 /** Whether the splash can be used at all (index.html has it). Without it, loaders show their own simple view. */

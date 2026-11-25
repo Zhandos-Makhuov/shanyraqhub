@@ -8,7 +8,6 @@ import { DemoStatusModal } from './DemoStatusModal';
 import { canSwitchTestAccounts, isDemoData } from '../config/runtime';
 import { TelegramConnect } from './TelegramConnect';
 import { useBackLayer } from '../utils/backNav';
-import { playSound, setSoundEnabled, soundEnabled } from '../utils/sound';
 import { AvatarWithFallback } from './ProfileParts';
 
 export const Header: React.FC = () => {
@@ -30,7 +29,6 @@ export const Header: React.FC = () => {
 
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
-  const [soundOn, setSoundOn] = useState(soundEnabled);
   useBackLayer(showNotifDropdown, () => setShowNotifDropdown(false)); // Phase 6 (N-4): Back closes the panel
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
@@ -177,15 +175,6 @@ export const Header: React.FC = () => {
                         className="text-[10px] text-[#dfcfb3] hover:underline"
                       >
                         {currentUser.pushNotificationsEnabled ? t('hdrPushOn') : t('hdrPushEnable')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { const on = !soundOn; setSoundEnabled(on); setSoundOn(on); if (on) void playSound('pluck'); }}
-                        aria-pressed={soundOn}
-                        className="text-[10px] text-[#dfcfb3] hover:underline"
-                        data-sound-toggle
-                      >
-                        {soundOn ? t('hdrSoundOn') : t('hdrSoundOff')}
                       </button>
                       {unreadNotifs.length > 0 && (
                         <button
