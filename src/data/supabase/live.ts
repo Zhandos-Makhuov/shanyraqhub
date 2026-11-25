@@ -360,7 +360,7 @@ export const createEvent = async (ev: Partial<CommunityEvent> & { date: string; 
       duration_minutes: ev.durationMinutes ?? 90,
       format: ev.format ?? 'offline',
       location_address: ev.format === 'online' ? null : ev.locationAddress || null,
-      online_url: ev.format === 'online' ? ev.locationAddress || null : null,
+      online_url: ev.format === 'online' ? ev.locationAddress || null : ev.mapUrl || null, // in person: the 2GIS link
       location_details: ev.locationDetails || null,
       description: ev.description ?? '',
       required_materials: ev.requiredMaterials ?? [],
@@ -394,7 +394,7 @@ export const updateEvent = (eventId: string, p: EventPatch) =>
     duration_minutes: p.durationMinutes,
     format: p.format,
     location_address: p.format === 'online' ? null : p.locationAddress || null,
-    online_url: p.format === 'online' ? p.locationAddress || null : null,
+    online_url: p.format === 'online' ? p.locationAddress || null : p.mapUrl || null, // in person: the 2GIS link
     capacity: p.maxCapacity,
     required_materials: p.requiredMaterials,
   }).eq('id', eventId).select('id'));

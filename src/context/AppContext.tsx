@@ -695,7 +695,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       return { ok: false, error: 'evErrPast' };
     }
     if (live) return runLive(live.updateEvent(eventId, patch), true);
-    setEvents(prev => prev.map(e => (e.id === eventId ? { ...e, ...patch, title } : e)));
+    setEvents(prev => prev.map(e => (e.id === eventId ? { ...e, ...patch, title, mapUrl: patch.format === 'online' ? undefined : patch.mapUrl || undefined } : e)));
     return { ok: true };
   };
 
@@ -880,6 +880,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       format: newEventData.format || 'offline',
       locationAddress: newEventData.locationAddress || 'Алматы, Shanyraq Hub Coworking',
       locationDetails: newEventData.locationDetails || 'Главный зал',
+      mapUrl: newEventData.format === 'online' ? undefined : newEventData.mapUrl || undefined,
       description: newEventData.description || '',
       requiredMaterials: newEventData.requiredMaterials || [],
       maxCapacity: newEventData.maxCapacity || 25,

@@ -233,6 +233,8 @@ export interface CommunityEvent {
   format: 'offline' | 'online';
   locationAddress: string;
   locationDetails?: string;
+  /** In-person events: a 2GIS link to the place (stored in events.online_url; shown only if it is a 2GIS link). */
+  mapUrl?: string;
   description: string;
   requiredMaterials: string[];
   maxCapacity: number;
@@ -252,7 +254,7 @@ export interface CommunityEvent {
 }
 
 /** What an organizer can change in an existing event (Phase 3). */
-export type EventPatch = Pick<CommunityEvent, 'title' | 'description' | 'date' | 'time' | 'durationMinutes' | 'format' | 'locationAddress' | 'maxCapacity' | 'requiredMaterials'>;
+export type EventPatch = Pick<CommunityEvent, 'title' | 'description' | 'date' | 'time' | 'durationMinutes' | 'format' | 'locationAddress' | 'mapUrl' | 'maxCapacity' | 'requiredMaterials'>;
 
 export interface ForumReply {
   id: string;

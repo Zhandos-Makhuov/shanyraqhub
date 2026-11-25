@@ -90,6 +90,7 @@ export const eventFromRow = (row: EventRow, rel: EventRelations = {}): Community
     format: row.format,
     locationAddress: row.format === 'online' ? (row.online_url ?? '') : (row.location_address ?? ''),
     locationDetails: row.location_details ?? undefined,
+    mapUrl: row.format === 'online' ? undefined : (row.online_url ?? undefined),
     description: row.description,
     requiredMaterials: row.required_materials ?? [],
     maxCapacity: row.capacity,

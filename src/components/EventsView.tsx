@@ -7,6 +7,7 @@ import { exportEventToIcs } from '../utils/calendar';
 import { formatEventDay, getEventStart, hasEventEnded, hasEventStarted } from '../utils/eventTime';
 import { EVENTS_INTENT_EVENT, takeEventsIntent } from '../utils/navIntent';
 import { eventLink } from '../utils/deepLink';
+import { openMapLink, parse2gisLink } from '../utils/mapLink';
 import { EventCard } from './EventCard';
 import { MyQrModal } from './CheckInQr';
 import { CommunityEvent, DirectionId } from '../types';
@@ -25,6 +26,7 @@ import {
   FilterX,
   CalendarCheck,
   Link2,
+  MapPin,
 } from 'lucide-react';
 
 /** C-21: how many names the "who signed up" list shows before "and N more". */
@@ -97,6 +99,7 @@ export const EventsView: React.FC = () => {
   const [newDuration, setNewDuration] = useState(90);
   const [newFormat, setNewFormat] = useState<'offline' | 'online'>('offline');
   const [newAddress, setNewAddress] = useState('Алматы, пр. Достык 160, Shanyraq Hub');
+  const [newMapUrl, setNewMapUrl] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newMaterials, setNewMaterials] = useState('');
   const [newCapacity, setNewCapacity] = useState(25);
@@ -171,7 +174,7 @@ export const EventsView: React.FC = () => {
   const openEdit = (ev: CommunityEvent) => {
     setEditingEvent(ev); setFormError('');
     setNewTitle(ev.title); setNewDirection(ev.direction); setNewDate(ev.date); setNewTime(ev.time);
-    setNewDuration(ev.durationMinutes); setNewFormat(ev.format); setNewAddress(ev.locationAddress);
+    setNewDuration(ev.durationMinutes); setNewFormat(ev.format); setNewAddress(ev.locationAddress); setNewMapUrl(ev.mapUrl ?? '');
     setNewDescription(ev.description); setNewMaterials(realMaterials(ev).join('\n')); setNewCapacity(ev.maxCapacity);
     setShowCreateModal(true);
   };
@@ -234,6 +237,9 @@ export const EventsView: React.FC = () => {
     e.preventDefault();
     if (formBusyRef.current || !newTitle.trim()) return;
     const materialsArray = newMaterials.split('\n').map(m => m.trim()).filter(Boolean);
+    // 2GIS link (in person only, optional): a wrong link keeps the window open with everything typed.
+    const mapUrl = newFormat === 'online' ? undefined : parse2gisLink(newMapUrl) ?? undefined;
+    if (newFormat !== 'online' && newMapUrl.trim() && !mapUrl) { setFormError(t('evErrMapLink')); return; }
     formBusyRef.current = true;
     setFormBusy(true); setFormError('');
     const r = editingEvent
@@ -245,6 +251,7 @@ export const EventsView: React.FC = () => {
           durationMinutes: Number(newDuration),
           format: newFormat,
           locationAddress: newAddress.trim(),
+          mapUrl,
           maxCapacity: Number(newCapacity),
           requiredMaterials: materialsArray,
         })
@@ -256,6 +263,7 @@ export const EventsView: React.FC = () => {
           durationMinutes: Number(newDuration),
           format: newFormat,
           locationAddress: newAddress.trim(),
+          mapUrl,
           description: newDescription.trim() || t('evDefaultDescription'),
           requiredMaterials: materialsArray,
           maxCapacity: Number(newCapacity),
@@ -270,6 +278,7 @@ export const EventsView: React.FC = () => {
     setNewTitle('');
     setNewDescription('');
     setNewMaterials('');
+    setNewMapUrl('');
   };
 
   const resetFilters = () => {
@@ -523,6 +532,17 @@ export const EventsView: React.FC = () => {
                     {openModal.locationDetails}
                   </span>
                 )}
+                {(() => {
+                  const map = openModal.format === 'online' ? null : parse2gisLink(openModal.mapUrl);
+                  return map && (
+                    <a href={map} target="_blank" rel="noopener noreferrer" onClick={e => openMapLink(e, map)}
+                       className="mt-1.5 inline-flex items-center gap-1.5 min-h-9 px-3 rounded-lg bg-[#dfcfb3]/10 hover:bg-[#dfcfb3]/20 border border-[#dfcfb3]/30 text-[#dfcfb3] font-semibold w-fit"
+                       data-event-map-link>
+                      <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
+                      {t('evOpen2gis')}
+                    </a>
+                  );
+                })()}
               </div>
             </div>
 
@@ -968,6 +988,25 @@ export const EventsView: React.FC = () => {
                   className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
                 />
               </div>
+
+              {newFormat !== 'online' && (
+                <div>
+                  <label htmlFor="ev-map-link" className="font-medium text-[#d6cebf] block mb-1">{t('evFormMapLink')}</label>
+                  <input
+                    id="ev-map-link"
+                    type="text"
+                    inputMode="url"
+                    autoComplete="off"
+                    value={newMapUrl}
+                    onChange={e => setNewMapUrl(e.target.value)}
+                    placeholder="https://go.2gis.com/…"
+                    aria-describedby="ev-map-link-hint"
+                    className="w-full p-2.5 rounded-lg bg-[#1a1716] border border-[#3b3430] text-[#f5f2eb]"
+                    data-event-map-input
+                  />
+                  <span id="ev-map-link-hint" className="text-[10px] text-[#9e948c] block mt-1">{t('evFormMapLinkHint')}</span>
+                </div>
+              )}
 
               <div>
                 <label htmlFor="ev-description" className="font-medium text-[#d6cebf] block mb-1">{t('evFormDescription')}</label>
