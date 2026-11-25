@@ -93,10 +93,10 @@ test.describe('peer review: 1–5 stars', () => {
   });
 });
 
-test.describe('P6-18: a review rewards the member only at 4–5 stars (demo logic = server rule)', () => {
+test.describe('P6-18: a review rewards the member only at 3–5 stars (demo logic = server rule)', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
-  test('2★ — no coins for the member; 5★ — +25 coins', async ({ page }) => {
+  test('2★ — no coins for the member; 3★ and 5★ — +25 coins each', async ({ page }) => {
     await openApp(page, 'Алихан Берік');
     await goTab(page, 'leaderboard');
     const coinsOf = async () => Number((await page.locator('main tr', { hasText: 'Дана Серік' }).first().innerText()).match(/(\d+)\s*🪙/)?.[1]);
@@ -113,7 +113,9 @@ test.describe('P6-18: a review rewards the member only at 4–5 stars (demo logi
     };
     await review('2', 'knowledge', 'Әлі де жұмыс істеу керек.');
     await expect.poll(coinsOf).toBe(before);
-    await review('5', 'inspiration', 'Керемет шабыт береді!');
+    await review('3', 'communication', 'Орташа, бірақ жақсы.');
     await expect.poll(coinsOf).toBe(before + 25);
+    await review('5', 'inspiration', 'Керемет шабыт береді!');
+    await expect.poll(coinsOf).toBe(before + 50);
   });
 });

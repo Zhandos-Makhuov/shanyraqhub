@@ -1,5 +1,5 @@
--- P6-18 (owner decision 25.11.2026, option "a"): the member being reviewed gets +40 XP / +25 coins
--- only for a 4–5★ review. Before, any review paid (with the 3–5★ form it was unnoticeable; the form now offers 1–5★).
+-- P6-18 (owner decision 25.11.2026, option "a", threshold 3–5★): the member being reviewed gets +40 XP / +25 coins
+-- only for a 3–5★ review (1–2★: no reward). Before, any review paid (with the 3–5★ form it was unnoticeable; the form now offers 1–5★).
 -- Unchanged: the reviewer's own reward (+20 XP / +10 coins, at most 3 a day), the idempotency keys, the notification,
 -- achievement evaluation. Past rewards are not touched.
 -- Rollback: re-create private.on_peer_review_insert from 20261118000002_functions.sql.
@@ -8,7 +8,7 @@ language plpgsql security definer set search_path = '' as $$
 declare v_author_name text;
 begin
   -- Keyed on (author, target, aspect): delete + re-post never pays twice.
-  if new.rating >= 4 then
+  if new.rating >= 3 then
     perform private.grant_reward(new.target_id, 40, 25, 'peer_review_received', new.id::text,
       'Отзыв от участника', 'review_recv:' || new.author_id || ':' || new.target_id || ':' || new.aspect);
   end if;
