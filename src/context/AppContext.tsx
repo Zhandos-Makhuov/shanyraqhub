@@ -1553,13 +1553,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
       })
     );
 
-    grantRewardOnce(
-      `review_recv:${currentUser.id}:${aspect}:${targetUserId}`,
-      targetUserId,
-      40,
-      25,
-      `Отзыв от участника ${currentUser.name}`
-    );
+    // P6-18 (owner decision 25.11.2026): the member reviewed is rewarded only for a 4–5★ review (as on the server).
+    if (rating >= 4) {
+      grantRewardOnce(
+        `review_recv:${currentUser.id}:${aspect}:${targetUserId}`,
+        targetUserId,
+        40,
+        25,
+        `Отзыв от участника ${currentUser.name}`
+      );
+    }
     recordActivity(currentUser.id);
     grantRewardOnce(
       `review_given:${targetUserId}:${aspect}:${currentUser.id}`,

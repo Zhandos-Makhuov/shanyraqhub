@@ -780,4 +780,17 @@ delete from public.forum_topics where id = :'s1t';
 reset role;
 select t.ok(not exists (select 1 from public.forum_topics where id = :'s1t'), 'S-1: a moderator can still delete it (moderation)');
 
+-- P6-18 (owner decision 25.11.2026): the member reviewed is rewarded only for a 4–5★ review
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+insert into public.peer_reviews (author_id, target_id, rating, aspect, comment) values (auth.uid(), '00000000-0000-0000-0000-00000000000c', 2, 'teamwork', 'P618 low');
+insert into public.peer_reviews (author_id, target_id, rating, aspect, comment) values (auth.uid(), '00000000-0000-0000-0000-00000000000c', 5, 'inspiration', 'P618 high');
+reset role;
+select t.ok(not exists (select 1 from public.reward_ledger where user_id = '00000000-0000-0000-0000-00000000000c' and source = 'peer_review_received'
+  and source_id = (select id::text from public.peer_reviews where comment = 'P618 low')), 'P6-18: a 2★ review gives the member no reward');
+select t.ok(exists (select 1 from public.reward_ledger where user_id = '00000000-0000-0000-0000-00000000000c' and source = 'peer_review_received'
+  and source_id = (select id::text from public.peer_reviews where comment = 'P618 high')), 'P6-18: a 5★ review still gives the reward');
+select t.ok(exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-00000000000c' and type = 'review'
+  and (meta->>'review_id') = (select id::text from public.peer_reviews where comment = 'P618 low')), 'P6-18: the member is still told about a low review');
+
 \echo ALL_TESTS_PASSED

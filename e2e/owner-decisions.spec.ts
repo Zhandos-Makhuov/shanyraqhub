@@ -92,3 +92,28 @@ test.describe('peer review: 1–5 stars', () => {
     expect(await rating.locator('option').evaluateAll(o => o.map(x => (x as HTMLOptionElement).value))).toEqual(['5', '4', '3', '2', '1']);
   });
 });
+
+test.describe('P6-18: a review rewards the member only at 4–5 stars (demo logic = server rule)', () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  test('2★ — no coins for the member; 5★ — +25 coins', async ({ page }) => {
+    await openApp(page, 'Алихан Берік');
+    await goTab(page, 'leaderboard');
+    const coinsOf = async () => Number((await page.locator('main tr', { hasText: 'Дана Серік' }).first().innerText()).match(/(\d+)\s*🪙/)?.[1]);
+    const before = await coinsOf();
+    const review = async (stars: string, aspect: string, text: string) => {
+      await page.locator('main button', { hasText: 'Дана Серік' }).first().click();
+      await page.locator('button[aria-expanded]', { hasText: '+' }).last().click();
+      await page.locator('#mp-rating').selectOption(stars);
+      await page.locator('#mp-aspect').selectOption(aspect);
+      await page.locator('#mp-text').fill(text);
+      await page.locator('form button[type="submit"]').last().click();
+      await expect(page.locator('[role="status"]', { hasText: /./ }).last()).toBeVisible();
+      await page.keyboard.press('Escape');
+    };
+    await review('2', 'knowledge', 'Әлі де жұмыс істеу керек.');
+    await expect.poll(coinsOf).toBe(before);
+    await review('5', 'inspiration', 'Керемет шабыт береді!');
+    await expect.poll(coinsOf).toBe(before + 25);
+  });
+});
