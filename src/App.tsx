@@ -10,6 +10,7 @@ import { lazyView, prefetchViews } from './utils/lazyView';
 import { hasBootSplash, useBootSplash } from './utils/bootSplash';
 import { MemberProfileModal } from './components/MemberProfileModal';
 import { AchievementToast } from './components/AchievementToast';
+import { ClubSounds } from './components/ClubSounds';
 import { AppErrorNotice } from './components/AppErrorNotice';
 import { DeepLinkHandler } from './components/DeepLinkHandler';
 
@@ -98,6 +99,7 @@ const MainContent: React.FC = () => {
       {/* Global Member Profile Inspection Modal */}
       <MemberProfileModal />
       <AchievementToast />
+      <ClubSounds />
       <AppErrorNotice />
     </div>
   );
