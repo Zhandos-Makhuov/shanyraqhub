@@ -796,4 +796,59 @@ select t.ok(exists (select 1 from public.reward_ledger where user_id = '00000000
 select t.ok(exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-00000000000c' and type = 'review'
   and (meta->>'review_id') = (select id::text from public.peer_reviews where comment = 'P618 low')), 'P6-18: the member is still told about a low review');
 
+-- Residual 26.11 — N-12: "edited" = a real text change; moderator hide/show does not mark it
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+insert into public.forum_topics (category_id, author_id, title, content) values ('books', auth.uid(), 'R26 topic', 'Body');
+select id as r26t from public.forum_topics where title = 'R26 topic' \gset
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+insert into public.forum_replies (topic_id, author_id, content) values (:'r26t', auth.uid(), 'R26 reply');
+select id as r26r from public.forum_replies where content = 'R26 reply' \gset
+reset role;
+select t.ok((select edited_at from public.forum_replies where id = :'r26r') is null, 'N-12: a new reply is not marked edited');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+update public.forum_replies set is_hidden = true where id = :'r26r';
+update public.forum_replies set is_hidden = false where id = :'r26r';
+reset role;
+select t.ok((select edited_at from public.forum_replies where id = :'r26r') is null, 'N-12: hide/show by a moderator does not mark it edited');
+-- N-11: the hide above is in the audit log and the author was told
+select t.ok(exists (select 1 from public.audit_logs where action = 'FORUM_HIDE' and target_id = :'r26r'::text
+  and actor_id = '00000000-0000-0000-0000-00000000000a'), 'N-11: a moderator hiding a reply is audited');
+select t.ok(exists (select 1 from public.audit_logs where action = 'FORUM_SHOW' and target_id = :'r26r'::text), 'N-11: showing it again is audited too');
+select t.ok(exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-000000000002' and type = 'system'
+  and (meta->>'topic_id')::uuid = :'r26t'), 'N-11: the reply author is told it was hidden');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+update public.forum_replies set content = 'R26 reply (fixed)' where id = :'r26r';
+reset role;
+select t.ok((select edited_at from public.forum_replies where id = :'r26r') is not null, 'N-12: the author changing the text marks it edited');
+-- N-11: own actions are not moderation; a topic deleted by a moderator: one notice to its author, none to repliers
+select t.ok(not exists (select 1 from public.audit_logs where action like 'FORUM_%' and target_id = :'r26t'::text), 'N-11: nothing logged before moderation of the topic');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+update public.forum_topics set is_pinned = true where id = :'r26t';
+delete from public.forum_topics where id = :'r26t';
+reset role;
+select t.ok(exists (select 1 from public.audit_logs where action = 'FORUM_PIN' and target_id = :'r26t'::text), 'N-11: pinning is audited');
+select t.ok(exists (select 1 from public.audit_logs where action = 'FORUM_DELETE' and target_id = :'r26t'::text), 'N-11: deleting the topic is audited');
+select t.ok((select count(*) from public.notifications where user_id = '00000000-0000-0000-0000-000000000001' and dedupe_key = 'mod-delete:' || :'r26t') = 1, 'N-11: the topic author is told once');
+select t.ok(not exists (select 1 from public.notifications where user_id = '00000000-0000-0000-0000-000000000002' and dedupe_key = 'mod-delete:' || :'r26r'), 'N-11: repliers get no extra notice for the cascade');
+-- F-28: topics are live
+select t.ok(not exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+  or exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'forum_topics'),
+  'F-28: forum_topics is in the Realtime publication');
+-- B-9: a book on someone's shelf cannot be deleted, an unused one can
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+select public.save_user_book('R26 Shelf Book', 'Tester', null, 'reading');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+select t.expect_fail($$delete from public.books where title = 'R26 Shelf Book'$$, '%book_in_use%');
+reset role;
+insert into public.books (title, author) values ('R26 Unused Book', 'Tester');
+set role authenticated;
+delete from public.books where title = 'R26 Unused Book';
+reset role;
+select t.ok(not exists (select 1 from public.books where title = 'R26 Unused Book'), 'B-9: a book nobody has on the shelf can still be removed');
+
 \echo ALL_TESTS_PASSED

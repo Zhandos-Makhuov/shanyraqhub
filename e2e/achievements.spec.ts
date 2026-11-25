@@ -47,6 +47,13 @@ test('new achievement shows a quiet toast that leads to achievements', async ({ 
   await page.locator('.fixed button[type="submit"]').click();
   const toast = page.locator('[role="status"]');
   await expect(toast).toBeVisible();
+  // Residual 26.11: the notification carries the achievement id -> its window opens directly, and it is marked read.
+  const achId = await toast.locator('[data-achievement-toast]').getAttribute('data-achievement-toast');
+  expect(achId).toBeTruthy();
   await toast.locator('button').first().click();
   await expect(page.locator('main h1')).toContainText('Жетістіктер');
+  const dlg = page.locator('[role="dialog"]');
+  await expect(dlg).toBeVisible();
+  await page.goBack(); // Back closes it (Phase 6)
+  await expect(dlg).toHaveCount(0);
 });

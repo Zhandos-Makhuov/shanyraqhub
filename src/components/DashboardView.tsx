@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { registeredCount } from '../utils/counts';
 import { useApp } from '../context/AppContext';
-import { TIERS } from '../data/gamification';
+import { tierProgress } from '../utils/profileProgress';
 import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
 import { activeDirections, eventImage } from '../data/directions';
 import {
@@ -37,7 +37,6 @@ import {
   X,
 } from 'lucide-react';
 
-const TIER_ORDER = ['bronze', 'silver', 'gold', 'platinum', 'titanium', 'tengri'] as const;
 const FEEDBACK_REMINDER_DAYS = 30;
 
 type NextStep =
@@ -71,13 +70,11 @@ export const DashboardView: React.FC = () => {
   const [qrEvent, setQrEvent] = useState<CommunityEvent | null>(null);
 
   // --- Level -----------------------------------------------------------------
-  const currentTier = TIERS[currentUser.tier] || TIERS.bronze;
-  const tierIndex = TIER_ORDER.indexOf(currentUser.tier);
-  const nextTierKey = tierIndex >= 0 && tierIndex < TIER_ORDER.length - 1 ? TIER_ORDER[tierIndex + 1] : null;
-  const nextTier = nextTierKey ? TIERS[nextTierKey] : null;
-  const xpProgress = nextTier
-    ? Math.max(0, Math.min(100, Math.round(((currentUser.xp - currentTier.minXp) / (nextTier.minXp - currentTier.minXp)) * 100)))
-    : 100;
+  // One rule for the level bar everywhere (same as the profile: utils/profileProgress.ts).
+  const progress = tierProgress(currentUser.xp, currentUser.tier);
+  const currentTier = progress.current;
+  const nextTier = progress.next;
+  const xpProgress = progress.percent;
 
   // --- Events ----------------------------------------------------------------
   const me = currentUser.id;
@@ -233,7 +230,7 @@ export const DashboardView: React.FC = () => {
           <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px] text-[#9e948c]">
             <span>
               {nextTier
-                ? t('homeXpToNext').replace('{n}', String(Math.max(0, nextTier.minXp - currentUser.xp))).replace('{tier}', ln(nextTier))
+                ? t('homeXpToNext').replace('{n}', String(progress.toNext)).replace('{tier}', ln(nextTier))
                 : t('dashMaxTier')}
             </span>
             <button onClick={() => setActiveTab('shop')} className="sm:hidden inline-flex items-center gap-1 font-mono-numbers font-semibold text-[#f5d77f]">

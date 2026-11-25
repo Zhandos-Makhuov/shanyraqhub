@@ -1,5 +1,6 @@
 import { AppNotification, AuditLog, CoinTransaction, CommunityEvent, EncryptedChatRoom, ForumTopic, UserProfile } from '../types';
 import { isDemoData } from '../config/runtime';
+import { FORUM_CATEGORIES } from './forumCategories';
 
 /** Everything the app starts with when nothing is saved in this browser yet. */
 export interface InitialData {
@@ -36,7 +37,11 @@ export const loadInitialData = async (): Promise<InitialData> => {
   return {
     users: demo.INITIAL_USERS,
     events: demo.INITIAL_EVENTS,
-    forumTopics: demo.INITIAL_FORUM_TOPICS,
+    // N-2: section names of demo topics come from the same catalog as the section list (no second spelling).
+    forumTopics: demo.INITIAL_FORUM_TOPICS.map(tp => {
+      const c = FORUM_CATEGORIES.find(cat => cat.id === tp.categoryId);
+      return c ? { ...tp, categoryNameRu: c.nameRu, categoryNameKz: c.nameKz, categoryNameEn: c.nameEn } : tp;
+    }),
     chatRooms: demo.INITIAL_CHAT_ROOMS,
     coinTransactions: demo.INITIAL_COIN_TRANSACTIONS,
     auditLogs: demo.INITIAL_AUDIT_LOGS,

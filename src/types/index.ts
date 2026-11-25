@@ -342,6 +342,8 @@ export interface AppNotification {
   topicId?: string;
   /** Event this notification is about (registration, reminder): opens that event. */
   eventId?: string;
+  /** Achievement this notification is about (unlocked / revoked): opens that achievement. */
+  achievementId?: string;
 }
 
 export interface BroadcastLog {

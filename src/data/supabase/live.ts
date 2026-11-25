@@ -50,7 +50,7 @@ interface ForumTopicRow {
   id: string; category_id: string; direction: DirectionId | null; author_id: string; title: string; content: string;
   is_pinned: boolean; is_closed: boolean; is_hidden: boolean; view_count: number; created_at: string;
 }
-interface ForumReplyRow { id: string; topic_id: string; author_id: string; content: string; is_hidden: boolean; created_at: string; updated_at: string }
+interface ForumReplyRow { id: string; topic_id: string; author_id: string; content: string; is_hidden: boolean; created_at: string; updated_at: string; edited_at: string | null }
 interface TopicVoteRow { topic_id: string; user_id: string }
 interface ReplyVoteRow { reply_id: string; user_id: string }
 interface ChatRoomRow {
@@ -127,7 +127,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       rows<ForumTopicRow>(c.from('forum_topics')
         .select('id, category_id, direction, author_id, title, content, is_pinned, is_closed, is_hidden, view_count, created_at')
         .order('created_at', { ascending: false })),
-      rows<ForumReplyRow>(c.from('forum_replies').select('id, topic_id, author_id, content, is_hidden, created_at, updated_at').order('created_at')),
+      rows<ForumReplyRow>(c.from('forum_replies').select('id, topic_id, author_id, content, is_hidden, created_at, updated_at, edited_at').order('created_at')),
       rows<TopicVoteRow>(c.from('forum_topic_votes').select('topic_id, user_id')),
       rows<ReplyVoteRow>(c.from('forum_reply_votes').select('reply_id, user_id')),
       // RLS returns only the rooms the member's role may enter (the moderators' room stays invisible to members).
@@ -198,8 +198,8 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
         return {
           id: r.id, authorId: r.author_id, authorName: a.name, authorAvatar: a.avatar, authorRole: a.role,
           content: r.content, createdAt: r.created_at,
-          // updated_at equals created_at on insert and moves on any later change (text, or hidden/shown by a moderator)
-          editedAt: Date.parse(r.updated_at) - Date.parse(r.created_at) > 1000 ? r.updated_at : undefined,
+          // N-12: edited_at is set by the database only when the text changes (not when a moderator hides/shows it)
+          editedAt: r.edited_at ?? undefined,
           isHidden: r.is_hidden,
           upvotes: replyVotes.filter(v => v.reply_id === r.id).map(v => v.user_id),
         };
@@ -287,6 +287,7 @@ export const loadSnapshot = async (email: string, myId: string): Promise<LiveSna
       linkTab: (n.link_tab ?? undefined) as AppNotification['linkTab'],
       topicId: typeof n.meta?.topic_id === 'string' ? n.meta.topic_id : undefined,
       eventId: typeof n.meta?.event_id === 'string' ? n.meta.event_id : undefined,
+      achievementId: typeof n.meta?.achievement_id === 'string' ? n.meta.achievement_id : undefined,
     })),
   };
 };
@@ -423,6 +424,7 @@ export const fetchNotification = async (id: string): Promise<AppNotification | n
       linkTab: (n.link_tab ?? undefined) as AppNotification['linkTab'],
       topicId: typeof n.meta?.topic_id === 'string' ? n.meta.topic_id : undefined,
       eventId: typeof n.meta?.event_id === 'string' ? n.meta.event_id : undefined,
+      achievementId: typeof n.meta?.achievement_id === 'string' ? n.meta.achievement_id : undefined,
     };
   } catch {
     return null;
@@ -762,6 +764,8 @@ export const subscribeLive = (userId: string, onChange: (change: LiveChange) => 
       })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => onChange({ kind: 'chat' }))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'forum_replies' }, () => onChange({ kind: 'forum' }))
+    // F-28: new topics, pins, closes (RLS filters what each member may see)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'forum_topics' }, () => onChange({ kind: 'forum' }))
     // Phase 6 (C-23): event edits/cancellations and sign-ups (places left, the organizer's desk) arrive live.
     // Attendance is deliberately not published (a DELETE would reveal who came) — see migration 20261125000001.
     .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => onChange({ kind: 'events' }))

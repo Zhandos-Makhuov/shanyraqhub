@@ -1634,6 +1634,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
               timestamp: t('ntfJustNow'),
               read: false,
               linkTab: 'achievements',
+              achievementId: ach.id,
             },
             ...prev,
           ]
@@ -1708,6 +1709,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
         timestamp: t('ntfJustNow'),
         read: false,
         linkTab: 'achievements',
+        achievementId,
       },
       ...prev,
     ]);

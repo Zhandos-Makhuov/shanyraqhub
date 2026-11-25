@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Award, X } from 'lucide-react';
 import { AppNotification } from '../types';
+import { ALL_ACHIEVEMENTS } from '../data/achievements';
+import { ACHIEVEMENT_ICONS } from './achievementIcons';
+import { routeNotification } from '../utils/navIntent';
 
 /**
  * A quiet card when a NEW achievement notification arrives for the current member
@@ -10,7 +13,7 @@ import { AppNotification } from '../types';
  * already existed when the page opened never pop up; it hides by itself after 6 s.
  */
 export const AchievementToast: React.FC = () => {
-  const { notifications, currentUser, setActiveTab, t } = useApp();
+  const { notifications, currentUser, setActiveTab, markNotificationRead, t } = useApp();
   const seen = useRef<Set<string> | null>(null);
   const [toast, setToast] = useState<AppNotification | null>(null);
 
@@ -35,6 +38,9 @@ export const AchievementToast: React.FC = () => {
   }, [toast]);
 
   if (!toast) return null;
+  // The server sends the achievement id: show its own icon, open its window (residual findings 26.11).
+  const ach = toast.achievementId ? ALL_ACHIEVEMENTS.find(a => a.id === toast.achievementId) : undefined;
+  const Icon = (ach && ACHIEVEMENT_ICONS[ach.icon]) || Award;
   return (
     <div
       role="status"
@@ -43,11 +49,17 @@ export const AchievementToast: React.FC = () => {
     >
       <div className="flex items-start gap-3 p-3 rounded-2xl bg-[#26211f]/95 backdrop-blur-md border border-[#dfcfb3]/40 shadow-2xl">
         <button
-          onClick={() => { setToast(null); setActiveTab('achievements'); window.scrollTo({ top: 0 }); }}
+          onClick={() => {
+            setToast(null);
+            routeNotification({ ...toast, linkTab: toast.linkTab ?? 'achievements' }, setActiveTab);
+            if (!toast.read) markNotificationRead(toast.id);
+            window.scrollTo({ top: 0 });
+          }}
+          data-achievement-toast={toast.achievementId ?? ''}
           className="flex items-start gap-3 flex-1 min-w-0 text-left"
         >
           <span className="w-10 h-10 shrink-0 rounded-xl bg-[#dfcfb3]/15 border border-[#dfcfb3]/80 text-[#ecd9bf] flex items-center justify-center">
-            <Award className="w-5 h-5" />
+            <Icon className="w-5 h-5" aria-hidden="true" />
           </span>
           <span className="min-w-0">
             <span className="block text-[13px] font-semibold text-[#f5f2eb]">{toast.title}</span>

@@ -8,6 +8,7 @@ import { DemoStatusModal } from './DemoStatusModal';
 import { canSwitchTestAccounts, isDemoData } from '../config/runtime';
 import { TelegramConnect } from './TelegramConnect';
 import { useBackLayer } from '../utils/backNav';
+import { AvatarWithFallback } from './ProfileParts';
 
 export const Header: React.FC = () => {
   const {
@@ -240,11 +241,8 @@ export const Header: React.FC = () => {
                 className="flex items-center gap-1.5 min-h-9 pl-1 pr-1.5 sm:pr-2 rounded-lg bg-[#272321] hover:bg-[#322c29] border border-[#3f3834] transition-colors"
               >
                 <div className="relative w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden ring-1 ring-[#dfcfb3]/50 shrink-0">
-                  <img
-                    src={currentUser.avatar}
-                    alt={currentUser.name}
-                    className="w-full h-full object-cover"
-                  />
+                  {/* Initials when the photo cannot be loaded (no broken image) */}
+                  <AvatarWithFallback src={currentUser.avatar} name={currentUser.name} className="w-full h-full" textClassName="text-[9px]" />
                 </div>
                 <span className="text-xs font-medium text-[#f5f2eb] max-w-[80px] truncate hidden md:inline">
                   {currentUser.name}
@@ -255,11 +253,9 @@ export const Header: React.FC = () => {
               {showUserDropdown && (
                 <div className="absolute right-0 mt-2 w-64 bg-[#25211f] border border-[#3f3834] rounded-xl shadow-2xl p-3 z-50">
                   <div className="flex items-center gap-2.5 pb-3 border-b border-[#38322e]">
-                    <img
-                      src={currentUser.avatar}
-                      alt={currentUser.name}
-                      className="w-10 h-10 rounded-full object-cover ring-2 ring-[#dfcfb3]"
-                    />
+                    <span className="rounded-full ring-2 ring-[#dfcfb3] shrink-0">
+                      <AvatarWithFallback src={currentUser.avatar} name={currentUser.name} className="w-10 h-10" />
+                    </span>
                     <div className="flex flex-col overflow-hidden">
                       <span className="text-xs font-bold text-[#f5f2eb] truncate">
                         {currentUser.name}
@@ -293,11 +289,7 @@ export const Header: React.FC = () => {
                           }`}
                         >
                           <div className="flex items-center gap-2 truncate">
-                            <img
-                              src={user.avatar}
-                              alt=""
-                              className="w-5 h-5 rounded-full object-cover"
-                            />
+                            <AvatarWithFallback src={user.avatar} name={user.name} className="w-5 h-5" textClassName="text-[8px]" />
                             <span className="truncate">{user.name}</span>
                           </div>
                           <span className="text-[10px] text-[#9e948c] font-mono">

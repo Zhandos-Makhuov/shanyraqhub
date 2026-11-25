@@ -122,7 +122,18 @@ export const ReadingLibraryView: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  // B-12: a form opened from a book's window returns focus to that book's card when it closes
+  // (the window itself is already closed, so the usual "back to the opener" has nowhere to go).
+  const returnFocusKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (showAddModal || !returnFocusKey.current) return;
+    const key = returnFocusKey.current;
+    returnFocusKey.current = null;
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-book-key="${CSS.escape(key)}"]`)?.focus());
+  }, [showAddModal]);
+
   const openAdd = (prefill?: { title: string; author: string; genre: string; coverUrl?: string; status: 'completed' | 'reading' }) => {
+    returnFocusKey.current = openKey;
     setEditing(false); setLockTitle(!!prefill); setEditingCoverUrl(prefill?.coverUrl); setEditingEntry(null); setFormError('');
     setBookTitle(prefill?.title ?? ''); setBookAuthor(prefill?.author ?? ''); setBookGenre(prefill?.genre || BOOK_GENRES[0][0]);
     setBookReview(''); setBookRating(5); setBookStatus(prefill?.status ?? 'completed'); setCoverFile(null);
@@ -130,6 +141,7 @@ export const ReadingLibraryView: React.FC = () => {
     setShowAddModal(true);
   };
   const openEdit = (item: Entry) => {
+    returnFocusKey.current = openKey;
     setEditing(true); setLockTitle(true); setEditingCoverUrl(item.coverUrl); setEditingEntry(item); setFormError('');
     setBookTitle(item.title); setBookAuthor(item.author); setBookGenre(item.genre || BOOK_GENRES[0][0]);
     setBookRating(item.userRating || 5); setBookReview(item.review ?? ''); setBookStatus(item.status ?? 'completed'); setCoverFile(null);
@@ -287,6 +299,7 @@ export const ReadingLibraryView: React.FC = () => {
   const renderCard = (b: BookGroup, showMine?: boolean) => (
     <button
       key={b.key}
+      data-book-key={b.key}
       onClick={() => { setReviewSort('newest'); setOpenKey(b.key); }}
       className="group text-left flex flex-col gap-1.5 sm:gap-2 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dfcfb3]/60 rounded-xl"
     >

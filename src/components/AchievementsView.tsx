@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { ACHIEVEMENT_INTENT_EVENT, takeAchievementIntent } from '../utils/navIntent';
 import { useBackLayer } from '../utils/backNav';
 import { useApp } from '../context/AppContext';
 import { ALL_ACHIEVEMENTS, isManualAchievement } from '../data/achievements';
@@ -77,7 +78,16 @@ export const AchievementsView: React.FC = () => {
   const { allUsers, currentUser, t, lf, setSelectedUserModal, getAchievementProgress } = useApp();
   const [category, setCategory] = useState<string>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
-  const [openId, setOpenId] = useState<string | null>(null);
+  // An achievement notification opens that achievement's window (residual findings 26.11).
+  const [openId, setOpenId] = useState<string | null>(() => takeAchievementIntent());
+  useEffect(() => {
+    const onIntent = () => {
+      const id = takeAchievementIntent();
+      if (id) setOpenId(id);
+    };
+    window.addEventListener(ACHIEVEMENT_INTENT_EVENT, onIntent);
+    return () => window.removeEventListener(ACHIEVEMENT_INTENT_EVENT, onIntent);
+  }, []);
 
   const members = allUsers.length;
   const mine = new Map(currentUser.achievements.map(a => [a.id, a]));

@@ -1453,7 +1453,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     libFinishedOn: 'Оқылды:',
     libInProgress: 'Оқылуда',
     libDone: 'Аяқталды',
-    libAddIntro: 'Оқылған кітап және 100 таңбадан асатын пікір — +50 XP және +30 🪙. Аптасына бір кітап есептеледі.',
+    libAddIntro: 'Оқылған кітап және кемінде 100 таңбадан тұратын пікір — +50 XP және +30 🪙. Аптасына бір кітап есептеледі.',
     libFormTitle: 'Кітап атауы',
     libFormTitlePlaceholder: 'Мысалы: Абай жолы',
     libFormAuthor: 'Кітап авторы',
