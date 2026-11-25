@@ -23,7 +23,9 @@
   <body class="bg-[#191615] text-[#f5f2eb] antialiased selection:bg-[#dfcfb3]/30 selection:text-[#dfcfb3] overflow-x-hidden min-h-screen">
     <div id="root" class="min-h-screen flex flex-col"></div>
     <!-- Boot splash "Shanyraq Draw" (25.11.2026). Shown from the first frame, before any script; the app keeps it
-         while it starts (src/utils/bootSplash.ts) and fades it out when the first real screen is ready.
+         while it starts (src/utils/bootSplash.ts) and fades it out when the first real screen is ready — but never
+         before the intro (draw → fill → name, ~2.25 s) has played in full (owner's request). While still loading after
+         the intro, the mark stands still and the glow glides left and right along the line.
          The mark is public/brand/shanyraq-mark.svg (geometry unchanged; e2e/loading-screen.spec.ts checks the copy). -->
     <style>
       .shq-splash { position: fixed; inset: 0; z-index: 2147483000; display: flex; flex-direction: column; align-items: center;
@@ -44,9 +46,9 @@
         letter-spacing: 0.34em; color: #e7d9bf; opacity: 0; animation: shq-rise 700ms cubic-bezier(0.2, 0.7, 0.2, 1) 650ms both; }
       .shq-bar { position: relative; width: 88px; height: 2px; margin-top: 22px; border-radius: 2px; overflow: hidden;
         background: rgba(210, 190, 156, 0.14); opacity: 0; animation: shq-fade 500ms ease 1100ms both; }
-      .shq-bar i { position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: 2px;
-        background: linear-gradient(90deg, rgba(210, 190, 156, 0), #d2be9c, rgba(210, 190, 156, 0));
-        animation: shq-slide 1400ms ease-in-out infinite; }
+      .shq-bar i { position: absolute; inset: 0 auto 0 0; width: 38%; border-radius: 2px;
+        background: linear-gradient(90deg, rgba(210, 190, 156, 0), #f1e4c8 50%, rgba(210, 190, 156, 0));
+        animation: shq-sweep 1700ms ease-in-out infinite alternate; }
       .shq-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
       .shq-stuck { margin-top: 28px; max-width: 260px; text-align: center; font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #b8ad9f; }
       .shq-stuck button { margin-top: 12px; min-height: 40px; padding: 0 18px; border-radius: 10px; border: 1px solid rgba(210, 190, 156, 0.45);
@@ -55,7 +57,8 @@
       @keyframes shq-stroke-out { to { stroke-opacity: 0; } }
       @keyframes shq-fade { to { opacity: 1; } }
       @keyframes shq-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-      @keyframes shq-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      /* Waiting: the glow glides left and right along the line (no progress is implied). */
+      @keyframes shq-sweep { from { transform: translateX(-45%); } to { transform: translateX(208%); } }
       @keyframes shq-splash-in { from { opacity: 0; } }
       @media (prefers-reduced-motion: reduce) {
         .shq-mark-draw { display: none; }
@@ -113,6 +116,7 @@
         };
         var el = document.getElementById('boot-splash');
         window.__shqSplash.localize(el);
+        el.setAttribute('data-start', String(performance.now())); // the intro is played in full from here
         window.__shqSplash.armStuck(el);
       })();
     </script>

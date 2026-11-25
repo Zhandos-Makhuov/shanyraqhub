@@ -26,6 +26,8 @@ export const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1280) < 7
 export async function openApp(page: Page, account?: string) {
   await page.goto('/');
   await expect(page.locator('main')).toBeVisible();
+  // The loading screen plays its intro in full (~2.25 s) before it leaves; wait for it so taps reach the app.
+  await expect(page.locator('#boot-splash')).toHaveCount(0, { timeout: 10_000 });
   if (account) {
     await page.locator('header button').last().click();
     await page.locator('button', { hasText: account }).first().click();

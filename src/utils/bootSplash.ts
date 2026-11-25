@@ -9,7 +9,8 @@ import { useEffect } from 'react';
  *
  * Every component that means "still loading" calls `useBootSplash()`. While at least one of them is mounted the
  * splash stays; when the last one goes (the first real screen — sign-in form, home page, or an error message —
- * has rendered) the splash fades out and is removed, so it never covers the app or catches taps afterwards.
+ * has rendered) the splash fades out and is removed, so it never covers the app or catches taps afterwards —
+ * not before its intro has played in full (owner's request, 25.11.2026).
  * Error screens do not hold the splash, so an error is never hidden behind it.
  *
  * If the splash is already gone and a later loading step starts (e.g. member data after signing in with the form),
@@ -17,6 +18,24 @@ import { useEffect } from 'react';
  */
 const ID = 'boot-splash';
 const FADE_MS = 300;
+/** Owner's request (25.11.2026): the intro (draw → fill → name) always plays to the end before the app shows.
+ *  Matches the CSS in index.html: the outline fades out at 1750 + 450 ms. */
+export const INTRO_MS = 2250;
+/** A later loading step shows its splash only after this delay (a quick step does not flash it). */
+const LATE_DELAY_MS = 150;
+
+const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** How long the intro of this splash still has to play (0 with reduced motion — nothing moves then; 0 for a later
+ *  splash that has not appeared yet — then it is simply not shown). */
+function introLeft(el: HTMLElement): number {
+  if (reducedMotion()) return 0;
+  const start = Number(el.getAttribute('data-start'));
+  if (!Number.isFinite(start) || start <= 0) return 0;
+  const now = performance.now();
+  if (now < start) return 0;
+  return Math.max(0, start + INTRO_MS - now);
+}
 
 interface SplashHelpers {
   localize: (el: HTMLElement) => void;
@@ -44,6 +63,7 @@ function show() {
   fresh.classList.add('is-late');
   fresh.querySelector<HTMLElement>('[data-splash-stuck]')?.setAttribute('hidden', '');
   helpers()?.localize(fresh); // the language may have changed on the sign-in screen
+  fresh.setAttribute('data-start', String(performance.now() + LATE_DELAY_MS));
   document.body.appendChild(fresh);
   window.clearTimeout(stuckTimer);
   stuckTimer = helpers()?.armStuck(fresh);
@@ -70,9 +90,15 @@ export function useBootSplash(active = true) {
     show();
     return () => {
       holders -= 1;
-      // One loader often replaces another in the same render (start-up steps); wait a tick before fading.
+      // One loader often replaces another in the same render (start-up steps); wait a tick before fading —
+      // and until the intro has played in full. A new loader in the meantime cancels the fade.
       window.clearTimeout(releaseTimer);
-      releaseTimer = window.setTimeout(() => { if (holders === 0) hide(); }, 0);
+      releaseTimer = window.setTimeout(() => {
+        if (holders !== 0) return;
+        const el = current();
+        const wait = el ? introLeft(el) : 0;
+        releaseTimer = window.setTimeout(() => { if (holders === 0) hide(); }, wait);
+      }, 0);
     };
   }, [active]);
 }
