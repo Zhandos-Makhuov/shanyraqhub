@@ -139,6 +139,10 @@ export const ReadingLibraryView: React.FC = () => {
   const coverPreview = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : null), [coverFile]);
   useEffect(() => () => { if (coverPreview) URL.revokeObjectURL(coverPreview); }, [coverPreview]);
 
+  // S-3a: this book is already finished on my shelf -> "reading" is not offered.
+  const finishedAlready = !!bookTitle.trim() && currentUser.readBooks.some(
+    b => b.status === 'completed' && bookKey(b.title, b.author) === bookKey(bookTitle, bookAuthor),
+  );
   // Live hint: will this book count for the reward and book achievements? (unchanged rule)
   const reviewChars = reviewLength(bookReview);
   const creditHint = (() => {
@@ -683,11 +687,15 @@ export const ReadingLibraryView: React.FC = () => {
                 <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#1a1716] border border-[#3b3430]" role="group" aria-label={t('libStatusLabel')}>
                   {(['reading', 'completed'] as const).map(st => (
                     <button key={st} type="button" onClick={() => setBookStatus(st)} aria-pressed={bookStatus === st}
-                            className={`min-h-10 rounded-lg text-xs font-semibold transition-colors ${bookStatus === st ? 'bg-[#dfcfb3] text-[#1e1b1a]' : 'text-[#9e948c] hover:text-[#f5f2eb]'}`}>
+                            disabled={st === 'reading' && finishedAlready}
+                            data-status-option={st}
+                            className={`min-h-10 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${bookStatus === st ? 'bg-[#dfcfb3] text-[#1e1b1a]' : 'text-[#9e948c] hover:text-[#f5f2eb]'}`}>
                       {st === 'reading' ? t('libStatusReading') : t('libStatusDone')}
                     </button>
                   ))}
                 </div>
+                {/* S-3a (owner decision 25.11.2026): a finished book stays finished (the server refuses it too). */}
+                {finishedAlready && <p className="mt-1 text-[11px] text-[#9e948c]" data-finished-locked>{t('libFinishedLocked')}</p>}
               </div>
 
               <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">

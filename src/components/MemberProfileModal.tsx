@@ -254,7 +254,7 @@ export const MemberProfileModal: React.FC = () => {
                 <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2">
                   <div>
                     <label htmlFor="mp-rating" className="text-[#9e948c] block mb-1">{t('mpRating')}</label>
-                    {/* The form offers 3–5 stars; the data allows 1–5 (range unchanged until the owner decides). */}
+                    {/* 1–5 stars (owner decision 25.11.2026; the database allows 1–5). */}
                     <select
                       id="mp-rating"
                       value={reviewRating}
@@ -264,6 +264,8 @@ export const MemberProfileModal: React.FC = () => {
                       <option value={5}>5★ {t('mpRate5')}</option>
                       <option value={4}>4★ {t('mpRate4')}</option>
                       <option value={3}>3★ {t('mpRate3')}</option>
+                      <option value={2}>2★ {t('mpRate2')}</option>
+                      <option value={1}>1★ {t('mpRate1')}</option>
                     </select>
                   </div>
                   <div>

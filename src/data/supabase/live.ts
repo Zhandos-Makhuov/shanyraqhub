@@ -322,6 +322,8 @@ const SERVER_ERRORS: [RegExp, string][] = [
   [/token_expired/, 'liveErrQrExpired'],
   [/cannot_check_in_yourself/, 'liveErrCheckinSelf'],
   [/not an organizer of this event/, 'liveErrNotEventOrganizer'],
+  [/book_already_completed/, 'liveErrBookCompleted'],
+  [/topic_has_replies/, 'liveErrTopicHasReplies'],
   [/forbidden|permission denied|row-level security/, 'liveErrForbidden'],
   [/check constraint|violates/, 'liveErrInvalid'],
   [/fetch|network/i, 'authErrorNetwork'],

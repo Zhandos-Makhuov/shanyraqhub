@@ -33,6 +33,57 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+
+/**
+ * C-20 (owner decision 25.11.2026): a member list with a search field above it — with a big club a plain list is
+ * hard to use. Typing narrows the list (name or @handle, case and ё/е ignored); if the chosen member is filtered out,
+ * the first match is chosen, so the form always submits what is visible.
+ */
+const MemberPicker: React.FC<{
+  id: string;
+  label: string;
+  users: UserProfile[];
+  value: string;
+  onChange: (id: string) => void;
+  optionLabel: (u: UserProfile) => string;
+}> = ({ id, label, users, value, onChange, optionLabel }) => {
+  const { t } = useApp();
+  const [query, setQuery] = useState('');
+  const norm = (x: string) => x.toLocaleLowerCase().replace(/ё/g, 'е');
+  const q = norm(query.trim());
+  const shown = q ? users.filter(u => norm(`${u.name} ${u.handle ?? ''}`).includes(q)) : users;
+  useEffect(() => {
+    if (shown.length > 0 && !shown.some(u => u.id === value)) onChange(shown[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
+  return (
+    <div>
+      <label htmlFor={id} className="text-[#9e948c] block mb-1">{label}</label>
+      <input
+        type="search"
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder={t('admMemberSearch')}
+        aria-label={`${label}: ${t('admMemberSearch')}`}
+        aria-controls={id}
+        data-member-search={id}
+        className="w-full mb-1.5 p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb] placeholder-[#9e948c]"
+      />
+      <select
+        id={id}
+        value={shown.some(u => u.id === value) ? value : ''}
+        onChange={e => onChange(e.target.value)}
+        className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
+      >
+        {shown.length === 0 && <option value="">{t('admMemberNotFound')}</option>}
+        {shown.map(u => (
+          <option key={u.id} value={u.id}>{optionLabel(u)}</option>
+        ))}
+      </select>
+    </div>
+  );
+};
+
 export const AdminView: React.FC = () => {
   const {
     currentUser,
@@ -160,6 +211,7 @@ export const AdminView: React.FC = () => {
 
   const handleAwardAchievement = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!awardUserId) return; // C-20: the search found no one
     if (!(await awardAchievement(awardUserId, awardAchievementId, awardNote))) return;
     const ach = manualAchievements.find(a => a.id === awardAchievementId);
     const user = allUsers.find(u => u.id === awardUserId);
@@ -498,19 +550,8 @@ export const AdminView: React.FC = () => {
             </h3>
 
             <form onSubmit={handleCoinAdjust} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-              <div>
-                <label htmlFor="adm-field-1" className="text-[#9e948c] block mb-1">{t('attMember')}</label>
-                <select
-                  id="adm-field-1"
-                  value={adjustTargetUserId}
-                  onChange={e => setAdjustTargetUserId(e.target.value)}
-                  className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
-                >
-                  {allUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.coins} 🪙)</option>
-                  ))}
-                </select>
-              </div>
+              <MemberPicker id="adm-field-1" label={t('attMember')} users={allUsers} value={adjustTargetUserId}
+                onChange={setAdjustTargetUserId} optionLabel={u => `${u.name} (${u.coins} 🪙)`} />
 
               <div>
                 <label htmlFor="adm-field-2" className="text-[#9e948c] block mb-1">{t('admCoinAmount')}</label>
@@ -559,19 +600,8 @@ export const AdminView: React.FC = () => {
               </p>
 
               <form onSubmit={handleRevokeAchievement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-                <div>
-                  <label htmlFor="adm-field-4" className="text-[#9e948c] block mb-1">{t('attMember')}</label>
-                  <select
-                    id="adm-field-4"
-                    value={revokeUserId}
-                    onChange={e => setRevokeUserId(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
-                  >
-                    {awardCandidates.map(u => (
-                      <option key={u.id} value={u.id}>{u.name} ({u.achievements.length})</option>
-                    ))}
-                  </select>
-                </div>
+                <MemberPicker id="adm-field-4" label={t('attMember')} users={awardCandidates} value={revokeUserId}
+                  onChange={setRevokeUserId} optionLabel={u => `${u.name} (${u.achievements.length})`} />
 
                 <div>
                   <label htmlFor="adm-field-5" className="text-[#9e948c] block mb-1">{t('admAchievement')}</label>
@@ -630,19 +660,8 @@ export const AdminView: React.FC = () => {
               </p>
 
               <form onSubmit={handleAwardAchievement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-                <div>
-                  <label htmlFor="adm-field-7" className="text-[#9e948c] block mb-1">{t('attMember')}</label>
-                  <select
-                    id="adm-field-7"
-                    value={awardUserId}
-                    onChange={e => setAwardUserId(e.target.value)}
-                    className="w-full p-2 rounded-lg bg-[#191615] border border-[#3b3430] text-[#f5f2eb]"
-                  >
-                    {awardCandidates.map(u => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
-                </div>
+                <MemberPicker id="adm-field-7" label={t('attMember')} users={awardCandidates} value={awardUserId}
+                  onChange={setAwardUserId} optionLabel={u => u.name} />
 
                 <div>
                   <label htmlFor="adm-field-8" className="text-[#9e948c] block mb-1">{t('admAchievement')}</label>

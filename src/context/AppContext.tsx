@@ -943,6 +943,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialData: Ini
   const saveReadBook = async (book: Omit<ReadBook, 'id'>, coverFile?: File): Promise<{ ok: boolean; credited?: boolean; error?: string; coverError?: string }> => {
     if (!book.title.trim() || !book.author.trim()) return { ok: false, error: 'liveErrInvalid' };
     if (book.title.trim().length > 300 || book.author.trim().length > 200 || (book.review?.length ?? 0) > 5000) return { ok: false, error: 'liveErrInvalid' };
+    // S-3a (owner decision 25.11.2026): a finished book cannot go back to "reading" (the server refuses it as well).
+    const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+    if (book.status === 'reading' && currentUser.readBooks.some(b => b.status === 'completed' && same(b.title, book.title) && same(b.author, book.author))) {
+      return { ok: false, error: 'liveErrBookCompleted' };
+    }
     if (live) {
       const r = await live.saveUserBook(book, coverFile);
       if (!r.ok) return { ok: false, error: r.error };

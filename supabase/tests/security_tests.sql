@@ -747,4 +747,37 @@ select t.ok(to_regclass('realtime.messages') is null or exists (
   'C-23a: the hint channel is for signed-in members only (no anon policy)');
 select t.ok(exists (select 1 from pg_trigger where tgname = 'registrations_broadcast' and tgrelid = 'public.event_registrations'::regclass), 'C-23a: trigger on registrations exists');
 
+-- Owner decisions 25.11.2026 — S-3a: a finished book cannot go back to "reading"
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select public.save_user_book('S3a Book', 'Tester', null, 'completed', 5, repeat('ж', 120));
+select t.expect_fail($$select public.save_user_book('S3a Book', 'Tester', null, 'reading')$$, '%book_already_completed%');
+select public.save_user_book('S3a Book', 'Tester', null, 'completed', 4, repeat('ж', 130));
+reset role;
+select t.ok((select ub.status::text || ub.rating from public.user_books ub join public.books b on b.id = ub.book_id
+             where b.title = 'S3a Book' and ub.user_id = '00000000-0000-0000-0000-000000000001') = 'completed4',
+  'S-3a: the book stays finished; its rating and review can still be edited');
+
+-- Owner decisions 25.11.2026 — S-1/S-2: after other people's replies the author cannot delete or rewrite the topic
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+insert into public.forum_topics (category_id, author_id, title, content) values ('books', auth.uid(), 'S1 topic', 'Body');
+select id as s1t from public.forum_topics where title = 'S1 topic' \gset
+update public.forum_topics set title = 'S1 topic (edited)' where id = :'s1t';
+reset role;
+select t.ok((select title from public.forum_topics where id = :'s1t') = 'S1 topic (edited)', 'S-2: without other replies the author can still edit');
+set role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000002"}', false);
+insert into public.forum_replies (topic_id, author_id, content) values (:'s1t', auth.uid(), 'A reply from someone else');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001"}', false);
+select t.expect_fail($$update public.forum_topics set title = 'Changed' where id = '$$ || :'s1t' || $$'$$, '%topic_has_replies%');
+select t.expect_fail($$update public.forum_topics set content = 'Changed' where id = '$$ || :'s1t' || $$'$$, '%topic_has_replies%');
+select t.expect_fail($$delete from public.forum_topics where id = '$$ || :'s1t' || $$'$$, '%topic_has_replies%');
+insert into public.forum_replies (topic_id, author_id, content) values (:'s1t', auth.uid(), 'The author can still reply');
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', false);
+update public.forum_topics set is_pinned = true where id = :'s1t';
+delete from public.forum_topics where id = :'s1t';
+reset role;
+select t.ok(not exists (select 1 from public.forum_topics where id = :'s1t'), 'S-1: a moderator can still delete it (moderation)');
+
 \echo ALL_TESTS_PASSED
