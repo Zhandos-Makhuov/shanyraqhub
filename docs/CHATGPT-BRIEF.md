@@ -14,7 +14,7 @@
 ## 2. Проект и среды
 - Клубная платформа (Алматы/Астана): встречи и QR-посещения, книги и рецензии, форум и закрытые чаты, XP / коины / уровни / 34 достижения, магазин аватаров, админка, Telegram Mini App и бот, push. Языки: казахский (основной), русский, английский.
 - Стек: Vite + React 19 + TypeScript + Tailwind 4; Supabase (PostgreSQL 17, RLS, RPC, Edge Functions, pg_cron, Realtime); Cloudflare Pages.
-- **Боевой сайт:** https://shanyraqhub.pages.dev (ветка `main`, боевая база `gqxdridlxlnouqseeyno`). Пока на нём **старая версия от 20.11**.
+- **Боевой сайт:** https://shanyraqhub.pages.dev (ветка `main`, боевая база `gqxdridlxlnouqseeyno`). С 25.11.2026 на нём **выпуск Phase 1–6** (`main` = `5aef75a`, обе базы — 24 миграции).
 - **Рабочая ветка:** `claude/sleepy-brown-4zolp6` — там вся работа Phase 1–6 и решений владельца.
 - **Демо без базы:** https://shanyraq-demo-auto.pages.dev (собирается из ветки).
 - **Тестовая база:** `fwhcaspbbktgpjiskpln` (на ней Claude проверяет боевой режим).
