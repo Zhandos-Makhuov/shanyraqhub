@@ -141,11 +141,14 @@ drop trigger if exists books_delete_guard on public.books;
 create trigger books_delete_guard before delete on public.books
   for each row execute function private.guard_book_delete();
 
--- Rollback:
+-- Rollback (manual instructions only — these lines are comments and never run; the dry run rolls back the whole
+-- transaction instead). Removes exactly what this migration added:
 --   drop trigger if exists books_delete_guard on public.books; drop function if exists private.guard_book_delete();
 --   alter publication supabase_realtime drop table public.forum_topics;
 --   drop trigger if exists forum_topics_moderation_log on public.forum_topics;
 --   drop trigger if exists forum_replies_moderation_log on public.forum_replies; drop function if exists private.on_forum_moderation();
---   delete from private.notification_i18n where pattern like 'Модер%';
+--   delete from private.notification_i18n where pattern in ('Модерация форума',
+--     'Модератор скрыл вашу тему «(.*)»\.', 'Модератор удалил вашу тему «(.*)»\.',
+--     'Модератор скрыл ваш ответ в теме «(.*)»\.', 'Модератор удалил ваш ответ в теме «(.*)»\.');
 --   drop trigger if exists forum_replies_edited on public.forum_replies; drop function if exists private.mark_reply_edited();
 --   alter table public.forum_replies drop column if exists edited_at;
