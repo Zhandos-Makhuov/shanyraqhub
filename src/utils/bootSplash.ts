@@ -21,6 +21,10 @@ const FADE_MS = 300;
 /** Owner's request (25.11.2026): the intro (draw → fill → name) always plays to the end before the app shows.
  *  Matches the CSS in index.html: the outline fades out at 1750 + 450 ms. */
 export const INTRO_MS = 2250;
+/** Owner's request (25.11.2026): after the intro, the glow on the line runs one more second before the app shows. */
+export const GLOW_HOLD_MS = 1000;
+/** The earliest moment the splash may leave, counted from its start. */
+export const MIN_SHOW_MS = INTRO_MS + GLOW_HOLD_MS;
 /** A later loading step shows its splash only after this delay (a quick step does not flash it). */
 const LATE_DELAY_MS = 150;
 
@@ -34,7 +38,7 @@ function introLeft(el: HTMLElement): number {
   if (!Number.isFinite(start) || start <= 0) return 0;
   const now = performance.now();
   if (now < start) return 0;
-  return Math.max(0, start + INTRO_MS - now);
+  return Math.max(0, start + MIN_SHOW_MS - now);
 }
 
 interface SplashHelpers {

@@ -61,9 +61,10 @@ test('the intro always plays to the end (owner 25.11): the app is ready sooner, 
   await expect(page.locator('main')).toBeVisible();
   await expect(page.locator(splash)).toHaveCount(0, { timeout: 8000 });
   const t = await page.evaluate(() => (window as unknown as { __t: Record<string, number> }).__t);
-  expect(t.main).toBeLessThan(t.start + 2250); // the app was ready before the intro ended …
-  expect(t.leaving).toBeGreaterThanOrEqual(t.start + 2250 - 20); // … yet the splash left only after it
-  expect(t.leaving).toBeLessThan(t.start + 2250 + 600); // and right after it — no extra wait
+  // Intro 2250 ms + one more second of the gliding glow (owner 25.11) = 3250 ms.
+  expect(t.main).toBeLessThan(t.start + 3250); // the app was ready before that …
+  expect(t.leaving).toBeGreaterThanOrEqual(t.start + 3250 - 20); // … yet the splash left only after it
+  expect(t.leaving).toBeLessThan(t.start + 3250 + 600); // and right after it — no extra wait
 });
 
 test('after the intro, a still-loading app keeps the mark still and the glow gliding left and right', async ({ page }) => {

@@ -24,7 +24,7 @@
     <div id="root" class="min-h-screen flex flex-col"></div>
     <!-- Boot splash "Shanyraq Draw" (25.11.2026). Shown from the first frame, before any script; the app keeps it
          while it starts (src/utils/bootSplash.ts) and fades it out when the first real screen is ready — but never
-         before the intro (draw → fill → name, ~2.25 s) has played in full (owner's request). While still loading after
+         before the intro (draw → fill → name, ~2.25 s) and one more second of the glow on the line have played (owner's request). While still loading after
          the intro, the mark stands still and the glow glides left and right along the line.
          The mark is public/brand/shanyraq-mark.svg (geometry unchanged; e2e/loading-screen.spec.ts checks the copy). -->
     <style>
